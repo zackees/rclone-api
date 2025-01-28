@@ -5,7 +5,7 @@ Unit test file.
 import subprocess
 from pathlib import Path
 
-from rclone_api.file import File
+from rclone_api.rpath import RPath
 from rclone_api.types import Config, RcloneExec, Remote
 from rclone_api.util import get_rclone_exe
 
@@ -22,11 +22,24 @@ class Rclone:
     def _run(self, cmd: list[str]) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd)
 
-    def ls(self, path: str | Remote) -> list[File]:
-        cmd = ["lsjson", str(path)]
+    def ls(self, path: str | Remote, max_depth: int = 0) -> list[RPath]:
+        """List files in the given path.
+
+        Args:
+            path: Remote path or Remote object to list
+            max_depth: Maximum recursion depth (0 means no recursion)
+
+        Returns:
+            List of File objects found at the path
+        """
+        cmd = ["lsjson"]
+        if max_depth > 0:
+            cmd.extend(["--recursive", "--max-depth", str(max_depth)])
+        cmd.append(str(path))
+
         cp = self._run(cmd)
         text = cp.stdout
-        out: list[File] = File.from_json_str(text)
+        out: list[RPath] = RPath.from_json_str(text)
         for o in out:
             o.set_rclone(self)
         return out
