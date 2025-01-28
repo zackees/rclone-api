@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from typing import Any
 
 
@@ -72,41 +71,6 @@ class RPath:
             "IsDir": self.is_dir,
             # "IsBucket": self.is_bucket,
         }
-
-    def read_text(self) -> str:
-        """Read the file contents as bytes.
-
-        Returns:
-            bytes: The file contents
-
-        Raises:
-            RuntimeError: If no rclone instance is associated with this file
-            RuntimeError: If the path represents a directory
-        """
-        if self.rclone is None:
-            raise RuntimeError("No rclone instance associated with this file")
-        if self.is_dir:
-            raise RuntimeError("Cannot read a directory as bytes")
-
-        result = self.rclone._run(["cat", self.path])
-        return result.stdout
-
-    def read(self, dest: Path) -> None:
-        """Copy the remote file to a local destination path.
-
-        Args:
-            dest: Local destination path where the file will be copied
-
-        Raises:
-            RuntimeError: If no rclone instance is associated with this file
-            RuntimeError: If the path represents a directory
-        """
-        if self.rclone is None:
-            raise RuntimeError("No rclone instance associated with this file")
-        if self.is_dir:
-            raise RuntimeError("Cannot read a directory as a file")
-
-        self.rclone._run(["copyto", self.path, str(dest)])
 
     def __str__(self) -> str:
         out = self.to_json()

@@ -5,6 +5,9 @@ Unit test file.
 import subprocess
 from pathlib import Path
 
+from rclone_api.dir import Dir
+from rclone_api.dir_listing import DirListing
+from rclone_api.file import File
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.types import Config, RcloneExec
@@ -23,7 +26,7 @@ class Rclone:
     def _run(self, cmd: list[str]) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd)
 
-    def ls(self, path: str | Remote, max_depth: int = 0) -> list[RPath]:
+    def ls(self, path: str | Remote, max_depth: int = 0) -> DirListing:
         """List files in the given path.
 
         Args:
@@ -40,10 +43,12 @@ class Rclone:
 
         cp = self._run(cmd)
         text = cp.stdout
-        out: list[RPath] = RPath.from_json_str(text)
-        for o in out:
+        paths: list[RPath] = RPath.from_json_str(text)
+        for o in paths:
             o.set_rclone(self)
-        return out
+        dirs: list[Dir] = [Dir(o) for o in paths if o.is_dir]
+        files: list[File] = [File(o) for o in paths if not o.is_dir]
+        return DirListing(dirs=dirs, files=files)
 
     def listremotes(self) -> list[Remote]:
         cmd = ["listremotes"]
