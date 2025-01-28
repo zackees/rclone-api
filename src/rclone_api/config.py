@@ -2,12 +2,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-
-@dataclass
-class Config:
-    """Rclone configuration dataclass."""
-
-    text: str
+from rclone_api.types import Config
 
 
 @dataclass

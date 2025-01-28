@@ -5,8 +5,9 @@ Unit test file.
 import subprocess
 from pathlib import Path
 
+from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import Config, RcloneExec, Remote
+from rclone_api.types import Config, RcloneExec
 from rclone_api.util import get_rclone_exe
 
 
