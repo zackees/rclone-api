@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Generator
 
 from rclone_api import Dir
+from rclone_api.config import Config
 from rclone_api.dir_listing import DirListing
+from rclone_api.exec import RcloneExec
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import Config, RcloneExec
 from rclone_api.util import get_rclone_exe
 from rclone_api.walk import walk
 

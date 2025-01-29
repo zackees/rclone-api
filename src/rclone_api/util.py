@@ -5,10 +5,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
+from rclone_api.config import Config
 from rclone_api.dir import Dir
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import Config
 
 # from .rclone import Rclone
 
