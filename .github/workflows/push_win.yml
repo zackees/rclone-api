@@ -27,6 +27,7 @@ jobs:
     - name: Install
       run: |
         ./install
+      shell: bash
     - name: Run Tests
       run: |
         ./test
