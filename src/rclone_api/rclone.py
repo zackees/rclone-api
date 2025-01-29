@@ -38,7 +38,7 @@ class Rclone:
             List of File objects found at the path
         """
         cmd = ["lsjson"]
-        if max_depth > 0:
+        if max_depth > -1:
             cmd.extend(["--recursive", "--max-depth", str(max_depth)])
         cmd.append(str(path))
 

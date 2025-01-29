@@ -1,9 +1,17 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from rclone_api.types import Config
+
+
+def _get_verbose(verbose: bool | None) -> bool:
+    if verbose is not None:
+        return verbose
+    # get it from the environment
+    return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
 
 
 def get_rclone_exe(rclone_exe: Path | None) -> Path:
@@ -20,10 +28,11 @@ def rclone_execute(
     cmd: list[str],
     rclone_conf: Path | Config,
     rclone_exe: Path,
-    verbose: bool = False,
+    verbose: bool | None = None,
 ) -> subprocess.CompletedProcess:
-    print(subprocess.list2cmdline(cmd))
     tempdir: TemporaryDirectory | None = None
+    verbose = _get_verbose(verbose)
+    assert verbose is not None
 
     try:
         if isinstance(rclone_conf, Config):
