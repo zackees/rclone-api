@@ -27,7 +27,7 @@ class Rclone:
     def _run(self, cmd: list[str]) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd)
 
-    def ls(self, path: str | Remote, max_depth: int = 0) -> DirListing:
+    def ls(self, path: str | Remote, max_depth: int | None = None) -> DirListing:
         """List files in the given path.
 
         Args:
@@ -38,8 +38,11 @@ class Rclone:
             List of File objects found at the path
         """
         cmd = ["lsjson"]
-        if max_depth > -1:
-            cmd.extend(["--recursive", "--max-depth", str(max_depth)])
+        if max_depth is not None:
+            cmd.append("--recursive")
+            if max_depth > -1:
+                cmd.append("--max-depth")
+                cmd.append(str(max_depth))
         cmd.append(str(path))
 
         cp = self._run(cmd)

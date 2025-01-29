@@ -79,15 +79,15 @@ class RcloneTests(unittest.TestCase):
 
         # Verify we got a valid listing
         self.assertIsInstance(listing, DirListing)
+        self.assertGreater(len(listing.dirs), 0)
+        self.assertGreater(len(listing.files), 0)
 
         # Verify dirs are properly typed
         for dir in listing.dirs:
-            print(dir)
             self.assertIsInstance(dir, Dir)
 
         # Verify files are properly typed
         for file in listing.files:
-            print(file)
             self.assertIsInstance(file, File)
 
     # def test_zlib1(self) -> None:
