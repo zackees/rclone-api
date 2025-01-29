@@ -3,7 +3,6 @@ from typing import Generator
 from rclone_api.dir_listing import DirListing
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.walk import walk
 
 
 class Dir:
@@ -37,6 +36,8 @@ class Dir:
 
     def walk(self, max_depth: int = -1) -> Generator[DirListing, None, None]:
         """List files and directories in the given path."""
+        from rclone_api.walk import walk
+
         assert self.path.rclone is not None
         return walk(self, max_depth=max_depth)
 
