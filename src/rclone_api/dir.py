@@ -1,6 +1,7 @@
 from typing import Generator
 
 from rclone_api.dir_listing import DirListing
+from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.walk import walk
 
@@ -8,8 +9,26 @@ from rclone_api.walk import walk
 class Dir:
     """Remote file dataclass."""
 
-    def __init__(self, path: RPath) -> None:
-        self.path = path
+    def __init__(self, path: RPath | Remote) -> None:
+        """Initialize Dir with either an RPath or Remote.
+
+        Args:
+            path: Either an RPath object or a Remote object
+        """
+        if isinstance(path, Remote):
+            # Need to create an RPath for the Remote's root
+            self.path = RPath(
+                path=str(path),
+                name=str(path),
+                size=0,
+                mime_type="inode/directory",
+                mod_time="",
+                is_dir=True,
+            )
+            # Ensure the RPath has the same rclone instance as the Remote
+            self.path.set_rclone(path.rclone)
+        else:
+            self.path = path
 
     def ls(self, max_depth: int = 0) -> DirListing:
         """List files and directories in the given path."""
