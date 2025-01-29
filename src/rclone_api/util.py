@@ -3,8 +3,51 @@ import shutil
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
+from rclone_api.dir import Dir
+from rclone_api.remote import Remote
+from rclone_api.rpath import RPath
 from rclone_api.types import Config
+
+# from .rclone import Rclone
+
+
+def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:
+    from rclone_api.rclone import Rclone
+
+    assert isinstance(rclone, Rclone)
+    # if str then it will be remote:path
+    if isinstance(item, str):
+        # return RPath(item)
+        # remote_name: str = item.split(":")[0]
+        parts = item.split(":")
+        remote_name = parts[0]
+        path = ":".join(parts[1:])
+        remote = Remote(name=remote_name, rclone=rclone)
+        return RPath(
+            remote=remote,
+            path=path,
+            name="",
+            size=0,
+            mime_type="",
+            mod_time="",
+            is_dir=True,
+        )
+    elif isinstance(item, Dir):
+        return item.path
+    elif isinstance(item, Remote):
+        return RPath(
+            remote=item,
+            path=str(item),
+            name=str(item),
+            size=0,
+            mime_type="inode/directory",
+            mod_time="",
+            is_dir=True,
+        )
+    else:
+        raise ValueError(f"Invalid type for item: {type(item)}")
 
 
 def _get_verbose(verbose: bool | None) -> bool:

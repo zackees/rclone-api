@@ -27,7 +27,7 @@ class Rclone:
     def _run(self, cmd: list[str]) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd)
 
-    def ls(self, path: str | Remote, max_depth: int | None = None) -> DirListing:
+    def ls(self, path: Dir | Remote | str, max_depth: int | None = None) -> DirListing:
         """List files in the given path.
 
         Args:
@@ -44,10 +44,12 @@ class Rclone:
                 cmd.append("--max-depth")
                 cmd.append(str(max_depth))
         cmd.append(str(path))
+        remote = path.remote if isinstance(path, Dir) else path
+        assert isinstance(remote, Remote)
 
         cp = self._run(cmd)
         text = cp.stdout
-        paths: list[RPath] = RPath.from_json_str(text)
+        paths: list[RPath] = RPath.from_json_str(text, remote)
         for o in paths:
             o.set_rclone(self)
         return DirListing(paths)
@@ -64,7 +66,7 @@ class Rclone:
         return out
 
     def walk(
-        self, path: str | Remote, max_depth: int = -1
+        self, path: Dir | Remote, max_depth: int = -1
     ) -> Generator[DirListing, None, None]:
         """Walk through the given path recursively.
 
@@ -75,11 +77,13 @@ class Rclone:
         Yields:
             DirListing: Directory listing for each directory encountered
         """
-        if isinstance(path, str):
+        if isinstance(path, Dir):
             # Create a Remote object for the path
+            remote = path.remote
             rpath = RPath(
-                path=path,
-                name=path,
+                remote=remote,
+                path=path.path.path,
+                name=path.path.name,
                 size=0,
                 mime_type="inode/directory",
                 mod_time="",

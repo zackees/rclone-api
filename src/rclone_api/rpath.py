@@ -1,12 +1,15 @@
 import json
 from typing import Any
 
+from rclone_api.remote import Remote
+
 
 class RPath:
     """Remote file dataclass."""
 
     def __init__(
         self,
+        remote: Remote,
         path: str,
         name: str,
         size: int,
@@ -16,6 +19,10 @@ class RPath:
     ) -> None:
         from rclone_api.rclone import Rclone
 
+        if "dst:" in path:
+            raise ValueError(f"Invalid path: {path}")
+
+        self.remote = remote
         self.path = path
         self.name = name
         self.size = size
@@ -32,9 +39,10 @@ class RPath:
         self.rclone = rclone
 
     @staticmethod
-    def from_dict(data: dict) -> "RPath":
+    def from_dict(data: dict, remote: Remote) -> "RPath":
         """Create a File from a dictionary."""
         return RPath(
+            remote,
             data["Path"],
             data["Name"],
             data["Size"],
@@ -45,21 +53,21 @@ class RPath:
         )
 
     @staticmethod
-    def from_array(data: list[dict]) -> list["RPath"]:
+    def from_array(data: list[dict], remote: Remote) -> list["RPath"]:
         """Create a File from a dictionary."""
         out: list[RPath] = []
         for d in data:
-            file: RPath = RPath.from_dict(d)
+            file: RPath = RPath.from_dict(d, remote)
             out.append(file)
         return out
 
     @staticmethod
-    def from_json_str(json_str: str) -> list["RPath"]:
+    def from_json_str(json_str: str, remote: Remote) -> list["RPath"]:
         """Create a File from a JSON string."""
         json_obj = json.loads(json_str)
         if isinstance(json_obj, dict):
-            return [RPath.from_dict(json_obj)]
-        return RPath.from_array(json_obj)
+            return [RPath.from_dict(json_obj, remote)]
+        return RPath.from_array(json_obj, remote)
 
     def to_json(self) -> dict:
         return {
@@ -73,5 +81,4 @@ class RPath:
         }
 
     def __str__(self) -> str:
-        out = self.to_json()
-        return json.dumps(out)
+        return f"{self.remote.name}:{self.path}"

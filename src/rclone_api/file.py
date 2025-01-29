@@ -1,5 +1,3 @@
-import json
-
 from rclone_api.rpath import RPath
 
 
@@ -31,5 +29,4 @@ class File:
         return result.stdout
 
     def __str__(self) -> str:
-        out = self.path.to_json()
-        return json.dumps(out)
+        return str(self.path)

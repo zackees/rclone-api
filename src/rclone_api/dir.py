@@ -8,6 +8,10 @@ from rclone_api.rpath import RPath
 class Dir:
     """Remote file dataclass."""
 
+    @property
+    def remote(self) -> Remote:
+        return self.path.remote
+
     def __init__(self, path: RPath | Remote) -> None:
         """Initialize Dir with either an RPath or Remote.
 
@@ -17,6 +21,7 @@ class Dir:
         if isinstance(path, Remote):
             # Need to create an RPath for the Remote's root
             self.path = RPath(
+                remote=path,
                 path=str(path),
                 name=str(path),
                 size=0,
@@ -32,7 +37,8 @@ class Dir:
     def ls(self, max_depth: int = 0) -> DirListing:
         """List files and directories in the given path."""
         assert self.path.rclone is not None
-        return self.path.rclone.ls(self.path.path, max_depth=max_depth)
+        dir = Dir(self.path)
+        return self.path.rclone.ls(dir, max_depth=max_depth)
 
     def walk(self, max_depth: int = -1) -> Generator[DirListing, None, None]:
         """List files and directories in the given path."""

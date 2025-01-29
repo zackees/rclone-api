@@ -8,6 +8,7 @@ import unittest
 from dotenv import load_dotenv
 
 from rclone_api import Config, Dir, DirListing, File, Rclone, Remote
+from rclone_api.util import to_path
 
 load_dotenv()
 
@@ -74,8 +75,9 @@ class RcloneTests(unittest.TestCase):
         BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
         self.assertIsNotNone(BUCKET_NAME)
         rclone = Rclone(_generate_rclone_config())
-        path = f"dst:{BUCKET_NAME}"
-        listing: DirListing = rclone.ls(path, max_depth=-1)
+        path = to_path(f"dst:{BUCKET_NAME}", rclone)
+        dir = Dir(path)
+        listing: DirListing = rclone.ls(dir, max_depth=-1)
 
         # Verify we got a valid listing
         self.assertIsInstance(listing, DirListing)
@@ -85,10 +87,14 @@ class RcloneTests(unittest.TestCase):
         # Verify dirs are properly typed
         for dir in listing.dirs:
             self.assertIsInstance(dir, Dir)
+            print(dir)
 
         # Verify files are properly typed
         for file in listing.files:
             self.assertIsInstance(file, File)
+            print(file)
+
+        print("done")
 
     # def test_zlib1(self) -> None:
     #     rclone = Rclone(_RCLONE_CONFIG)
