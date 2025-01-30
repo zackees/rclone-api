@@ -63,6 +63,16 @@ class RcloneWalkTest(unittest.TestCase):
             print(dirlisting)
         print("done")
 
+    def test_walk_depth_first(self) -> None:
+        rclone = Rclone(_generate_rclone_config())
+        # rclone.walk
+        dirlisting: DirListing
+        for dirlisting in rclone.walk(
+            f"dst:{BUCKET_NAME}", max_depth=1, breadth_first=False
+        ):
+            print(dirlisting)
+        print("done")
+
 
 if __name__ == "__main__":
     unittest.main()

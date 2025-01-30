@@ -62,7 +62,9 @@ def _walk_runner_depth_first(
 
 
 def walk(
-    dir: Dir | Remote, max_depth: int = -1, breadth_first=True
+    dir: Dir | Remote,
+    breadth_first: bool,
+    max_depth: int = -1,
 ) -> Generator[DirListing, None, None]:
     """Walk through the given directory recursively.
 

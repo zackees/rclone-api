@@ -102,7 +102,7 @@ class Rclone:
         return out
 
     def walk(
-        self, path: Dir | Remote | str, max_depth: int = -1
+        self, path: Dir | Remote | str, max_depth: int = -1, breadth_first: bool = True
     ) -> Generator[DirListing, None, None]:
         """Walk through the given path recursively.
 
@@ -136,7 +136,7 @@ class Rclone:
             dir_obj = Dir(path)  # shut up pyright
             assert f"Invalid type for path: {type(path)}"
 
-        yield from walk(dir_obj, max_depth=max_depth)
+        yield from walk(dir_obj, max_depth=max_depth, breadth_first=breadth_first)
 
     def copyfile(self, src: File | str, dst: File | str) -> None:
         """Copy a single file from source to destination.

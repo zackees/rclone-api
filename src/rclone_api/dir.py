@@ -47,12 +47,14 @@ class Dir:
         dir = Dir(self.path)
         return self.path.rclone.ls(dir, max_depth=max_depth)
 
-    def walk(self, max_depth: int = -1) -> Generator[DirListing, None, None]:
+    def walk(
+        self, breadth_first: bool, max_depth: int = -1
+    ) -> Generator[DirListing, None, None]:
         """List files and directories in the given path."""
         from rclone_api.walk import walk
 
         assert self.path.rclone is not None
-        return walk(self, max_depth=max_depth)
+        return walk(self, breadth_first=breadth_first, max_depth=max_depth)
 
     def to_json(self) -> dict:
         """Convert the Dir to a JSON serializable dictionary."""
