@@ -200,8 +200,10 @@ class Rclone:
         except subprocess.CalledProcessError:
             return False
 
-    def is_synced(self, src: Dir, dst: Dir) -> bool:
+    def is_synced(self, src: str | Dir, dst: str | Dir) -> bool:
         """Check if two directories are in sync."""
+        src = src if isinstance(src, str) else str(src.path)
+        dst = dst if isinstance(dst, str) else str(dst.path)
         cmd_list: list[str] = ["check", str(src), str(dst)]
         try:
             self._run(cmd_list)

@@ -64,6 +64,8 @@ class RcloneIsSyncedTests(unittest.TestCase):
         src_dir = listing.dirs[0]
         dst_dir = f"dst:{BUCKET_NAME}/test"
         rclone.copy_dir(src_dir, dst_dir)
+        is_synced = rclone.is_synced(src_dir, dst_dir)
+        self.assertTrue(is_synced)
 
 
 if __name__ == "__main__":
