@@ -157,3 +157,38 @@ class Rclone:
                 cmd_list: list[str] = ["copyto", src, dst]
                 # self._run(cmd_list)
                 executor.submit(self._run, cmd_list)
+
+    def copy(self, src: Dir, dst: Dir) -> None:
+        """Copy files from source to destination.
+
+        Args:
+            src: Source directory
+            dst: Destination directory
+        """
+        src_dir = src.path.path
+        dst_dir = dst.path.path
+        cmd_list: list[str] = ["copy", src_dir, dst_dir]
+        self._run(cmd_list)
+
+    def purge(self, path: Dir) -> None:
+        """Purge a directory"""
+        cmd_list: list[str] = ["purge", str(path)]
+        self._run(cmd_list)
+
+    def delete(self, files: str | File | list[str] | list[File]) -> None:
+        """Delete a directory"""
+        payload: list[str] = []
+
+        if isinstance(files, str):
+            payload.append(files)
+        elif isinstance(files, File):
+            payload.append(str(files.path))
+        elif isinstance(files, list):
+            for f in files:
+                if isinstance(f, File):
+                    f = str(f.path)
+                payload.append(f)
+        else:
+            raise ValueError(f"Invalid type for file: {type(files)}")
+        cmd_list: list[str] = ["delete"] + payload
+        self._run(cmd_list)

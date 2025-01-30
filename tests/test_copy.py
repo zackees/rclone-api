@@ -71,6 +71,7 @@ class RcloneCopyTests(unittest.TestCase):
         listing = rclone.ls(f"dst:{BUCKET_NAME}/zachs_video/", glob=f"*{new_name}")
         self.assertEqual(len(listing.files), 1)
         self.assertEqual(listing.dirs, [])
+        rclone.delete([new_path])
         print("done")
 
     def test_copyfiles(self) -> None:
@@ -87,6 +88,11 @@ class RcloneCopyTests(unittest.TestCase):
         }
         # warning slow.
         rclone.copyfiles(filelist)
+
+        delete_list: list[str] = []
+        for _, dst in filelist.items():
+            delete_list.append(dst)
+        rclone.delete(delete_list)
         print("done")
 
 
