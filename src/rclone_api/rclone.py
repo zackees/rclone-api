@@ -3,6 +3,7 @@ Unit test file.
 """
 
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Generator
@@ -140,6 +141,8 @@ class Rclone:
     def copyfiles(self, filelist: dict[File, File] | dict[str, str]) -> None:
         """Copy multiple files from source to destination.
 
+        Warning - slow.
+
         Args:
             payload: Dictionary of source and destination file paths
         """
@@ -149,6 +152,8 @@ class Rclone:
             dst = dst if isinstance(dst, str) else str(dst.path)
             str_dict[src] = dst
 
-        for src, dst in str_dict.items():  # warning - slow
-            cmd_list: list[str] = ["copyto", src, dst]
-            self._run(cmd_list)
+        with ThreadPoolExecutor(max_workers=64) as executor:
+            for src, dst in str_dict.items():  # warning - slow
+                cmd_list: list[str] = ["copyto", src, dst]
+                # self._run(cmd_list)
+                executor.submit(self._run, cmd_list)
