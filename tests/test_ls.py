@@ -37,7 +37,7 @@ endpoint = {BUCKET_URL}
     return out
 
 
-class RcloneTests(unittest.TestCase):
+class RcloneLsTests(unittest.TestCase):
     """Test rclone functionality."""
 
     def setUp(self) -> None:
@@ -99,14 +99,6 @@ class RcloneTests(unittest.TestCase):
         path = f"dst:{BUCKET_NAME}/zachs_video"
         listing: DirListing = rclone.ls(path)
         print(listing)
-
-    def test_walk(self) -> None:
-        rclone = Rclone(_generate_rclone_config())
-        # rclone.walk
-        dirlisting: DirListing
-        for dirlisting in rclone.walk(f"dst:{BUCKET_NAME}", max_depth=1):
-            print(dirlisting)
-        print("done")
 
 
 if __name__ == "__main__":
