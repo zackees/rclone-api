@@ -5,7 +5,9 @@
 [![Ubuntu_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_ubuntu.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_ubuntu.yml)
 [![Win_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_win.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_win.yml)
 
-Api version of rclone. It's well tested. It's just released so this readme is a little to be desired.
+Api version of rclone. It's well tested. It's a pretty low level api without the bells and whistles of other apis, but it will get the job done.
+
+You will need to have rclone installed and on your path.
 
 # Examples
 
