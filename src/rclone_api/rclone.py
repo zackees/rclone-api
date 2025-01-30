@@ -10,6 +10,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.config import Config
+from rclone_api.convert import convert_to_filestr_list
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
@@ -17,22 +18,6 @@ from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import get_rclone_exe, to_path
 from rclone_api.walk import walk
-
-
-def _convert_to_filestr_list(files: str | File | list[str] | list[File]) -> list[str]:
-    out: list[str] = []
-    if isinstance(files, str):
-        out.append(files)
-    elif isinstance(files, File):
-        out.append(str(files.path))
-    elif isinstance(files, list):
-        for f in files:
-            if isinstance(f, File):
-                f = str(f.path)
-            out.append(f)
-    else:
-        raise ValueError(f"Invalid type for file: {type(files)}")
-    return out
 
 
 class Rclone:
@@ -193,6 +178,24 @@ class Rclone:
 
     def delete(self, files: str | File | list[str] | list[File]) -> None:
         """Delete a directory"""
-        payload: list[str] = _convert_to_filestr_list(files)
+        payload: list[str] = convert_to_filestr_list(files)
         cmd_list: list[str] = ["delete"] + payload
         self._run(cmd_list)
+
+    def exists(self, path: Dir | Remote | str | File) -> bool:
+        """Check if a file or directory exists."""
+        arg: str
+        if isinstance(path, File):
+            arg = str(path.path)
+        elif isinstance(path, Remote):
+            arg = str(path)
+        elif isinstance(path, str):
+            arg = path
+        else:
+            raise ValueError(f"Invalid type for path: {type(path)}")
+        assert isinstance(arg, str)
+        try:
+            self.ls(arg)
+            return True
+        except subprocess.CalledProcessError:
+            return False

@@ -80,11 +80,12 @@ class RcloneCopyTests(unittest.TestCase):
         path = f"dst:{BUCKET_NAME}/zachs_video"
         listing: DirListing = rclone.ls(path, glob="*.png")
         self.assertGreater(len(listing.files), 0)
-        first_file = listing.files[0]
+        first_file = str(listing.files[0])
+        dest_file = first_file + "_copy"
 
         # Copy the files to the same location with different names
         filelist: dict[str, str] = {
-            str(first_file): str(first_file) + "_copy",
+            first_file: dest_file,
         }
         # warning slow.
         rclone.copyfiles(filelist)
@@ -92,6 +93,11 @@ class RcloneCopyTests(unittest.TestCase):
         delete_list: list[str] = []
         for _, dst in filelist.items():
             delete_list.append(dst)
+
+        # now test that the new file exists
+        exists = rclone.exists(dest_file)
+        self.assertTrue(exists)
+
         rclone.delete(delete_list)
         print("done")
 
