@@ -29,8 +29,8 @@ class Rclone:
                 raise ValueError(f"Rclone config file not found: {rclone_conf}")
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
 
-    def _run(self, cmd: list[str]) -> subprocess.CompletedProcess:
-        return self._exec.execute(cmd)
+    def _run(self, cmd: list[str], check=True) -> subprocess.CompletedProcess:
+        return self._exec.execute(cmd, check=check)
 
     def ls(
         self,
@@ -159,7 +159,7 @@ class Rclone:
                 # self._run(cmd_list)
                 executor.submit(self._run, cmd_list)
 
-    def copy(self, src: Dir, dst: Dir) -> None:
+    def copy(self, src: Dir, dst: Dir) -> subprocess.CompletedProcess:
         """Copy files from source to destination.
 
         Args:
@@ -169,20 +169,22 @@ class Rclone:
         src_dir = src.path.path
         dst_dir = dst.path.path
         cmd_list: list[str] = ["copy", src_dir, dst_dir]
-        self._run(cmd_list)
+        return self._run(cmd_list)
 
-    def purge(self, path: Dir | str) -> None:
+    def purge(self, path: Dir | str) -> subprocess.CompletedProcess:
         """Purge a directory"""
         # path should always be a string
         path = path if isinstance(path, str) else str(path.path)
         cmd_list: list[str] = ["purge", str(path)]
-        self._run(cmd_list)
+        return self._run(cmd_list)
 
-    def deletefiles(self, files: str | File | list[str] | list[File]) -> None:
+    def deletefiles(
+        self, files: str | File | list[str] | list[File]
+    ) -> subprocess.CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
         cmd_list: list[str] = ["delete"] + payload
-        self._run(cmd_list)
+        return self._run(cmd_list)
 
     def exists(self, path: Dir | Remote | str | File) -> bool:
         """Check if a file or directory exists."""
@@ -205,10 +207,10 @@ class Rclone:
         except subprocess.CalledProcessError:
             return False
 
-    def copy_dir(self, src: str | Dir, dst: str | Dir) -> None:
+    def copy_dir(self, src: str | Dir, dst: str | Dir) -> subprocess.CompletedProcess:
         """Copy a directory from source to destination."""
         # convert src to str, also dst
         src = convert_to_str(src)
         dst = convert_to_str(dst)
         cmd_list: list[str] = ["copy", src, dst]
-        self._run(cmd_list)
+        return self._run(cmd_list)

@@ -75,6 +75,7 @@ def rclone_execute(
     cmd: list[str],
     rclone_conf: Path | Config,
     rclone_exe: Path,
+    check: bool,
     verbose: bool | None = None,
 ) -> subprocess.CompletedProcess:
     tempdir: TemporaryDirectory | None = None
@@ -94,7 +95,7 @@ def rclone_execute(
             cmd_str = subprocess.list2cmdline(cmd)
             print(f"Running: {cmd_str}")
         cp = subprocess.run(
-            cmd, capture_output=True, encoding="utf-8", check=False, shell=False
+            cmd, capture_output=True, encoding="utf-8", check=check, shell=False
         )
         if cp.returncode != 0:
             cmd_str = subprocess.list2cmdline(cmd)
