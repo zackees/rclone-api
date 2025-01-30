@@ -11,7 +11,8 @@ keywords = ["template-python-cmd"]
 license = { text = "BSD 3-Clause License" }
 classifiers = ["Programming Language :: Python :: 3"]
 dependencies = [
-    "python-dotenv>=1.0.0"
+    "pyright>=1.1.393",
+    "python-dotenv>=1.0.0",
 ]
 # Change this with the version number bump.
 version = "1.0.18"

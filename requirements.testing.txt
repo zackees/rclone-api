@@ -6,3 +6,4 @@ tox
 ruff
 pytest-xdist
 httpx
+pyright

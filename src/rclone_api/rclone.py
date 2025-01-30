@@ -107,6 +107,7 @@ class Rclone:
         Yields:
             DirListing: Directory listing for each directory encountered
         """
+        dir_obj: Dir
         if isinstance(path, Dir):
             # Create a Remote object for the path
             remote = path.remote
@@ -126,6 +127,7 @@ class Rclone:
         elif isinstance(path, Remote):
             dir_obj = Dir(path)
         else:
+            dir_obj = Dir(path)  # shut up pyright
             assert f"Invalid type for path: {type(path)}"
 
         yield from walk(dir_obj, max_depth=max_depth)
