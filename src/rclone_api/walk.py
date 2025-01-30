@@ -1,4 +1,4 @@
-from queue import Empty, Queue
+from queue import Queue
 from threading import Thread
 from typing import Generator
 
@@ -60,18 +60,7 @@ def walk(dir: Dir | Remote, max_depth: int = -1) -> Generator[DirListing, None, 
         )
         worker.start()
 
-        while worker.is_alive():
-            try:
-                dirlisting = out_queue.get()
-                if dirlisting is None:
-                    break
-                yield dirlisting
-            except Empty:
-                continue
-
-        # Drain the queue
-        while not out_queue.empty():
-            dirlisting = out_queue.get()
+        while dirlisting := out_queue.get():
             if dirlisting is None:
                 break
             yield dirlisting
