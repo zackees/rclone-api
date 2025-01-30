@@ -19,6 +19,22 @@ from rclone_api.util import get_rclone_exe, to_path
 from rclone_api.walk import walk
 
 
+def _convert_to_filestr_list(files: str | File | list[str] | list[File]) -> list[str]:
+    out: list[str] = []
+    if isinstance(files, str):
+        out.append(files)
+    elif isinstance(files, File):
+        out.append(str(files.path))
+    elif isinstance(files, list):
+        for f in files:
+            if isinstance(f, File):
+                f = str(f.path)
+            out.append(f)
+    else:
+        raise ValueError(f"Invalid type for file: {type(files)}")
+    return out
+
+
 class Rclone:
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
@@ -177,18 +193,6 @@ class Rclone:
 
     def delete(self, files: str | File | list[str] | list[File]) -> None:
         """Delete a directory"""
-        payload: list[str] = []
-
-        if isinstance(files, str):
-            payload.append(files)
-        elif isinstance(files, File):
-            payload.append(str(files.path))
-        elif isinstance(files, list):
-            for f in files:
-                if isinstance(f, File):
-                    f = str(f.path)
-                payload.append(f)
-        else:
-            raise ValueError(f"Invalid type for file: {type(files)}")
+        payload: list[str] = _convert_to_filestr_list(files)
         cmd_list: list[str] = ["delete"] + payload
         self._run(cmd_list)
