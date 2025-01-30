@@ -4,8 +4,8 @@ Unit test file.
 
 import os
 import unittest
+from pathlib import Path
 
-import httpx
 from dotenv import load_dotenv
 
 from rclone_api import Config, Process, Rclone, Remote
@@ -48,7 +48,7 @@ vendor = rclone
     return out
 
 
-class RcloneServeWebdavTester(unittest.TestCase):
+class RcloneMountWebdavTester(unittest.TestCase):
     """Test rclone functionality."""
 
     def setUp(self) -> None:
@@ -66,9 +66,9 @@ class RcloneServeWebdavTester(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    def test_serve_webdav(self) -> None:
+    def test_serve_webdav_and_mount(self) -> None:
         """Test basic NFS serve functionality."""
-        port = 8089
+        port = 8090
         config = _generate_rclone_config(port)
         rclone = Rclone(config)
 
@@ -87,13 +87,19 @@ class RcloneServeWebdavTester(unittest.TestCase):
         try:
             # Verify process is running
             self.assertIsNone(process.poll())
-            response = httpx.get(f"http://{test_addr}/", auth=(user, password))
-            # Note that windows is kinda broken and returns internal server error
-            is_serving = response.status_code == 200
-            self.assertTrue(is_serving)
+            mount_point = Path("test_mount2")
+            mount_proc = rclone.mount_webdav("webdav:", mount_point)
+            # test that the mount point exists
+            self.assertTrue(mount_point.exists())
+            # test the folder is not empty
+            dirs = next(mount_point.iterdir())
+            self.assertTrue(dirs.is_dir())
 
         finally:
             # Clean up
+            if mount_proc:
+                mount_proc.terminate()
+                mount_proc.wait()
             process.terminate()
             process.wait()
             if mount_proc:
