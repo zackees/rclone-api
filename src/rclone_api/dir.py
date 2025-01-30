@@ -33,6 +33,8 @@ class Dir:
             self.path.set_rclone(path.rclone)
         else:
             self.path = path
+        # self.path.set_rclone(self.path.remote.rclone)
+        assert self.path.rclone is not None
 
     def ls(self, max_depth: int = 0) -> DirListing:
         """List files and directories in the given path."""
@@ -46,6 +48,10 @@ class Dir:
 
         assert self.path.rclone is not None
         return walk(self, max_depth=max_depth)
+
+    def to_json(self) -> dict:
+        """Convert the Dir to a JSON serializable dictionary."""
+        return self.path.to_json()
 
     def __str__(self) -> str:
         return str(self.path)

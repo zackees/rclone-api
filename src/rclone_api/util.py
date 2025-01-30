@@ -25,7 +25,7 @@ def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:
         remote_name = parts[0]
         path = ":".join(parts[1:])
         remote = Remote(name=remote_name, rclone=rclone)
-        return RPath(
+        out = RPath(
             remote=remote,
             path=path,
             name="",
@@ -34,10 +34,12 @@ def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:
             mod_time="",
             is_dir=True,
         )
+        out.set_rclone(rclone)
+        return out
     elif isinstance(item, Dir):
         return item.path
     elif isinstance(item, Remote):
-        return RPath(
+        out = RPath(
             remote=item,
             path=str(item),
             name=str(item),
@@ -46,6 +48,8 @@ def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:
             mod_time="",
             is_dir=True,
         )
+        out.set_rclone(rclone)
+        return out
     else:
         raise ValueError(f"Invalid type for item: {type(item)}")
 
@@ -90,8 +94,16 @@ def rclone_execute(
             cmd_str = subprocess.list2cmdline(cmd)
             print(f"Running: {cmd_str}")
         cp = subprocess.run(
-            cmd, capture_output=True, encoding="utf-8", check=True, shell=False
+            cmd, capture_output=True, encoding="utf-8", check=False, shell=False
         )
+        if cp.returncode != 0:
+            cmd_str = subprocess.list2cmdline(cmd)
+            print(
+                f"Error running: {cmd_str}, returncode: {cp.returncode}\n{cp.stdout}\n{cp.stderr}"
+            )
+            raise subprocess.CalledProcessError(
+                cp.returncode, cmd, cp.stdout, cp.stderr
+            )
         return cp
     finally:
         if tempdir:

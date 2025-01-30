@@ -28,5 +28,9 @@ class File:
         result = self.path.rclone._run(["cat", self.path.path])
         return result.stdout
 
+    def to_json(self) -> dict:
+        """Convert the File to a JSON serializable dictionary."""
+        return self.path.to_json()
+
     def __str__(self) -> str:
         return str(self.path)

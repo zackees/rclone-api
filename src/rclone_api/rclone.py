@@ -12,7 +12,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.util import get_rclone_exe
+from rclone_api.util import get_rclone_exe, to_path
 from rclone_api.walk import walk
 
 
@@ -38,6 +38,12 @@ class Rclone:
         Returns:
             List of File objects found at the path
         """
+
+        if isinstance(path, str):
+            path = Dir(
+                to_path(path, self)
+            )  # assume it's a directory if ls is being called.
+
         cmd = ["lsjson"]
         if max_depth is not None:
             cmd.append("--recursive")
@@ -50,7 +56,11 @@ class Rclone:
 
         cp = self._run(cmd)
         text = cp.stdout
-        paths: list[RPath] = RPath.from_json_str(text, remote)
+        parent_path: str | None = None
+        if isinstance(path, Dir):
+            parent_path = path.path.path
+        paths: list[RPath] = RPath.from_json_str(text, remote, parent_path=parent_path)
+        # print(parent_path)
         for o in paths:
             o.set_rclone(self)
         return DirListing(paths)
@@ -67,7 +77,7 @@ class Rclone:
         return out
 
     def walk(
-        self, path: Dir | Remote, max_depth: int = -1
+        self, path: Dir | Remote | str, max_depth: int = -1
     ) -> Generator[DirListing, None, None]:
         """Walk through the given path recursively.
 
@@ -92,7 +102,11 @@ class Rclone:
             )
             rpath.set_rclone(self)
             dir_obj = Dir(rpath)
-        else:
+        elif isinstance(path, str):
+            dir_obj = Dir(to_path(path, self))
+        elif isinstance(path, Remote):
             dir_obj = Dir(path)
+        else:
+            assert f"Invalid type for path: {type(path)}"
 
         yield from walk(dir_obj, max_depth=max_depth)

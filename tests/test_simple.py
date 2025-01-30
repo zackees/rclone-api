@@ -8,9 +8,10 @@ import unittest
 from dotenv import load_dotenv
 
 from rclone_api import Config, Dir, DirListing, File, Rclone, Remote
-from rclone_api.util import to_path
 
 load_dotenv()
+
+BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 
 def _generate_rclone_config() -> Config:
@@ -72,12 +73,9 @@ class RcloneTests(unittest.TestCase):
         2. List its contents
         3. Get both directories and files as proper types
         """
-        BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
         self.assertIsNotNone(BUCKET_NAME)
         rclone = Rclone(_generate_rclone_config())
-        path = to_path(f"dst:{BUCKET_NAME}", rclone)
-        dir = Dir(path)
-        listing: DirListing = rclone.ls(dir, max_depth=-1)
+        listing: DirListing = rclone.ls(f"dst:{BUCKET_NAME}", max_depth=-1)
 
         # Verify we got a valid listing
         self.assertIsInstance(listing, DirListing)
@@ -96,23 +94,19 @@ class RcloneTests(unittest.TestCase):
 
         print("done")
 
-    # def test_zlib1(self) -> None:
-    #     rclone = Rclone(_RCLONE_CONFIG)
-    #     path = f"dst:{BUCKET_NAME}/zlib1"
-    #     listing: DirListing = rclone.ls(path)
-    #     print("dirs:")
-    #     for dir in listing.dirs:
-    #         print(dir)
-    #     print("files:")
-    #     for file in listing.files:
-    #         print(file)
+    def test_ls_subdir(self) -> None:
+        rclone = Rclone(_generate_rclone_config())
+        path = f"dst:{BUCKET_NAME}/zachs_video"
+        listing: DirListing = rclone.ls(path)
+        print(listing)
 
-    # def test_zlib_walk(self) -> None:
-    #     rclone = Rclone(_RCLONE_CONFIG)
-    #     # rclone.walk
-    #     dirlisting: DirListing
-    #     for dirlisting in rclone.walk(f"dst:{BUCKET_NAME}", max_depth=1):
-    #         print(dirlisting)
+    def test_walk(self) -> None:
+        rclone = Rclone(_generate_rclone_config())
+        # rclone.walk
+        dirlisting: DirListing
+        for dirlisting in rclone.walk(f"dst:{BUCKET_NAME}", max_depth=1):
+            print(dirlisting)
+        print("done")
 
 
 if __name__ == "__main__":
