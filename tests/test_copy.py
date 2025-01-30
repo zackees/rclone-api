@@ -7,7 +7,7 @@ import unittest
 
 from dotenv import load_dotenv
 
-from rclone_api import Config
+from rclone_api import Config, DirListing, Rclone
 
 load_dotenv()
 
@@ -37,7 +37,7 @@ endpoint = {BUCKET_URL}
     return out
 
 
-class RcloneTests(unittest.TestCase):
+class RcloneCopyTests(unittest.TestCase):
     """Test rclone functionality."""
 
     def setUp(self) -> None:
@@ -56,7 +56,15 @@ class RcloneTests(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     def test_copy(self) -> None:
-        pass  # TODO: Implement test
+        """Test copying a single file to remote storage."""
+        rclone = Rclone(_generate_rclone_config())
+        path = f"dst:{BUCKET_NAME}/zachs_video"
+        listing: DirListing = rclone.ls(path, glob="*.png")
+        self.assertGreater(len(listing.files), 0)
+
+        # now
+        print(listing)
+        print("done")
 
 
 if __name__ == "__main__":

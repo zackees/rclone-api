@@ -3,6 +3,7 @@ Unit test file.
 """
 
 import subprocess
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Generator
 
@@ -10,6 +11,7 @@ from rclone_api import Dir
 from rclone_api.config import Config
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
+from rclone_api.file import File
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import get_rclone_exe, to_path
@@ -28,7 +30,12 @@ class Rclone:
     def _run(self, cmd: list[str]) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd)
 
-    def ls(self, path: Dir | Remote | str, max_depth: int | None = None) -> DirListing:
+    def ls(
+        self,
+        path: Dir | Remote | str,
+        max_depth: int | None = None,
+        glob: str | None = None,
+    ) -> DirListing:
         """List files in the given path.
 
         Args:
@@ -63,6 +70,10 @@ class Rclone:
         # print(parent_path)
         for o in paths:
             o.set_rclone(self)
+
+        # do we have a glob pattern?
+        if glob is not None:
+            paths = [p for p in paths if fnmatch(p.path, glob)]
         return DirListing(paths)
 
     def listremotes(self) -> list[Remote]:
@@ -110,3 +121,16 @@ class Rclone:
             assert f"Invalid type for path: {type(path)}"
 
         yield from walk(dir_obj, max_depth=max_depth)
+
+    def copyfile(self, src: File, dst: File) -> None:
+        """Copy a single file from source to destination.
+
+        Args:
+            src: Source file path (including remote if applicable)
+            dst: Destination file path (including remote if applicable)
+
+        Raises:
+            subprocess.CalledProcessError: If the copy operation fails
+        """
+        cmd = ["copyto", str(src), str(dst)]
+        self._run(cmd)

@@ -1,3 +1,5 @@
+import json
+
 from rclone_api.rpath import RPath
 
 
@@ -9,6 +11,10 @@ class File:
         path: RPath,
     ) -> None:
         self.path = path
+
+    @property
+    def name(self) -> str:
+        return self.path.name
 
     def read_text(self) -> str:
         """Read the file contents as bytes.
@@ -34,3 +40,8 @@ class File:
 
     def __str__(self) -> str:
         return str(self.path)
+
+    def __repr__(self) -> str:
+        data = self.path.to_json()
+        data_str = json.dumps(data)
+        return data_str

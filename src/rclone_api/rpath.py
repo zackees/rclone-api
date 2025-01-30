@@ -88,3 +88,8 @@ class RPath:
 
     def __str__(self) -> str:
         return f"{self.remote.name}:{self.path}"
+
+    def __repr__(self):
+        data = self.to_json()
+        data["Remote"] = self.remote.name
+        return json.dumps(data)

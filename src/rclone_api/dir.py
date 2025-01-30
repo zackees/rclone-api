@@ -1,3 +1,4 @@
+import json
 from typing import Generator
 
 from rclone_api.dir_listing import DirListing
@@ -11,6 +12,10 @@ class Dir:
     @property
     def remote(self) -> Remote:
         return self.path.remote
+
+    @property
+    def name(self) -> str:
+        return self.path.name
 
     def __init__(self, path: RPath | Remote) -> None:
         """Initialize Dir with either an RPath or Remote.
@@ -55,3 +60,8 @@ class Dir:
 
     def __str__(self) -> str:
         return str(self.path)
+
+    def __repr__(self) -> str:
+        data = self.path.to_json()
+        data_str = json.dumps(data)
+        return data_str

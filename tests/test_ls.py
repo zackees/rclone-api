@@ -100,6 +100,18 @@ class RcloneLsTests(unittest.TestCase):
         listing: DirListing = rclone.ls(path)
         print(listing)
 
+    def test_ls_glob_png(self) -> None:
+        rclone = Rclone(_generate_rclone_config())
+        path = f"dst:{BUCKET_NAME}/zachs_video"
+        listing: DirListing = rclone.ls(path, glob="*.png")
+        self.assertGreater(len(listing.files), 0)
+        for file in listing.files:
+            self.assertIsInstance(file, File)
+            # test that it ends with .png
+            self.assertTrue(file.name.endswith(".png"))
+        # there should be no directories with this glob
+        self.assertEqual(len(listing.dirs), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
