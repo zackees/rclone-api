@@ -122,7 +122,7 @@ class Rclone:
 
         yield from walk(dir_obj, max_depth=max_depth)
 
-    def copyfile(self, src: File, dst: File) -> None:
+    def copyfile(self, src: File | str, dst: File | str) -> None:
         """Copy a single file from source to destination.
 
         Args:
@@ -132,5 +132,7 @@ class Rclone:
         Raises:
             subprocess.CalledProcessError: If the copy operation fails
         """
-        cmd = ["copyto", str(src), str(dst)]
-        self._run(cmd)
+        src = src if isinstance(src, str) else str(src.path)
+        dst = dst if isinstance(dst, str) else str(dst.path)
+        cmd_list: list[str] = ["copyto", src, dst]
+        self._run(cmd_list)

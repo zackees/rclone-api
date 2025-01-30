@@ -61,9 +61,16 @@ class RcloneCopyTests(unittest.TestCase):
         path = f"dst:{BUCKET_NAME}/zachs_video"
         listing: DirListing = rclone.ls(path, glob="*.png")
         self.assertGreater(len(listing.files), 0)
+        file = listing.files[0]
 
-        # now
-        print(listing)
+        # Copy the file to the same location with a different name
+        new_name = file.name + "_copy"
+        new_path = f"dst:{BUCKET_NAME}/zachs_video/{new_name}"
+        rclone.copyfile(file, new_path)
+        # now test that the new file exists
+        listing = rclone.ls(f"dst:{BUCKET_NAME}/zachs_video/", glob=f"*{new_name}")
+        self.assertEqual(len(listing.files), 1)
+        self.assertEqual(listing.dirs, [])
         print("done")
 
 
