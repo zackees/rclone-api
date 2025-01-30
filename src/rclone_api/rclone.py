@@ -159,15 +159,17 @@ class Rclone:
                 # self._run(cmd_list)
                 executor.submit(self._run, cmd_list)
 
-    def copy(self, src: Dir, dst: Dir) -> subprocess.CompletedProcess:
+    def copy(self, src: Dir | str, dst: Dir | str) -> subprocess.CompletedProcess:
         """Copy files from source to destination.
 
         Args:
             src: Source directory
             dst: Destination directory
         """
-        src_dir = src.path.path
-        dst_dir = dst.path.path
+        # src_dir = src.path.path
+        # dst_dir = dst.path.path
+        src_dir = convert_to_str(src)
+        dst_dir = convert_to_str(dst)
         cmd_list: list[str] = ["copy", src_dir, dst_dir]
         return self._run(cmd_list)
 
