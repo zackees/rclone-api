@@ -1,3 +1,4 @@
+import warnings
 from queue import Queue
 from threading import Thread
 from typing import Generator
@@ -9,9 +10,11 @@ from rclone_api.remote import Remote
 _MAX_OUT_QUEUE_SIZE = 50
 
 
-def _walk_runner(
-    queue: Queue[Dir], max_depth: int, out_queue: Queue[DirListing | None]
+def _walk_runner_breadth_first(
+    dir: Dir, max_depth: int, out_queue: Queue[DirListing | None]
 ) -> None:
+    queue: Queue[Dir] = Queue()
+    queue.put(dir)
     try:
         while not queue.empty():
             current_dir = queue.get()
@@ -35,7 +38,32 @@ def _walk_runner(
         _thread.interrupt_main()
 
 
-def walk(dir: Dir | Remote, max_depth: int = -1) -> Generator[DirListing, None, None]:
+def _walk_runner_depth_first(
+    dir: Dir, max_depth: int, out_queue: Queue[DirListing | None]
+) -> None:
+    warnings.warn("Untested code")
+    try:
+        stack = [(dir, max_depth)]
+        while stack:
+            current_dir, depth = stack.pop()
+            dirlisting = current_dir.ls()
+            out_queue.put(dirlisting)
+            if depth != 0:
+                for child in reversed(
+                    dirlisting.dirs
+                ):  # Process deeper directories first
+                    stack.append((child, depth - 1 if depth > 0 else depth))
+        out_queue.put(None)
+    except KeyboardInterrupt:
+        import _thread
+
+        out_queue.put(None)
+        _thread.interrupt_main()
+
+
+def walk(
+    dir: Dir | Remote, max_depth: int = -1, breadth_first=True
+) -> Generator[DirListing, None, None]:
     """Walk through the given directory recursively.
 
     Args:
@@ -49,14 +77,17 @@ def walk(dir: Dir | Remote, max_depth: int = -1) -> Generator[DirListing, None, 
         # Convert Remote to Dir if needed
         if isinstance(dir, Remote):
             dir = Dir(dir)
-
-        in_queue: Queue[Dir] = Queue()
         out_queue: Queue[DirListing] = Queue(maxsize=_MAX_OUT_QUEUE_SIZE)
-        in_queue.put(dir)
+
+        strategy = (
+            _walk_runner_breadth_first if breadth_first else _walk_runner_depth_first
+        )
 
         # Start worker thread
         worker = Thread(
-            target=_walk_runner, args=(in_queue, max_depth, out_queue), daemon=True
+            target=strategy,
+            args=(dir, max_depth, out_queue),
+            daemon=True,
         )
         worker.start()
 
