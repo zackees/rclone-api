@@ -31,7 +31,7 @@ class File:
         if self.path.is_dir:
             raise RuntimeError("Cannot read a directory as bytes")
 
-        result = self.path.rclone._run(["cat", self.path.path])
+        result = self.path.rclone._run(["cat", self.path.path], check=True)
         return result.stdout
 
     def to_json(self) -> dict:

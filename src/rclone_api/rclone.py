@@ -29,7 +29,7 @@ class Rclone:
                 raise ValueError(f"Rclone config file not found: {rclone_conf}")
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
 
-    def _run(self, cmd: list[str], check=True) -> subprocess.CompletedProcess:
+    def _run(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd, check=check)
 
     def ls(
@@ -63,7 +63,7 @@ class Rclone:
         remote = path.remote if isinstance(path, Dir) else path
         assert isinstance(remote, Remote)
 
-        cp = self._run(cmd)
+        cp = self._run(cmd, check=True)
         text = cp.stdout
         parent_path: str | None = None
         if isinstance(path, Dir):
