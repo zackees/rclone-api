@@ -199,3 +199,20 @@ class Rclone:
             return True
         except subprocess.CalledProcessError:
             return False
+
+    def is_synced(self, src: Dir, dst: Dir) -> bool:
+        """Check if two directories are in sync."""
+        cmd_list: list[str] = ["check", str(src), str(dst)]
+        try:
+            self._run(cmd_list)
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+    def copy_dir(self, src: str | Dir, dst: str | Dir) -> None:
+        """Copy a directory from source to destination."""
+        # convert src to str, also dst
+        src = src if isinstance(src, str) else str(src.path)
+        dst = dst if isinstance(dst, str) else str(dst.path)
+        cmd_list: list[str] = ["copy", src, dst]
+        self._run(cmd_list)
