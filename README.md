@@ -11,7 +11,14 @@ You will need to have rclone installed and on your path.
 
 One of the benefits of this api is that it does not use `shell=True`, which can keep `rclone` running in some instances even when try to kill the process.
 
+# Install
+
+`pip install rclone-api`
+
+
 # Examples
+
+You can use env variables or use a `.env` file to store your secrets.
 
 
 # Rclone API Usage Examples
