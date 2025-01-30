@@ -10,7 +10,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.config import Config
-from rclone_api.convert import convert_to_filestr_list
+from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
@@ -171,8 +171,10 @@ class Rclone:
         cmd_list: list[str] = ["copy", src_dir, dst_dir]
         self._run(cmd_list)
 
-    def purge(self, path: Dir) -> None:
+    def purge(self, path: Dir | str) -> None:
         """Purge a directory"""
+        # path should always be a string
+        path = path if isinstance(path, str) else str(path.path)
         cmd_list: list[str] = ["purge", str(path)]
         self._run(cmd_list)
 
@@ -184,15 +186,7 @@ class Rclone:
 
     def exists(self, path: Dir | Remote | str | File) -> bool:
         """Check if a file or directory exists."""
-        arg: str
-        if isinstance(path, File):
-            arg = str(path.path)
-        elif isinstance(path, Remote):
-            arg = str(path)
-        elif isinstance(path, str):
-            arg = path
-        else:
-            raise ValueError(f"Invalid type for path: {type(path)}")
+        arg: str = convert_to_str(path)
         assert isinstance(arg, str)
         try:
             self.ls(arg)
@@ -202,8 +196,8 @@ class Rclone:
 
     def is_synced(self, src: str | Dir, dst: str | Dir) -> bool:
         """Check if two directories are in sync."""
-        src = src if isinstance(src, str) else str(src.path)
-        dst = dst if isinstance(dst, str) else str(dst.path)
+        src = convert_to_str(src)
+        dst = convert_to_str(dst)
         cmd_list: list[str] = ["check", str(src), str(dst)]
         try:
             self._run(cmd_list)
@@ -214,7 +208,7 @@ class Rclone:
     def copy_dir(self, src: str | Dir, dst: str | Dir) -> None:
         """Copy a directory from source to destination."""
         # convert src to str, also dst
-        src = src if isinstance(src, str) else str(src.path)
-        dst = dst if isinstance(dst, str) else str(dst.path)
+        src = convert_to_str(src)
+        dst = convert_to_str(dst)
         cmd_list: list[str] = ["copy", src, dst]
         self._run(cmd_list)
