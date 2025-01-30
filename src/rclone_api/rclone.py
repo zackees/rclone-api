@@ -136,3 +136,19 @@ class Rclone:
         dst = dst if isinstance(dst, str) else str(dst.path)
         cmd_list: list[str] = ["copyto", src, dst]
         self._run(cmd_list)
+
+    def copyfiles(self, filelist: dict[File, File] | dict[str, str]) -> None:
+        """Copy multiple files from source to destination.
+
+        Args:
+            payload: Dictionary of source and destination file paths
+        """
+        str_dict: dict[str, str] = {}
+        for src, dst in filelist.items():
+            src = src if isinstance(src, str) else str(src.path)
+            dst = dst if isinstance(dst, str) else str(dst.path)
+            str_dict[src] = dst
+
+        for src, dst in str_dict.items():  # warning - slow
+            cmd_list: list[str] = ["copyto", src, dst]
+            self._run(cmd_list)

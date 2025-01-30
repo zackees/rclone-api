@@ -55,7 +55,7 @@ class RcloneCopyTests(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    def test_copy(self) -> None:
+    def test_copyfile(self) -> None:
         """Test copying a single file to remote storage."""
         rclone = Rclone(_generate_rclone_config())
         path = f"dst:{BUCKET_NAME}/zachs_video"
@@ -71,6 +71,22 @@ class RcloneCopyTests(unittest.TestCase):
         listing = rclone.ls(f"dst:{BUCKET_NAME}/zachs_video/", glob=f"*{new_name}")
         self.assertEqual(len(listing.files), 1)
         self.assertEqual(listing.dirs, [])
+        print("done")
+
+    def test_copyfiles(self) -> None:
+        """Test copying multiple files to remote storage."""
+        rclone = Rclone(_generate_rclone_config())
+        path = f"dst:{BUCKET_NAME}/zachs_video"
+        listing: DirListing = rclone.ls(path, glob="*.png")
+        self.assertGreater(len(listing.files), 0)
+        first_file = listing.files[0]
+
+        # Copy the files to the same location with different names
+        filelist: dict[str, str] = {
+            str(first_file): str(first_file) + "_copy",
+        }
+        # warning slow.
+        rclone.copyfiles(filelist)
         print("done")
 
 
