@@ -71,7 +71,7 @@ class RcloneCopyTests(unittest.TestCase):
         listing = rclone.ls(f"dst:{BUCKET_NAME}/zachs_video/", glob=f"*{new_name}")
         self.assertEqual(len(listing.files), 1)
         self.assertEqual(listing.dirs, [])
-        rclone.delete([new_path])
+        rclone.deletefiles([new_path])
         print("done")
 
     def test_copyfiles(self) -> None:
@@ -98,7 +98,7 @@ class RcloneCopyTests(unittest.TestCase):
         exists = rclone.exists(dest_file)
         self.assertTrue(exists)
 
-        rclone.delete(delete_list)
+        rclone.deletefiles(delete_list)
         print("done")
 
 

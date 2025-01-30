@@ -176,7 +176,7 @@ class Rclone:
         cmd_list: list[str] = ["purge", str(path)]
         self._run(cmd_list)
 
-    def delete(self, files: str | File | list[str] | list[File]) -> None:
+    def deletefiles(self, files: str | File | list[str] | list[File]) -> None:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
         cmd_list: list[str] = ["delete"] + payload
