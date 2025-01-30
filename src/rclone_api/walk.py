@@ -30,6 +30,8 @@ def _walk_runner(
     except KeyboardInterrupt:
         import _thread
 
+        out_queue.put(None)
+
         _thread.interrupt_main()
 
 
@@ -66,6 +68,13 @@ def walk(dir: Dir | Remote, max_depth: int = -1) -> Generator[DirListing, None, 
                 yield dirlisting
             except Empty:
                 continue
+
+        # Drain the queue
+        while not out_queue.empty():
+            dirlisting = out_queue.get()
+            if dirlisting is None:
+                break
+            yield dirlisting
 
         worker.join()
     except KeyboardInterrupt:
