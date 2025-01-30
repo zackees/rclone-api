@@ -48,7 +48,7 @@ def walk(dir: Dir | Remote, max_depth: int = -1) -> Generator[DirListing, None, 
             dir = Dir(dir)
 
         in_queue: Queue[Dir] = Queue()
-        out_queue: Queue[DirListing] = Queue()
+        out_queue: Queue[DirListing] = Queue(maxsize=50)
         in_queue.put(dir)
 
         # Start worker thread
