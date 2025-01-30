@@ -212,15 +212,23 @@ class Rclone:
         except subprocess.CalledProcessError:
             return False
 
-    def copy_dir(self, src: str | Dir, dst: str | Dir) -> subprocess.CompletedProcess:
+    def copy_dir(
+        self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
+    ) -> subprocess.CompletedProcess:
         """Copy a directory from source to destination."""
         # convert src to str, also dst
         src = convert_to_str(src)
         dst = convert_to_str(dst)
         cmd_list: list[str] = ["copy", src, dst]
+        if args is not None:
+            cmd_list += args
         return self._run(cmd_list)
 
-    def copy_remote(self, src: Remote, dst: Remote) -> subprocess.CompletedProcess:
+    def copy_remote(
+        self, src: Remote, dst: Remote, args: list[str] | None = None
+    ) -> subprocess.CompletedProcess:
         """Copy a remote to another remote."""
         cmd_list: list[str] = ["copy", str(src), str(dst)]
+        if args is not None:
+            cmd_list += args
         return self._run(cmd_list)
