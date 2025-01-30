@@ -38,6 +38,12 @@ class Rclone:
     def _launch_process(self, cmd: list[str]) -> Process:
         return self._exec.launch_process(cmd)
 
+    def obscure(self, password: str) -> str:
+        """Obscure a password for use in rclone config files."""
+        cmd_list: list[str] = ["obscure", password]
+        cp = self._run(cmd_list)
+        return cp.stdout.strip()
+
     def ls(
         self,
         path: Dir | Remote | str,

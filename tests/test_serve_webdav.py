@@ -39,7 +39,7 @@ bucket = {BUCKET_NAME}
 [webdav]
 type = webdav
 user = guest
-# encrypted password for "1234"
+# obscured password for "1234", use Rclone.obscure("1234") to generate
 pass = d4IbQLV9W0JhI2tm5Zp88hpMtEg
 url = http://localhost:8089
 vendor = rclone
