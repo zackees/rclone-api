@@ -310,24 +310,14 @@ class Rclone:
                 )
             outdir.rmdir()
 
-        config_lines: list[str] = []
-        config_lines.append("[webdav]")
-        config_lines.append("type = webdav")
-        config_lines.append("vendor = rclone")
-        config_text = "\n".join(config_lines)
-
-        config = Config(config_text)
-        rclone_bin = self._exec.rclone_exe
-
-        rclone_exec = RcloneExec(config, rclone_bin)
-        src_str = f"webdav:{url}"
+        src_str = url
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         cmd_list.append("--vfs-cache-mode")
         cmd_list.append(vfs_cache_mode)
         if other_cmds:
             cmd_list += other_cmds
-        # proc = self._launch_process(cmd_list)
-        proc = rclone_exec.launch_process(cmd_list)
+        proc = self._launch_process(cmd_list)
+        # proc = rclone_exec.launch_process(cmd_list)
         time.sleep(2)
         if proc.poll() is not None:
             raise ValueError("Mount process failed to start")

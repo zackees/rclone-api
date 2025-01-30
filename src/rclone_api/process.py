@@ -69,8 +69,10 @@ class Process:
             tmpfile = Path(self.tempdir.name) / "rclone.conf"
             tmpfile.write_text(args.rclone_conf.text, encoding="utf-8")
             rclone_conf = tmpfile
+            self.needs_cleanup = True
         else:
             rclone_conf = args.rclone_conf
+            self.needs_cleanup = False
 
         assert rclone_conf.exists()
 
@@ -85,7 +87,7 @@ class Process:
         self.process = subprocess.Popen(self.cmd, shell=False)
 
     def cleanup(self) -> None:
-        if self.tempdir:
+        if self.tempdir and self.needs_cleanup:
             try:
                 self.tempdir.cleanup()
             except Exception as e:

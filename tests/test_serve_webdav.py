@@ -35,8 +35,13 @@ secret_access_key = {BUCKET_KEY_SECRET}
 endpoint = {BUCKET_URL}
 bucket = {BUCKET_NAME}
 
+
 [webdav]
 type = webdav
+user = guest
+# encrypted password for "1234"
+pass = d4IbQLV9W0JhI2tm5Zp88hpMtEg
+url = http://localhost:8089
 vendor = rclone
 """
 
@@ -97,6 +102,48 @@ class RcloneNfsServeTest(unittest.TestCase):
 
         finally:
             # Clean up
+            process.terminate()
+            process.wait()
+            if mount_proc:
+                mount_proc.terminate()
+                mount_proc.wait()
+
+        # Verify process terminated
+        self.assertIsNotNone(process.poll())
+
+    def test_serve_webdav_and_mount(self) -> None:
+        """Test basic NFS serve functionality."""
+        config = _generate_rclone_config()
+        rclone = Rclone(config)
+
+        # Start NFS server for the remote
+        remote = Remote("dst", rclone=rclone)
+        # serve = Remote("webdav", rclone=rclone)
+        test_addr = "localhost:8089"
+        user = "guest"
+        password = "1234"
+
+        process = rclone.serve_webdav(
+            f"{remote.name}:{BUCKET_NAME}", addr=test_addr, user=user, password=password
+        )
+        mount_proc: Process | None = None
+
+        try:
+            # Verify process is running
+            self.assertIsNone(process.poll())
+            mount_point = Path("test_mount2")
+            mount_proc = rclone.mount_webdav("webdav:", mount_point)
+            # test that the mount point exists
+            self.assertTrue(mount_point.exists())
+            # test the folder is not empty
+            dirs = next(mount_point.iterdir())
+            self.assertTrue(dirs.is_dir())
+
+        finally:
+            # Clean up
+            if mount_proc:
+                mount_proc.terminate()
+                mount_proc.wait()
             process.terminate()
             process.wait()
             if mount_proc:
