@@ -31,6 +31,7 @@ provider = DigitalOcean
 access_key_id = {BUCKET_KEY_PUBLIC}
 secret_access_key = {BUCKET_KEY_SECRET}
 endpoint = {BUCKET_URL}
+bucket = {BUCKET_NAME}
 """
 
     out = Config(config_text)

@@ -239,7 +239,13 @@ class Rclone:
         return self._run(cmd_list)
 
     def mount(
-        self, src: Remote | Dir | str, outdir: Path, allow_writes=False, use_links=True
+        self,
+        src: Remote | Dir | str,
+        outdir: Path,
+        allow_writes=False,
+        use_links=True,
+        vfs_cache_mode="full",
+        other_cmds: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
 
@@ -266,8 +272,95 @@ class Rclone:
             cmd_list.append("--read-only")
         if use_links:
             cmd_list.append("--links")
+        if vfs_cache_mode:
+            cmd_list.append("--vfs-cache-mode")
+            cmd_list.append(vfs_cache_mode)
+        if other_cmds:
+            cmd_list += other_cmds
         proc = self._launch_process(cmd_list)
         time.sleep(2)  # give it a moment to mount
         if proc.poll() is not None:
             raise ValueError("Mount process failed to start")
+        return proc
+
+    def mount_webdav(
+        self,
+        url: str,
+        outdir: Path,
+        vfs_cache_mode="full",
+        other_cmds: list[str] | None = None,
+    ) -> Process:
+        """Mount a remote or directory to a local path.
+
+        Args:
+            src: Remote or directory to mount
+            outdir: Local path to mount to
+
+        Returns:
+            CompletedProcess from the mount command execution
+
+        Raises:
+            subprocess.CalledProcessError: If the mount operation fails
+        """
+        if outdir.exists():
+            is_empty = not list(outdir.iterdir())
+            if not is_empty:
+                raise ValueError(
+                    f"Mount directory already exists and is not empty: {outdir}"
+                )
+            outdir.rmdir()
+
+        config_lines: list[str] = []
+        config_lines.append("[webdav]")
+        config_lines.append("type = webdav")
+        config_lines.append("vendor = rclone")
+        config_text = "\n".join(config_lines)
+
+        config = Config(config_text)
+        rclone_bin = self._exec.rclone_exe
+
+        rclone_exec = RcloneExec(config, rclone_bin)
+        src_str = f"webdav:{url}"
+        cmd_list: list[str] = ["mount", src_str, str(outdir)]
+        cmd_list.append("--vfs-cache-mode")
+        cmd_list.append(vfs_cache_mode)
+        if other_cmds:
+            cmd_list += other_cmds
+        # proc = self._launch_process(cmd_list)
+        proc = rclone_exec.launch_process(cmd_list)
+        time.sleep(2)
+        if proc.poll() is not None:
+            raise ValueError("Mount process failed to start")
+        return proc
+
+    def serve_webdav(
+        self,
+        src: Remote | Dir | str,
+        user: str,
+        password: str,
+        addr: str = "localhost:2049",
+        allow_other: bool = False,
+    ) -> Process:
+        """Serve a remote or directory via NFS.
+
+        Args:
+            src: Remote or directory to serve
+            addr: Network address and port to serve on (default: localhost:2049)
+            allow_other: Allow other users to access the share
+
+        Returns:
+            Process: The running NFS server process
+
+        Raises:
+            ValueError: If the NFS server fails to start
+        """
+        src_str = convert_to_str(src)
+        cmd_list: list[str] = ["serve", "webdav", "--addr", addr, src_str]
+        cmd_list.extend(["--user", user, "--pass", password])
+        if allow_other:
+            cmd_list.append("--allow-other")
+        proc = self._launch_process(cmd_list)
+        time.sleep(2)  # give it a moment to start
+        if proc.poll() is not None:
+            raise ValueError("NFS serve process failed to start")
         return proc
