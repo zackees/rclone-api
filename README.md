@@ -9,6 +9,8 @@ Api version of rclone. It's well tested. It's a pretty low level api without the
 
 You will need to have rclone installed and on your path.
 
+One of the benefits of this api is that it does not use `shell=True`, which can keep `rclone` running in some instances even when try to kill the process.
+
 # Examples
 
 
@@ -103,6 +105,13 @@ print("\n=== Deleting a File ===")
 file_to_delete = f"dst:{BUCKET_NAME}/zachs_video/sample.png_copy"
 rclone.deletefiles([file_to_delete])
 print(f"Deleted {file_to_delete}")
+
+# Walk Through a Directory
+print("\n=== Walking Through a Directory ===")
+for dirlisting in rclone.walk(f"dst:{BUCKET_NAME}", max_depth=1):
+    print(dirlisting)
+
+print("Done.")
 ```
 
 
