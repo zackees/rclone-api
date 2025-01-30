@@ -67,8 +67,9 @@ class Rclone:
 
         cmd = ["lsjson"]
         if max_depth is not None:
-            cmd.append("--recursive")
-            if max_depth > -1:
+            if max_depth < 0:
+                cmd.append("--recursive")
+            if max_depth > 0:
                 cmd.append("--max-depth")
                 cmd.append(str(max_depth))
         cmd.append(str(path))

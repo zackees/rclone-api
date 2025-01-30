@@ -1,4 +1,3 @@
-import warnings
 from queue import Queue
 from threading import Thread
 from typing import Generator
@@ -41,18 +40,19 @@ def _walk_runner_breadth_first(
 def _walk_runner_depth_first(
     dir: Dir, max_depth: int, out_queue: Queue[DirListing | None]
 ) -> None:
-    warnings.warn("Untested code")
     try:
         stack = [(dir, max_depth)]
         while stack:
             current_dir, depth = stack.pop()
             dirlisting = current_dir.ls()
-            out_queue.put(dirlisting)
             if depth != 0:
-                for child in reversed(
+                for subdir in reversed(
                     dirlisting.dirs
                 ):  # Process deeper directories first
-                    stack.append((child, depth - 1 if depth > 0 else depth))
+                    # stack.append((child, depth - 1 if depth > 0 else depth))
+                    next_depth = depth - 1 if depth > 0 else depth
+                    _walk_runner_depth_first(subdir, next_depth, out_queue)
+            out_queue.put(dirlisting)
         out_queue.put(None)
     except KeyboardInterrupt:
         import _thread

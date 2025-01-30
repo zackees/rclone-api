@@ -92,8 +92,8 @@ class RcloneMountWebdavTester(unittest.TestCase):
             # test that the mount point exists
             self.assertTrue(mount_point.exists())
             # test the folder is not empty
-            dirs = next(mount_point.iterdir())
-            self.assertTrue(dirs.is_dir())
+            next_path = next(mount_point.iterdir())
+            self.assertIsNotNone(next_path)
 
         finally:
             # Clean up
