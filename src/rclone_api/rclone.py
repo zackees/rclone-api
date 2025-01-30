@@ -14,6 +14,7 @@ from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
+from rclone_api.filelist import FileList
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import get_rclone_exe, to_path
@@ -159,7 +160,9 @@ class Rclone:
                 # self._run(cmd_list)
                 executor.submit(self._run, cmd_list)
 
-    def copy(self, src: Dir | str, dst: Dir | str) -> subprocess.CompletedProcess:
+    def copy(
+        self, src: Dir | str, dst: Dir | str, filelist: FileList | None = None
+    ) -> subprocess.CompletedProcess:
         """Copy files from source to destination.
 
         Args:

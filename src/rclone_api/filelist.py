@@ -7,7 +7,7 @@ from rclone_api.rpath import RPath
 
 
 @dataclass
-class Filelist:
+class FileList:
     """Remote file dataclass."""
 
     dirs: list[Dir]
