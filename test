@@ -2,4 +2,4 @@
 
 set -e
 echo "Running unittests"
-uv run pytest tests -v
+uv run pytest -n auto tests -v

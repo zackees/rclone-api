@@ -9,14 +9,14 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from rclone_api import Process, Rclone, Remote
+from rclone_api import Config, Process, Rclone, Remote
 
 load_dotenv()
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 
-def _generate_rclone_config() -> Path:
+def _generate_rclone_config(port: int) -> Config:
 
     # BUCKET_NAME = os.getenv("BUCKET_NAME", "TorrentBooks")  # Default if not in .env
 
@@ -41,13 +41,11 @@ type = webdav
 user = guest
 # obscured password for "1234", use Rclone.obscure("1234") to generate
 pass = d4IbQLV9W0JhI2tm5Zp88hpMtEg
-url = http://localhost:8089
+url = http://localhost:{port}
 vendor = rclone
 """
 
-    # out = Config(config_text)
-    out = Path("rclone_nfs.conf")
-    out.write_text(config_text, encoding="utf-8")
+    out = Config(config_text)
     return out
 
 
@@ -68,22 +66,17 @@ class RcloneNfsServeTest(unittest.TestCase):
                 f"Missing required environment variables: {', '.join(missing)}"
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
-        self.config = _generate_rclone_config()
-        self.rclone = Rclone(self.config)
-
-    def tearDown(self):
-        if self.config.exists():
-            self.config.unlink()
 
     def test_serve_webdav(self) -> None:
         """Test basic NFS serve functionality."""
-        config = _generate_rclone_config()
+        port = 8089
+        config = _generate_rclone_config(port)
         rclone = Rclone(config)
 
         # Start NFS server for the remote
         remote = Remote("dst", rclone=rclone)
         # serve = Remote("webdav", rclone=rclone)
-        test_addr = "localhost:8089"
+        test_addr = f"localhost:{port}"
         user = "guest"
         password = "1234"
 
@@ -113,13 +106,14 @@ class RcloneNfsServeTest(unittest.TestCase):
 
     def test_serve_webdav_and_mount(self) -> None:
         """Test basic NFS serve functionality."""
-        config = _generate_rclone_config()
+        port = 8090
+        config = _generate_rclone_config(port)
         rclone = Rclone(config)
 
         # Start NFS server for the remote
         remote = Remote("dst", rclone=rclone)
         # serve = Remote("webdav", rclone=rclone)
-        test_addr = "localhost:8089"
+        test_addr = f"localhost:{port}"
         user = "guest"
         password = "1234"
 
