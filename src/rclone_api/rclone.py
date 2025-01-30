@@ -219,3 +219,8 @@ class Rclone:
         dst = convert_to_str(dst)
         cmd_list: list[str] = ["copy", src, dst]
         return self._run(cmd_list)
+
+    def copy_remote(self, src: Remote, dst: Remote) -> subprocess.CompletedProcess:
+        """Copy a remote to another remote."""
+        cmd_list: list[str] = ["copy", str(src), str(dst)]
+        return self._run(cmd_list)
