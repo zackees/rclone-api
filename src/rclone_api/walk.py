@@ -6,6 +6,8 @@ from rclone_api import Dir
 from rclone_api.dir_listing import DirListing
 from rclone_api.remote import Remote
 
+_MAX_OUT_QUEUE_SIZE = 50
+
 
 def _walk_runner(
     queue: Queue[Dir], max_depth: int, out_queue: Queue[DirListing | None]
@@ -14,7 +16,6 @@ def _walk_runner(
         while not queue.empty():
             current_dir = queue.get()
             dirlisting = current_dir.ls()
-            # yield dirlisting
             out_queue.put(dirlisting)
             dirs = dirlisting.dirs
 
@@ -48,7 +49,7 @@ def walk(dir: Dir | Remote, max_depth: int = -1) -> Generator[DirListing, None, 
             dir = Dir(dir)
 
         in_queue: Queue[Dir] = Queue()
-        out_queue: Queue[DirListing] = Queue(maxsize=50)
+        out_queue: Queue[DirListing] = Queue(maxsize=_MAX_OUT_QUEUE_SIZE)
         in_queue.put(dir)
 
         # Start worker thread
