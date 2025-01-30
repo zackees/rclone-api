@@ -143,3 +143,5 @@ uv.lock
 
 !.aider.conf.yml
 !.aiderignore
+
+rclone.conf

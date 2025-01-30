@@ -3,6 +3,7 @@ Unit test file.
 """
 
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from fnmatch import fnmatch
 from pathlib import Path
@@ -15,6 +16,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.filelist import FileList
+from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import get_rclone_exe, to_path
@@ -32,6 +34,9 @@ class Rclone:
 
     def _run(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd, check=check)
+
+    def _launch_process(self, cmd: list[str]) -> Process:
+        return self._exec.launch_process(cmd)
 
     def ls(
         self,
@@ -232,3 +237,37 @@ class Rclone:
         if args is not None:
             cmd_list += args
         return self._run(cmd_list)
+
+    def mount(
+        self, src: Remote | Dir | str, outdir: Path, allow_writes=False, use_links=True
+    ) -> Process:
+        """Mount a remote or directory to a local path.
+
+        Args:
+            src: Remote or directory to mount
+            outdir: Local path to mount to
+
+        Returns:
+            CompletedProcess from the mount command execution
+
+        Raises:
+            subprocess.CalledProcessError: If the mount operation fails
+        """
+        if outdir.exists():
+            is_empty = not list(outdir.iterdir())
+            if not is_empty:
+                raise ValueError(
+                    f"Mount directory already exists and is not empty: {outdir}"
+                )
+            outdir.rmdir()
+        src_str = convert_to_str(src)
+        cmd_list: list[str] = ["mount", src_str, str(outdir)]
+        if not allow_writes:
+            cmd_list.append("--read-only")
+        if use_links:
+            cmd_list.append("--links")
+        proc = self._launch_process(cmd_list)
+        time.sleep(2)  # give it a moment to mount
+        if proc.poll() is not None:
+            raise ValueError("Mount process failed to start")
+        return proc

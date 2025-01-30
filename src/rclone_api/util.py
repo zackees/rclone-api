@@ -54,7 +54,7 @@ def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:
         raise ValueError(f"Invalid type for item: {type(item)}")
 
 
-def _get_verbose(verbose: bool | None) -> bool:
+def get_verbose(verbose: bool | None) -> bool:
     if verbose is not None:
         return verbose
     # get it from the environment
@@ -79,7 +79,7 @@ def rclone_execute(
     verbose: bool | None = None,
 ) -> subprocess.CompletedProcess:
     tempdir: TemporaryDirectory | None = None
-    verbose = _get_verbose(verbose)
+    verbose = get_verbose(verbose)
     assert verbose is not None
 
     try:
