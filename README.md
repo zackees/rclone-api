@@ -9,7 +9,7 @@ Api version of rclone. It's well tested. It's just released so this readme is a 
 
 # Examples
 
-```
+
 # Rclone API Usage Examples
 
 This script demonstrates how to interact with DigitalOcean Spaces using `rclone_api`. 
