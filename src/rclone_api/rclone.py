@@ -19,7 +19,7 @@ from rclone_api.file import File
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.util import get_rclone_exe, to_path
+from rclone_api.util import get_rclone_exe, to_path, wait_for_mount
 from rclone_api.walk import walk
 
 
@@ -291,9 +291,7 @@ class Rclone:
         if other_cmds:
             cmd_list += other_cmds
         proc = self._launch_process(cmd_list)
-        time.sleep(2)  # give it a moment to mount
-        if proc.poll() is not None:
-            raise ValueError("Mount process failed to start")
+        wait_for_mount(outdir, proc)
         return proc
 
     def mount_webdav(
@@ -330,10 +328,7 @@ class Rclone:
         if other_cmds:
             cmd_list += other_cmds
         proc = self._launch_process(cmd_list)
-        # proc = rclone_exec.launch_process(cmd_list)
-        time.sleep(2)
-        if proc.poll() is not None:
-            raise ValueError("Mount process failed to start")
+        wait_for_mount(outdir, proc)
         return proc
 
     def serve_webdav(

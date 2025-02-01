@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -112,3 +113,17 @@ def rclone_execute(
                 tempdir.cleanup()
             except Exception as e:
                 print(f"Error cleaning up tempdir: {e}")
+
+
+def wait_for_mount(path: Path, mount_process: Any, timeout: int = 60) -> None:
+    from rclone_api.process import Process
+
+    assert isinstance(mount_process, Process)
+    expire_time = time.time() + timeout
+    while time.time() < expire_time:
+        rtn = mount_process.poll()
+        if rtn is not None:
+            raise subprocess.CalledProcessError(rtn, mount_process.cmd)
+        if path.exists():
+            return
+    raise TimeoutError(f"Path {path} did not exist after {timeout} seconds")
