@@ -124,3 +124,14 @@ class Process:
 
     def send_signal(self, signal: int) -> None:
         return self.process.send_signal(signal)
+
+    def __str__(self) -> str:
+        state = ""
+        rtn = self.process.poll()
+        if rtn is None:
+            state = "running"
+        elif rtn != 0:
+            state = f"error: {rtn}"
+        else:
+            state = "finished ok"
+        return f"Process({self.cmd}, {state})"
