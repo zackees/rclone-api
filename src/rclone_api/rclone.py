@@ -4,6 +4,7 @@ Unit test file.
 
 import subprocess
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from fnmatch import fnmatch
 from pathlib import Path
@@ -15,7 +16,6 @@ from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
-from rclone_api.filelist import FileList
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -174,9 +174,7 @@ class Rclone:
                 # self._run(cmd_list)
                 executor.submit(self._run, cmd_list)
 
-    def copy(
-        self, src: Dir | str, dst: Dir | str, filelist: FileList | None = None
-    ) -> subprocess.CompletedProcess:
+    def copy(self, src: Dir | str, dst: Dir | str) -> subprocess.CompletedProcess:
         """Copy files from source to destination.
 
         Args:
@@ -275,6 +273,12 @@ class Rclone:
                     f"Mount directory already exists and is not empty: {outdir}"
                 )
             outdir.rmdir()
+        try:
+            outdir.parent.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            warnings.warn(
+                f"Permission error creating parent directory: {outdir.parent}"
+            )
         src_str = convert_to_str(src)
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         if not allow_writes:
