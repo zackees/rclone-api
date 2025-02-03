@@ -347,7 +347,12 @@ class Rclone:
         outdir: Path,
         allow_writes=False,
         vfs_cache_mode="full",
-        transfers: int | None = 16,
+        # dir-cache-time
+        dir_cache_time: str | None = "96h",
+        attribute_timeout: str | None = "1h",
+        # vfs-cache-max-size
+        vfs_disk_space_total_size: str | None = "100M",
+        transfers: int | None = 128,
         modtime_strategy: (
             ModTimeStrategy | None
         ) = ModTimeStrategy.USE_SERVER_MODTIME,  # speeds up S3 operations
@@ -366,10 +371,22 @@ class Rclone:
         if modtime_strategy is not None:
             other_cmds.append(f"--{modtime_strategy.value}")
         if (vfs_cache_mode == "full" or vfs_cache_mode == "writes") and (
-            transfers is not None
+            transfers is not None and "--transfers" not in other_cmds
         ):
             other_cmds.append("--transfers")
             other_cmds.append(str(transfers))
+        if dir_cache_time is not None and "--dir-cache-time" not in other_cmds:
+            other_cmds.append("--dir-cache-time")
+            other_cmds.append(dir_cache_time)
+        if (
+            vfs_disk_space_total_size is not None
+            and "--vfs-cache-max-size" not in other_cmds
+        ):
+            other_cmds.append("--vfs-cache-max-size")
+            other_cmds.append(vfs_disk_space_total_size)
+        if attribute_timeout is not None and "--attr-timeout" not in other_cmds:
+            other_cmds.append("--attr-timeout")
+            other_cmds.append(attribute_timeout)
         if vfs_read_chunk_streams:
             other_cmds.append("--vfs-read-chunk-streams")
             other_cmds.append(str(vfs_read_chunk_streams))
