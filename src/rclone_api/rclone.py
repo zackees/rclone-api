@@ -345,6 +345,7 @@ class Rclone:
         self,
         url: str,
         outdir: Path,
+        allow_writes=False,
         vfs_cache_mode="full",
         transfers: int | None = 16,
         modtime_strategy: (
@@ -380,7 +381,11 @@ class Rclone:
 
         other_cmds = other_cmds if other_cmds else None
         return self.mount(
-            url, outdir, vfs_cache_mode=vfs_cache_mode, other_cmds=other_cmds
+            url,
+            outdir,
+            allow_writes=allow_writes,
+            vfs_cache_mode=vfs_cache_mode,
+            other_cmds=other_cmds,
         )
 
     def serve_webdav(
