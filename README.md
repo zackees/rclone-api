@@ -5,7 +5,7 @@
 [![Ubuntu_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_ubuntu.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_ubuntu.yml)
 [![Win_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_win.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_win.yml)
 
-Api version of rclone. It's well tested. It's a pretty low level api without the bells and whistles of other apis, but it will get the job done.
+Api version of rclone. It's a pretty low level api without the bells and whistles of other apis, but it will get the job done. Unit tests up the wazoo. S3 Mounts on windows/linux are heavily optimized.
 
 You will need to have rclone installed and on your path.
 
