@@ -15,7 +15,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 # Change this with the version number bump.
-version = "1.0.23"
+version = "1.0.24"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -44,5 +44,5 @@ profile = "black"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
- [project.scripts]
- rclone-api-listfiles = "rclone_api.cmd.list_files:main"
+[project.scripts]
+rclone-api-listfiles = "rclone_api.cmd.list_files:main"

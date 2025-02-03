@@ -6,6 +6,7 @@ import subprocess
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Generator
@@ -21,6 +22,11 @@ from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import get_rclone_exe, to_path, wait_for_mount
 from rclone_api.walk import walk
+
+
+class ModTimeStrategy(Enum):
+    USE_SERVER_MODTIME = "use-server-modtime"
+    NO_MODTIME = "no-modtime"
 
 
 class Rclone:
@@ -299,6 +305,7 @@ class Rclone:
         url: str,
         outdir: Path,
         vfs_cache_mode="full",
+        vfs_disk_space_total_size: str | None = "10G",
         other_cmds: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
@@ -327,9 +334,54 @@ class Rclone:
         cmd_list.append(vfs_cache_mode)
         if other_cmds:
             cmd_list += other_cmds
+        if vfs_disk_space_total_size is not None:
+            cmd_list.append("--vfs-cache-max-size")
+            cmd_list.append(vfs_disk_space_total_size)
         proc = self._launch_process(cmd_list)
         wait_for_mount(outdir, proc)
         return proc
+
+    def mount_s3(
+        self,
+        url: str,
+        outdir: Path,
+        vfs_cache_mode="full",
+        transfers: int | None = 16,
+        modtime_strategy: (
+            ModTimeStrategy | None
+        ) = ModTimeStrategy.USE_SERVER_MODTIME,  # speeds up S3 operations
+        vfs_read_chunk_streams: int | None = 16,
+        vfs_read_chunk_size: str | None = "4M",
+        vfs_fast_fingerprint: bool = True,
+        other_cmds: list[str] | None = None,
+    ) -> Process:
+        """Mount a remote or directory to a local path.
+
+        Args:
+            src: Remote or directory to mount
+            outdir: Local path to mount to
+        """
+        other_cmds = other_cmds or []
+        if modtime_strategy is not None:
+            other_cmds.append(f"--{modtime_strategy.value}")
+        if (vfs_cache_mode == "full" or vfs_cache_mode == "writes") and (
+            transfers is not None
+        ):
+            other_cmds.append("--transfers")
+            other_cmds.append(str(transfers))
+        if vfs_read_chunk_streams:
+            other_cmds.append("--vfs-read-chunk-streams")
+            other_cmds.append(str(vfs_read_chunk_streams))
+        if vfs_read_chunk_size:
+            other_cmds.append("--vfs-read-chunk-size")
+            other_cmds.append(vfs_read_chunk_size)
+        if vfs_fast_fingerprint:
+            other_cmds.append("--vfs-fast-fingerprint")
+
+        other_cmds = other_cmds if other_cmds else None
+        return self.mount(
+            url, outdir, vfs_cache_mode=vfs_cache_mode, other_cmds=other_cmds
+        )
 
     def serve_webdav(
         self,
