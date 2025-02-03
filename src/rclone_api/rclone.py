@@ -348,8 +348,9 @@ class Rclone:
         allow_writes=False,
         vfs_cache_mode="full",
         # dir-cache-time
-        dir_cache_time: str | None = "96h",
+        dir_cache_time: str | None = "1h",
         attribute_timeout: str | None = "1h",
+        # --vfs-cache-max-size
         # vfs-cache-max-size
         vfs_disk_space_total_size: str | None = "100M",
         transfers: int | None = 128,
@@ -359,6 +360,8 @@ class Rclone:
         vfs_read_chunk_streams: int | None = 16,
         vfs_read_chunk_size: str | None = "4M",
         vfs_fast_fingerprint: bool = True,
+        # vfs-refresh
+        vfs_refresh: bool = True,
         other_cmds: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
@@ -384,6 +387,8 @@ class Rclone:
         ):
             other_cmds.append("--vfs-cache-max-size")
             other_cmds.append(vfs_disk_space_total_size)
+        if vfs_refresh and "--vfs-refresh" not in other_cmds:
+            other_cmds.append("--vfs-refresh")
         if attribute_timeout is not None and "--attr-timeout" not in other_cmds:
             other_cmds.append("--attr-timeout")
             other_cmds.append(attribute_timeout)
