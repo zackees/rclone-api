@@ -9,7 +9,7 @@ Api version of rclone. It's a pretty low level api without the bells and whistle
 
 You will need to have rclone installed and on your path.
 
-One of the benefits of this api is that it does not use `shell=True`, which can keep `rclone` running in some instances even when try to kill the process.
+One of the benefits of this api is that it does not use 'shell=True' so therefore ctrl-c will work well in gracefully shutting down
 
 # Install
 
