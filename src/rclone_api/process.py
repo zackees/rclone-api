@@ -56,6 +56,7 @@ class ProcessArgs:
     rclone_exe: Path
     cmd_list: list[str]
     verbose: bool | None = None
+    capture_stdout: bool | None = None
 
 
 class Process:
@@ -84,7 +85,13 @@ class Process:
         if verbose:
             cmd_str = subprocess.list2cmdline(self.cmd)
             print(f"Running: {cmd_str}")
-        self.process = subprocess.Popen(self.cmd, shell=False)
+        kwargs: dict = {}
+        kwargs["shell"] = False
+        if args.capture_stdout:
+            kwargs["stdout"] = subprocess.PIPE
+            kwargs["stderr"] = subprocess.STDOUT
+
+        self.process = subprocess.Popen(self.cmd, **kwargs)  # type: ignore
 
     def cleanup(self) -> None:
         if self.tempdir and self.needs_cleanup:

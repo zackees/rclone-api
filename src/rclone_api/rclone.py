@@ -9,11 +9,13 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
+from queue import Queue
 from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
+from rclone_api.diff import QueueItem, process_output_to_diff_stream
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
@@ -41,8 +43,8 @@ class Rclone:
     def _run(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd, check=check)
 
-    def _launch_process(self, cmd: list[str]) -> Process:
-        return self._exec.launch_process(cmd)
+    def _launch_process(self, cmd: list[str], capture: bool | None = None) -> Process:
+        return self._exec.launch_process(cmd, capture=capture)
 
     def obscure(self, password: str) -> str:
         """Obscure a password for use in rclone config files."""
@@ -106,6 +108,29 @@ class Rclone:
         # strip out ":" from the end
         tmp = [t.replace(":", "") for t in tmp]
         out = [Remote(name=t, rclone=self) for t in tmp]
+        return out
+
+    def diff_remotes(self, src: str, dst: str) -> list[str]:
+        cmd = [
+            "check",
+            src,
+            dst,
+            "--checkers",
+            "1000",
+            "--log-level",
+            "INFO",
+            "--combined",
+            "-",
+        ]
+        proc = self._launch_process(cmd, capture=True)
+        output: Queue[QueueItem | None] = Queue()
+        process_output_to_diff_stream(proc, src_slug=src, dst_slug=src, output=output)
+        out: list[str] = []
+        while not output.empty():
+            item = output.get()
+            if item is None:
+                break
+            out.append(item.line)
         return out
 
     def walk(
