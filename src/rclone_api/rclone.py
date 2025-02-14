@@ -109,7 +109,7 @@ class Rclone:
         out = [Remote(name=t, rclone=self) for t in tmp]
         return out
 
-    def diff_remotes(self, src: str, dst: str) -> list[str]:
+    def stream_diff(self, src: str, dst: str) -> list[str]:
         cmd = [
             "check",
             src,

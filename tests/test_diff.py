@@ -59,7 +59,7 @@ class RcloneDiffTests(unittest.TestCase):
         """Test copying a single file to remote storage."""
         rclone = Rclone(_generate_rclone_config())
         # path = f"dst:{BUCKET_NAME}/zachs_video"
-        listing: list[str] = rclone.diff_remotes(
+        listing: list[str] = rclone.stream_diff(
             "dst:rclone-api-unit-test", "dst:rclone-api-unit-test"
         )
         self.assertGreater(len(listing), 0)
