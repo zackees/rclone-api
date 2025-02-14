@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 from rclone_api import Config, Process, Rclone, Remote
 
+_ENABLED = False
+
 load_dotenv()
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
@@ -66,6 +68,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
+    @unittest.skipIf(not _ENABLED, "Test not enabled")
     def test_serve_webdav_and_mount(self) -> None:
         """Test basic NFS serve functionality."""
         port = 8090

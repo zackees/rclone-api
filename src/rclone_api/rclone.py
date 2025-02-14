@@ -9,13 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
-from queue import Queue
 from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
-from rclone_api.diff import QueueItem, process_output_to_diff_stream
+from rclone_api.diff import QueueItem, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
@@ -123,11 +122,9 @@ class Rclone:
             "-",
         ]
         proc = self._launch_process(cmd, capture=True)
-        output: Queue[QueueItem | None] = Queue()
-        process_output_to_diff_stream(proc, src_slug=src, dst_slug=src, output=output)
+        item: QueueItem
         out: list[str] = []
-        while not output.empty():
-            item = output.get()
+        for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=src):
             if item is None:
                 break
             out.append(item.line)

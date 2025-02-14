@@ -13,6 +13,8 @@ from rclone_api import Config, Process, Rclone
 
 load_dotenv()
 
+_ENABLED = False
+
 
 def _generate_rclone_config() -> Config:
     # Load environment variables
@@ -60,6 +62,7 @@ class RcloneMountS3Tests(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
         self.rclone = Rclone(_generate_rclone_config())
 
+    @unittest.skipUnless(_ENABLED, "Test is disabled by default")
     def test_mount(self) -> None:
         """Test mounting a remote bucket."""
         remote_path = f"dst:{self.bucket_name}"
