@@ -125,7 +125,7 @@ class Rclone:
         ]
         proc = self._launch_process(cmd, capture=True)
         item: DiffItem
-        for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=src):
+        for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=dst):
             if item is None:
                 break
             yield item

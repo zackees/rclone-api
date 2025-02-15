@@ -32,6 +32,15 @@ class DiffItem:
     def __repr__(self) -> str:
         return f"{self.type.name} {self.path}"
 
+    def full_str(self) -> str:
+        return f"{self.type.name} {self.src_prefix}/{self.path} {self.dst_prefix}/{self.path}"
+
+    def dst_path(self) -> str:
+        return f"{self.dst_prefix}/{self.path}"
+
+    def src_path(self) -> str:
+        return f"{self.src_prefix}/{self.path}"
+
 
 def _classify_diff(line: str, src_slug: str, dst_slug: str) -> DiffItem | None:
     def _new(type: DiffType, path: str) -> DiffItem:
