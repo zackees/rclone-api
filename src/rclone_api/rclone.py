@@ -14,7 +14,7 @@ from typing import Generator
 from rclone_api import Dir
 from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
-from rclone_api.diff import QueueItem, diff_stream_from_running_process
+from rclone_api.diff import DiffItem, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
@@ -122,12 +122,12 @@ class Rclone:
             "-",
         ]
         proc = self._launch_process(cmd, capture=True)
-        item: QueueItem
+        item: DiffItem
         out: list[str] = []
         for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=src):
             if item is None:
                 break
-            out.append(item.line)
+            out.append(str(item))
         return out
 
     def walk(

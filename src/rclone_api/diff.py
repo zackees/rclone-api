@@ -7,23 +7,47 @@ from typing import Generator
 from rclone_api.process import Process
 
 
-class LineType(Enum):
-    EQUAL = 1
-    MISSING_ON_SRC = 2
-    MISSING_ON_DST = 3
+class DiffType(Enum):
+    EQUAL = "="
+    MISSING_ON_SRC = (
+        "-"  # means path was missing on the source, so only in the destination
+    )
+    MISSING_ON_DST = (
+        "+"  # means path was missing on the destination, so only in the source
+    )
+    DIFFERENT = "*"  # means path was present in source and destination but different.
+    ERROR = "!"  # means there was an error
 
 
 @dataclass
-class QueueItem:
-    line_type: LineType
-    line: str
+class DiffItem:
+    type: DiffType
+    path: str
+
+    def __str__(self) -> str:
+        return f"{self.type.value} {self.path}"
+
+
+def _classify_diff(line: str, src_slug: str, dst_slug: str) -> DiffItem | None:
+    suffix = line[1:].strip() if len(line) > 0 else ""
+    if line.startswith(DiffType.EQUAL.value):
+        return DiffItem(DiffType.EQUAL, suffix)
+    if line.startswith(DiffType.MISSING_ON_SRC.value):
+        return DiffItem(DiffType.MISSING_ON_SRC, f"{dst_slug}/{suffix}")
+    if line.startswith(DiffType.MISSING_ON_DST.value):
+        return DiffItem(DiffType.MISSING_ON_DST, f"{src_slug}/{suffix}")
+    if line.startswith(DiffType.DIFFERENT.value):
+        return DiffItem(DiffType.DIFFERENT, suffix)
+    if line.startswith(DiffType.ERROR.value):
+        return DiffItem(DiffType.ERROR, suffix)
+    return None
 
 
 def _async_diff_stream_from_running_process(
     running_process: Process,
     src_slug: str,
     dst_slug: str,
-    output: Queue[QueueItem | None],
+    output: Queue[DiffItem | None],
 ) -> None:
     count = 0
     first_few_lines: list[str] = []
@@ -35,21 +59,15 @@ def _async_diff_stream_from_running_process(
                 line_str = line.decode("utf-8").strip()
                 if len(first_few_lines) < n_max:
                     first_few_lines.append(line_str)
-                if line_str.startswith("="):
-                    output.put(QueueItem(LineType.EQUAL, line_str[1:].strip()))
-                    count += 1
+                # _classify_line_type
+                diff_item: DiffItem | None = _classify_diff(
+                    line_str, src_slug, dst_slug
+                )
+                if diff_item is None:
+                    # Some other output that we don't care about, debug print etc.
                     continue
-                if line_str.startswith("-"):
-                    slug = line_str[1:].strip()
-                    # print(f"Missing on src: {slug}")
-                    output.put(QueueItem(LineType.MISSING_ON_SRC, f"{dst_slug}/{slug}"))
-                    count += 1
-                    continue
-                if line_str.startswith("+"):
-                    slug = line_str[1:].strip()
-                    output.put(QueueItem(LineType.MISSING_ON_DST, f"{src_slug}/{slug}"))
-                    count += 1
-                    continue
+                output.put(diff_item)
+                count += 1
                 # print(f"unhandled: {line_str}")
             except UnicodeDecodeError:
                 print("UnicodeDecodeError")
@@ -73,8 +91,8 @@ def diff_stream_from_running_process(
     running_process: Process,
     src_slug: str,
     dst_slug: str,
-) -> Generator[QueueItem, None, None]:
-    output: Queue[QueueItem | None] = Queue()
+) -> Generator[DiffItem, None, None]:
+    output: Queue[DiffItem | None] = Queue()
     # process_output_to_diff_stream(running_process, src_slug, dst_slug, output)
     thread = Thread(
         target=_async_diff_stream_from_running_process,
