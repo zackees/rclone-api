@@ -1,4 +1,5 @@
 from .config import Config
+from .diff import DiffItem, DiffType
 from .dir import Dir
 from .dir_listing import DirListing
 from .file import File
@@ -18,4 +19,6 @@ __all__ = [
     "DirListing",
     "FileList",
     "Process",
+    "DiffItem",
+    "DiffType",
 ]

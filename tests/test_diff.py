@@ -8,6 +8,7 @@ import unittest
 from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone
+from rclone_api.diff import DiffItem, DiffType
 
 load_dotenv()
 
@@ -58,12 +59,27 @@ class RcloneDiffTests(unittest.TestCase):
     def test_diff(self) -> None:
         """Test copying a single file to remote storage."""
         rclone = Rclone(_generate_rclone_config())
-        # path = f"dst:{BUCKET_NAME}/zachs_video"
-        listing: list[str] = rclone.stream_diff(
-            "dst:rclone-api-unit-test", "dst:rclone-api-unit-test"
-        )
-        self.assertGreater(len(listing), 0)
+        item: DiffItem
+        all: list[DiffItem] = []
+        for item in rclone.diff("dst:rclone-api-unit-test", "dst:rclone-api-unit-test"):
+            self.assertEqual(
+                item.type, DiffType.EQUAL
+            )  # should be equal because same repo
+            all.append(item)
+        self.assertGreater(len(all), 10)
+        msg = "\n".join([str(item) for item in all])
+        print(msg)
 
+        all.clear()
+        for item in rclone.diff(
+            "dst:rclone-api-unit-test/test", "dst:rclone-api-unit-test/test"
+        ):
+            self.assertEqual(item.type, DiffType.EQUAL)
+            print(item)
+            all.append(item)
+
+        msg = "\n".join([str(item) for item in all])
+        print(msg)
         print("done")
 
 

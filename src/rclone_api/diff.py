@@ -23,23 +23,34 @@ class DiffType(Enum):
 class DiffItem:
     type: DiffType
     path: str
+    src_prefix: str
+    dst_prefix: str
 
     def __str__(self) -> str:
         return f"{self.type.value} {self.path}"
 
+    def __repr__(self) -> str:
+        return f"{self.type.name} {self.path}"
+
 
 def _classify_diff(line: str, src_slug: str, dst_slug: str) -> DiffItem | None:
+    def _new(type: DiffType, path: str) -> DiffItem:
+        return DiffItem(type, path, src_prefix=src_slug, dst_prefix=dst_slug)
+
     suffix = line[1:].strip() if len(line) > 0 else ""
     if line.startswith(DiffType.EQUAL.value):
-        return DiffItem(DiffType.EQUAL, suffix)
+        return _new(DiffType.EQUAL, suffix)
     if line.startswith(DiffType.MISSING_ON_SRC.value):
-        return DiffItem(DiffType.MISSING_ON_SRC, f"{dst_slug}/{suffix}")
+        return _new(DiffType.MISSING_ON_SRC, suffix)
     if line.startswith(DiffType.MISSING_ON_DST.value):
-        return DiffItem(DiffType.MISSING_ON_DST, f"{src_slug}/{suffix}")
+        # return DiffItem(DiffType.MISSING_ON_DST, f"{src_slug}/{suffix}")
+        return _new(DiffType.MISSING_ON_DST, suffix)
     if line.startswith(DiffType.DIFFERENT.value):
-        return DiffItem(DiffType.DIFFERENT, suffix)
+        # return DiffItem(DiffType.DIFFERENT, suffix)
+        return _new(DiffType.DIFFERENT, suffix)
     if line.startswith(DiffType.ERROR.value):
-        return DiffItem(DiffType.ERROR, suffix)
+        # return DiffItem(DiffType.ERROR, suffix)
+        return _new(DiffType.ERROR, suffix)
     return None
 
 

@@ -109,7 +109,9 @@ class Rclone:
         out = [Remote(name=t, rclone=self) for t in tmp]
         return out
 
-    def stream_diff(self, src: str, dst: str) -> list[str]:
+    def diff(self, src: str, dst: str) -> Generator[DiffItem, None, None]:
+        """Be extra careful with the src and dst values. If you are off by one
+        parent directory, you will get a huge amount of false diffs."""
         cmd = [
             "check",
             src,
@@ -123,12 +125,10 @@ class Rclone:
         ]
         proc = self._launch_process(cmd, capture=True)
         item: DiffItem
-        out: list[str] = []
         for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=src):
             if item is None:
                 break
-            out.append(str(item))
-        return out
+            yield item
 
     def walk(
         self, path: Dir | Remote | str, max_depth: int = -1, breadth_first: bool = True
