@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import time
+import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -96,16 +97,17 @@ def rclone_execute(
             cmd_str = subprocess.list2cmdline(cmd)
             print(f"Running: {cmd_str}")
         cp = subprocess.run(
-            cmd, capture_output=True, encoding="utf-8", check=check, shell=False
+            cmd, capture_output=True, encoding="utf-8", check=False, shell=False
         )
         if cp.returncode != 0:
             cmd_str = subprocess.list2cmdline(cmd)
-            print(
+            warnings.warn(
                 f"Error running: {cmd_str}, returncode: {cp.returncode}\n{cp.stdout}\n{cp.stderr}"
             )
-            raise subprocess.CalledProcessError(
-                cp.returncode, cmd, cp.stdout, cp.stderr
-            )
+            if check:
+                raise subprocess.CalledProcessError(
+                    cp.returncode, cmd, cp.stdout, cp.stderr
+                )
         return cp
     finally:
         if tempdir:

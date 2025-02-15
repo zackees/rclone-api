@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Generator
 
 from rclone_api import Dir
@@ -228,8 +229,16 @@ class Rclone:
     ) -> subprocess.CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
-        cmd_list: list[str] = ["delete"] + payload
-        return self._run(cmd_list)
+        with TemporaryDirectory() as tmpdir:
+            include_files_txt = Path(tmpdir) / "include_files.txt"
+            include_files_txt.write_text("\n".join(payload), encoding="utf-8")
+            cmd_list: list[str] = [
+                "delete",
+                "--files-from",
+                include_files_txt.as_posix(),
+            ]
+            out = self._run(cmd_list)
+        return out
 
     def exists(self, path: Dir | Remote | str | File) -> bool:
         """Check if a file or directory exists."""
