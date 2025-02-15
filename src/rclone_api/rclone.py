@@ -229,15 +229,44 @@ class Rclone:
     ) -> subprocess.CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
-        with TemporaryDirectory() as tmpdir:
-            include_files_txt = Path(tmpdir) / "include_files.txt"
-            include_files_txt.write_text("\n".join(payload), encoding="utf-8")
-            cmd_list: list[str] = [
-                "delete",
-                "--files-from",
-                include_files_txt.as_posix(),
-            ]
-            out = self._run(cmd_list)
+
+        datalists: dict[str, list[str]] = {}
+
+        for f in payload:
+            remote, path = f.split(":", 1)
+            if "/" in path:
+                bucket, path = path.split("/", 1)
+                remote = f"{remote}:{bucket}"
+            else:
+                remote = f"{remote}:"
+            if remote not in datalists:
+                datalists[remote] = []
+            datalists[remote].append(path)
+
+        out: subprocess.CompletedProcess | None = None
+
+        for remote, files in datalists.items():
+            with TemporaryDirectory() as tmpdir:
+                include_files_txt = Path(tmpdir) / "include_files.txt"
+                include_files_txt.write_text("\n".join(files), encoding="utf-8")
+
+                print(include_files_txt)
+                cmd_list: list[str] = [
+                    "delete",
+                    remote,
+                    "--files-from",
+                    str(include_files_txt),
+                    "--checkers",
+                    "1000",
+                    "--transfers",
+                    "1000",
+                ]
+                out = self._run(cmd_list)
+                if out.returncode != 0:
+                    print(out)
+                    raise ValueError(f"Error deleting files: {out.stderr}")
+
+        assert out is not None
         return out
 
     def exists(self, path: Dir | Remote | str | File) -> bool:
