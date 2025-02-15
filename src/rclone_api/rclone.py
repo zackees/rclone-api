@@ -229,6 +229,13 @@ class Rclone:
     ) -> subprocess.CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
+        if len(payload) == 0:
+            return subprocess.CompletedProcess(
+                args=["rclone", "delete", "--files-from", "[]"],
+                returncode=0,
+                stdout="",
+                stderr="",
+            )
 
         datalists: dict[str, list[str]] = {}
 
