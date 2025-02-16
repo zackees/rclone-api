@@ -94,7 +94,6 @@ def _async_diff_stream_from_running_process(
                 print("UnicodeDecodeError")
                 continue
         output.put(None)
-        print("done")
     except KeyboardInterrupt:
         import _thread
 

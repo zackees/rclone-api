@@ -216,7 +216,7 @@ class Rclone:
                 include_files_txt = Path(tmpdir) / "include_files.txt"
                 include_files_txt.write_text("\n".join(files), encoding="utf-8")
 
-                print(include_files_txt)
+                # print(include_files_txt)
                 cmd_list: list[str] = [
                     "delete",
                     remote,
@@ -278,7 +278,7 @@ class Rclone:
                 include_files_txt = Path(tmpdir) / "include_files.txt"
                 include_files_txt.write_text("\n".join(files), encoding="utf-8")
 
-                print(include_files_txt)
+                # print(include_files_txt)
                 cmd_list: list[str] = [
                     "delete",
                     remote,
