@@ -15,6 +15,7 @@ from typing import Generator
 from rclone_api import Dir
 from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
+from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
@@ -224,7 +225,7 @@ class Rclone:
         cmd_list: list[str] = ["purge", str(path)]
         return self._run(cmd_list)
 
-    def deletefiles(
+    def delete_files(
         self, files: str | File | list[str] | list[File]
     ) -> subprocess.CompletedProcess:
         """Delete a directory"""
@@ -275,6 +276,12 @@ class Rclone:
 
         assert out is not None
         return out
+
+    @deprecated("delete_files")
+    def deletefiles(
+        self, files: str | File | list[str] | list[File]
+    ) -> subprocess.CompletedProcess:
+        return self.delete_files(files)
 
     def exists(self, path: Dir | Remote | str | File) -> bool:
         """Check if a file or directory exists."""
