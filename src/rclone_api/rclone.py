@@ -259,7 +259,11 @@ class Rclone:
         return CompletedProcess.from_subprocess(cp)
 
     def delete_files(
-        self, files: str | File | list[str] | list[File], check=True
+        self,
+        files: str | File | list[str] | list[File],
+        check=True,
+        rmdirs=False,
+        other_args: list[str] | None = None,
     ) -> CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
@@ -293,6 +297,10 @@ class Rclone:
                     "--transfers",
                     "1000",
                 ]
+                if rmdirs:
+                    cmd_list.append("--rmdirs")
+                if other_args:
+                    cmd_list += other_args
                 out = self._run(cmd_list)
                 completed_processes.append(out)
                 if out.returncode != 0:

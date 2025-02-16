@@ -13,3 +13,9 @@ class CompletedProcess:
     @staticmethod
     def from_subprocess(process: subprocess.CompletedProcess) -> "CompletedProcess":
         return CompletedProcess(completed=[process])
+
+    def failed(self) -> list[subprocess.CompletedProcess]:
+        return [p for p in self.completed if p.returncode != 0]
+
+    def successes(self) -> list[subprocess.CompletedProcess]:
+        return [p for p in self.completed if p.returncode == 0]
