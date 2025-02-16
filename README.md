@@ -110,7 +110,7 @@ if listing.files:
 # Delete a File
 print("\n=== Deleting a File ===")
 file_to_delete = f"dst:{BUCKET_NAME}/zachs_video/sample.png_copy"
-rclone.deletefiles([file_to_delete])
+rclone.delete_files([file_to_delete])
 print(f"Deleted {file_to_delete}")
 
 # Walk Through a Directory
