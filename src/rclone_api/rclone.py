@@ -185,10 +185,14 @@ class Rclone:
 
         yield from walk(dir_obj, max_depth=max_depth, breadth_first=breadth_first)
 
-    def cleanup(self, path: str) -> CompletedProcess:
+    def cleanup(
+        self, path: str, other_args: list[str] | None = None
+    ) -> CompletedProcess:
         """Cleanup any resources used by the Rclone instance."""
         # rclone cleanup remote:path [flags]
         cmd = ["cleanup", path]
+        if other_args:
+            cmd += other_args
         out = self._run(cmd)
         return CompletedProcess.from_subprocess(out)
 
