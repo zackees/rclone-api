@@ -57,8 +57,10 @@ class Rclone:
                 raise ValueError(f"Rclone config file not found: {rclone_conf}")
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
 
-    def _run(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
-        return self._exec.execute(cmd, check=check)
+    def _run(
+        self, cmd: list[str], check: bool = True, capture: bool | None = None
+    ) -> subprocess.CompletedProcess:
+        return self._exec.execute(cmd, check=check, capture=capture)
 
     def _launch_process(self, cmd: list[str], capture: bool | None = None) -> Process:
         return self._exec.launch_process(cmd, capture=capture)
@@ -69,6 +71,47 @@ class Rclone:
         if other_args:
             cmd += other_args
         return self._launch_process(cmd, capture=False)
+
+    def launch_server(
+        self,
+        addr: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        other_args: list[str] | None = None,
+    ) -> Process:
+        """Launch the Rclone server so it can receive commands"""
+        cmd = ["rcd"]
+        if addr is not None:
+            cmd += ["--rc-addr", addr]
+        if user is not None:
+            cmd += ["--rc-user", user]
+        if password is not None:
+            cmd += ["--rc-pass", password]
+        if other_args:
+            cmd += other_args
+        out = self._launch_process(cmd, capture=False)
+        time.sleep(1)  # Give it some time to launch
+        return out
+
+    def remote_control(
+        self,
+        addr: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        capture: bool | None = None,
+        other_args: list[str] | None = None,
+    ) -> CompletedProcess:
+        cmd = ["rc"]
+        if addr is not None:
+            cmd += ["--rc-addr", addr]
+        if user is not None:
+            cmd += ["--rc-user", user]
+        if password is not None:
+            cmd += ["--rc-pass", password]
+        if other_args:
+            cmd += other_args
+        cp = self._run(cmd, capture=capture)
+        return CompletedProcess.from_subprocess(cp)
 
     def obscure(self, password: str) -> str:
         """Obscure a password for use in rclone config files."""
