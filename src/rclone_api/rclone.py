@@ -95,14 +95,14 @@ class Rclone:
 
     def remote_control(
         self,
-        addr: str | None = None,
+        addr: str,
         user: str | None = None,
         password: str | None = None,
         capture: bool | None = None,
         other_args: list[str] | None = None,
     ) -> CompletedProcess:
         cmd = ["rc"]
-        if addr is not None:
+        if addr:
             cmd += ["--rc-addr", addr]
         if user is not None:
             cmd += ["--rc-user", user]
