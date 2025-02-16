@@ -129,15 +129,3 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 60) -> None:
         if path.exists():
             return
     raise TimeoutError(f"Path {path} did not exist after {timeout} seconds")
-
-
-def partition_files(files: list[str]) -> dict[str, list[str]]:
-    """split between filename and parent directory path"""
-    datalists: dict[str, list[str]] = {}
-    for f in files:
-        base = os.path.basename(f)
-        parent_path = os.path.dirname(f)
-        if parent_path not in datalists:
-            datalists[parent_path] = []
-        datalists[parent_path].append(base)
-    return datalists

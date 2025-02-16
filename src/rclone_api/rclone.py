@@ -21,13 +21,13 @@ from rclone_api.diff import DiffItem, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
+from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import (
     get_rclone_exe,
     get_verbose,
-    partition_files,
     to_path,
     wait_for_mount,
 )
@@ -218,7 +218,7 @@ class Rclone:
         if len(payload) == 0:
             return
 
-        datalists: dict[str, list[str]] = partition_files(payload)
+        datalists: dict[str, list[str]] = group_files(payload)
         out: subprocess.CompletedProcess | None = None
 
         futures: list[Future] = []
@@ -297,7 +297,7 @@ class Rclone:
             )
             return CompletedProcess.from_subprocess(cp)
 
-        datalists: dict[str, list[str]] = partition_files(payload)
+        datalists: dict[str, list[str]] = group_files(payload)
         completed_processes: list[subprocess.CompletedProcess] = []
         verbose = get_verbose(verbose)
 
