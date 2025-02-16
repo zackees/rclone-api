@@ -5,7 +5,6 @@ Unit test file.
 import subprocess
 import time
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
@@ -23,7 +22,7 @@ from rclone_api.file import File
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.util import get_rclone_exe, to_path, wait_for_mount
+from rclone_api.util import get_rclone_exe, partition_files, to_path, wait_for_mount
 from rclone_api.walk import walk
 
 
@@ -184,7 +183,7 @@ class Rclone:
         cmd_list: list[str] = ["copyto", src, dst]
         self._run(cmd_list)
 
-    def copyfiles(self, filelist: dict[File, File] | dict[str, str]) -> None:
+    def copy_to(self, src: File | str, dst: File | str) -> None:
         """Copy multiple files from source to destination.
 
         Warning - slow.
@@ -192,17 +191,48 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
-        str_dict: dict[str, str] = {}
-        for src, dst in filelist.items():
-            src = src if isinstance(src, str) else str(src.path)
-            dst = dst if isinstance(dst, str) else str(dst.path)
-            str_dict[src] = dst
+        src = str(src)
+        dst = str(dst)
+        cmd_list: list[str] = ["copyto", src, dst]
+        self._run(cmd_list)
 
-        with ThreadPoolExecutor(max_workers=64) as executor:
-            for src, dst in str_dict.items():  # warning - slow
-                cmd_list: list[str] = ["copyto", src, dst]
-                # self._run(cmd_list)
-                executor.submit(self._run, cmd_list)
+    def copyfiles(self, files: str | File | list[str] | list[File]) -> None:
+        """Copy multiple files from source to destination.
+
+        Warning - slow.
+
+        Args:
+            payload: Dictionary of source and destination file paths
+        """
+        payload: list[str] = convert_to_filestr_list(files)
+        if len(payload) == 0:
+            return
+
+        datalists: dict[str, list[str]] = partition_files(payload)
+        out: subprocess.CompletedProcess | None = None
+
+        for remote, files in datalists.items():
+            with TemporaryDirectory() as tmpdir:
+                include_files_txt = Path(tmpdir) / "include_files.txt"
+                include_files_txt.write_text("\n".join(files), encoding="utf-8")
+
+                print(include_files_txt)
+                cmd_list: list[str] = [
+                    "delete",
+                    remote,
+                    "--files-from",
+                    str(include_files_txt),
+                    "--checkers",
+                    "1000",
+                    "--transfers",
+                    "1000",
+                ]
+                out = self._run(cmd_list)
+                if out.returncode != 0:
+                    print(out)
+                    raise ValueError(f"Error deleting files: {out.stderr}")
+
+        assert out is not None
 
     def copy(self, src: Dir | str, dst: Dir | str) -> subprocess.CompletedProcess:
         """Copy files from source to destination.
@@ -238,19 +268,7 @@ class Rclone:
                 stderr="",
             )
 
-        datalists: dict[str, list[str]] = {}
-
-        for f in payload:
-            remote, path = f.split(":", 1)
-            if "/" in path:
-                bucket, path = path.split("/", 1)
-                remote = f"{remote}:{bucket}"
-            else:
-                remote = f"{remote}:"
-            if remote not in datalists:
-                datalists[remote] = []
-            datalists[remote].append(path)
-
+        datalists: dict[str, list[str]] = partition_files(payload)
         out: subprocess.CompletedProcess | None = None
 
         for remote, files in datalists.items():
@@ -288,8 +306,9 @@ class Rclone:
         arg: str = convert_to_str(path)
         assert isinstance(arg, str)
         try:
-            self.ls(arg)
-            return True
+            dir_listing = self.ls(arg)
+            # print(dir_listing)
+            return len(dir_listing.dirs) > 0 or len(dir_listing.files) > 0
         except subprocess.CalledProcessError:
             return False
 

@@ -83,22 +83,17 @@ class RcloneCopyTests(unittest.TestCase):
         first_file = str(listing.files[0])
         dest_file = first_file + "_copy"
 
-        # Copy the files to the same location with different names
-        filelist: dict[str, str] = {
-            first_file: dest_file,
-        }
-        # warning slow.
-        rclone.copyfiles(filelist)
-
-        delete_list: list[str] = []
-        for _, dst in filelist.items():
-            delete_list.append(dst)
+        # Copy the file to the same location with different names
+        rclone.copy_to(first_file, dest_file)
 
         # now test that the new file exists
         exists = rclone.exists(dest_file)
         self.assertTrue(exists)
 
-        rclone.delete_files(delete_list)
+        rclone.delete_files(dest_file)
+        print(f"Checking that {dest_file} was deleted")
+        deleted = rclone.exists(dest_file)
+        self.assertFalse(deleted)
         print("done")
 
 
