@@ -185,6 +185,13 @@ class Rclone:
 
         yield from walk(dir_obj, max_depth=max_depth, breadth_first=breadth_first)
 
+    def cleanup(self, path: str) -> CompletedProcess:
+        """Cleanup any resources used by the Rclone instance."""
+        # rclone cleanup remote:path [flags]
+        cmd = ["cleanup", path]
+        out = self._run(cmd)
+        return CompletedProcess.from_subprocess(out)
+
     def copyfile(self, src: File | str, dst: File | str) -> None:
         """Copy a single file from source to destination.
 
