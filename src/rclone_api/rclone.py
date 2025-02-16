@@ -5,6 +5,7 @@ Unit test file.
 import subprocess
 import time
 import warnings
+from concurrent.futures import Future, ThreadPoolExecutor
 from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
@@ -23,8 +24,16 @@ from rclone_api.file import File
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.util import get_rclone_exe, partition_files, to_path, wait_for_mount
+from rclone_api.util import (
+    get_rclone_exe,
+    get_verbose,
+    partition_files,
+    to_path,
+    wait_for_mount,
+)
 from rclone_api.walk import walk
+
+EXECUTOR = ThreadPoolExecutor(16)
 
 
 class ModTimeStrategy(Enum):
@@ -197,7 +206,7 @@ class Rclone:
         cmd_list: list[str] = ["copyto", src, dst]
         self._run(cmd_list)
 
-    def copyfiles(self, files: str | File | list[str] | list[File]) -> None:
+    def copyfiles(self, files: str | File | list[str] | list[File], check=True) -> None:
         """Copy multiple files from source to destination.
 
         Warning - slow.
@@ -212,28 +221,39 @@ class Rclone:
         datalists: dict[str, list[str]] = partition_files(payload)
         out: subprocess.CompletedProcess | None = None
 
+        futures: list[Future] = []
+
         for remote, files in datalists.items():
-            with TemporaryDirectory() as tmpdir:
-                include_files_txt = Path(tmpdir) / "include_files.txt"
-                include_files_txt.write_text("\n".join(files), encoding="utf-8")
 
-                # print(include_files_txt)
-                cmd_list: list[str] = [
-                    "delete",
-                    remote,
-                    "--files-from",
-                    str(include_files_txt),
-                    "--checkers",
-                    "1000",
-                    "--transfers",
-                    "1000",
-                ]
-                out = self._run(cmd_list)
-                if out.returncode != 0:
-                    print(out)
+            def _task(files=files) -> subprocess.CompletedProcess:
+                with TemporaryDirectory() as tmpdir:
+                    include_files_txt = Path(tmpdir) / "include_files.txt"
+                    include_files_txt.write_text("\n".join(files), encoding="utf-8")
+
+                    # print(include_files_txt)
+                    cmd_list: list[str] = [
+                        "delete",
+                        remote,
+                        "--files-from",
+                        str(include_files_txt),
+                        "--checkers",
+                        "1000",
+                        "--transfers",
+                        "1000",
+                    ]
+                    out = self._run(cmd_list)
+                    return out
+
+            fut: Future = EXECUTOR.submit(_task)
+            futures.append(fut)
+        for fut in futures:
+            out = fut.result()
+            assert out is not None
+            if out.returncode != 0:
+                if check:
                     raise ValueError(f"Error deleting files: {out.stderr}")
-
-        assert out is not None
+                else:
+                    warnings.warn(f"Error deleting files: {out.stderr}")
 
     def copy(self, src: Dir | str, dst: Dir | str) -> CompletedProcess:
         """Copy files from source to destination.
@@ -263,6 +283,7 @@ class Rclone:
         files: str | File | list[str] | list[File],
         check=True,
         rmdirs=False,
+        verbose: bool | None = None,
         other_args: list[str] | None = None,
     ) -> CompletedProcess:
         """Delete a directory"""
@@ -277,40 +298,52 @@ class Rclone:
             return CompletedProcess.from_subprocess(cp)
 
         datalists: dict[str, list[str]] = partition_files(payload)
-        out: subprocess.CompletedProcess | None = None
-
         completed_processes: list[subprocess.CompletedProcess] = []
+        verbose = get_verbose(verbose)
+
+        futures: list[Future] = []
 
         for remote, files in datalists.items():
-            with TemporaryDirectory() as tmpdir:
-                include_files_txt = Path(tmpdir) / "include_files.txt"
-                include_files_txt.write_text("\n".join(files), encoding="utf-8")
 
-                # print(include_files_txt)
-                cmd_list: list[str] = [
-                    "delete",
-                    remote,
-                    "--files-from",
-                    str(include_files_txt),
-                    "--checkers",
-                    "1000",
-                    "--transfers",
-                    "1000",
-                ]
-                if rmdirs:
-                    cmd_list.append("--rmdirs")
-                if other_args:
-                    cmd_list += other_args
-                out = self._run(cmd_list)
-                completed_processes.append(out)
+            def _task(files=files, check=check) -> subprocess.CompletedProcess:
+                with TemporaryDirectory() as tmpdir:
+                    include_files_txt = Path(tmpdir) / "include_files.txt"
+                    include_files_txt.write_text("\n".join(files), encoding="utf-8")
+
+                    # print(include_files_txt)
+                    cmd_list: list[str] = [
+                        "delete",
+                        remote,
+                        "--files-from",
+                        str(include_files_txt),
+                        "--checkers",
+                        "1000",
+                        "--transfers",
+                        "1000",
+                    ]
+                    if verbose:
+                        cmd_list.append("-vvvv")
+                    if rmdirs:
+                        cmd_list.append("--rmdirs")
+                    if other_args:
+                        cmd_list += other_args
+                    out = self._run(cmd_list, check=check)
                 if out.returncode != 0:
                     if check:
                         completed_processes.append(out)
                         raise ValueError(f"Error deleting files: {out}")
                     else:
                         warnings.warn(f"Error deleting files: {out}")
+                return out
 
-        assert out is not None
+            fut: Future = EXECUTOR.submit(_task)
+            futures.append(fut)
+
+        for fut in futures:
+            out = fut.result()
+            assert out is not None
+            completed_processes.append(out)
+
         return CompletedProcess(completed_processes)
 
     @deprecated("delete_files")
