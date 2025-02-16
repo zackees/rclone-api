@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 from typing import Generator
 
 from rclone_api import Dir
+from rclone_api.completed_process import CompletedProcess
 from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
@@ -234,7 +235,7 @@ class Rclone:
 
         assert out is not None
 
-    def copy(self, src: Dir | str, dst: Dir | str) -> subprocess.CompletedProcess:
+    def copy(self, src: Dir | str, dst: Dir | str) -> CompletedProcess:
         """Copy files from source to destination.
 
         Args:
@@ -246,27 +247,30 @@ class Rclone:
         src_dir = convert_to_str(src)
         dst_dir = convert_to_str(dst)
         cmd_list: list[str] = ["copy", src_dir, dst_dir]
-        return self._run(cmd_list)
+        cp = self._run(cmd_list)
+        return CompletedProcess.from_subprocess(cp)
 
-    def purge(self, path: Dir | str) -> subprocess.CompletedProcess:
+    def purge(self, path: Dir | str) -> CompletedProcess:
         """Purge a directory"""
         # path should always be a string
         path = path if isinstance(path, str) else str(path.path)
         cmd_list: list[str] = ["purge", str(path)]
-        return self._run(cmd_list)
+        cp = self._run(cmd_list)
+        return CompletedProcess.from_subprocess(cp)
 
     def delete_files(
         self, files: str | File | list[str] | list[File], check=True
-    ) -> subprocess.CompletedProcess:
+    ) -> CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
         if len(payload) == 0:
-            return subprocess.CompletedProcess(
+            cp = subprocess.CompletedProcess(
                 args=["rclone", "delete", "--files-from", "[]"],
                 returncode=0,
                 stdout="",
                 stderr="",
             )
+            return CompletedProcess.from_subprocess(cp)
 
         datalists: dict[str, list[str]] = partition_files(payload)
         out: subprocess.CompletedProcess | None = None
@@ -299,13 +303,14 @@ class Rclone:
                         warnings.warn(f"Error deleting files: {out}")
 
         assert out is not None
-        return out
+        return CompletedProcess(completed_processes)
 
     @deprecated("delete_files")
     def deletefiles(
         self, files: str | File | list[str] | list[File]
-    ) -> subprocess.CompletedProcess:
-        return self.delete_files(files)
+    ) -> CompletedProcess:
+        out = self.delete_files(files)
+        return out
 
     def exists(self, path: Dir | Remote | str | File) -> bool:
         """Check if a file or directory exists."""
@@ -331,7 +336,7 @@ class Rclone:
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
-    ) -> subprocess.CompletedProcess:
+    ) -> CompletedProcess:
         """Copy a directory from source to destination."""
         # convert src to str, also dst
         src = convert_to_str(src)
@@ -339,16 +344,19 @@ class Rclone:
         cmd_list: list[str] = ["copy", src, dst]
         if args is not None:
             cmd_list += args
-        return self._run(cmd_list)
+        cp = self._run(cmd_list)
+        return CompletedProcess.from_subprocess(cp)
 
     def copy_remote(
         self, src: Remote, dst: Remote, args: list[str] | None = None
-    ) -> subprocess.CompletedProcess:
+    ) -> CompletedProcess:
         """Copy a remote to another remote."""
         cmd_list: list[str] = ["copy", str(src), str(dst)]
         if args is not None:
             cmd_list += args
-        return self._run(cmd_list)
+        # return self._run(cmd_list)
+        cp = self._run(cmd_list)
+        return CompletedProcess.from_subprocess(cp)
 
     def mount(
         self,
