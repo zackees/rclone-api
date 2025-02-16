@@ -256,7 +256,7 @@ class Rclone:
         return self._run(cmd_list)
 
     def delete_files(
-        self, files: str | File | list[str] | list[File]
+        self, files: str | File | list[str] | list[File], check=True
     ) -> subprocess.CompletedProcess:
         """Delete a directory"""
         payload: list[str] = convert_to_filestr_list(files)
@@ -270,6 +270,8 @@ class Rclone:
 
         datalists: dict[str, list[str]] = partition_files(payload)
         out: subprocess.CompletedProcess | None = None
+
+        completed_processes: list[subprocess.CompletedProcess] = []
 
         for remote, files in datalists.items():
             with TemporaryDirectory() as tmpdir:
@@ -288,9 +290,13 @@ class Rclone:
                     "1000",
                 ]
                 out = self._run(cmd_list)
+                completed_processes.append(out)
                 if out.returncode != 0:
-                    print(out)
-                    raise ValueError(f"Error deleting files: {out.stderr}")
+                    if check:
+                        completed_processes.append(out)
+                        raise ValueError(f"Error deleting files: {out}")
+                    else:
+                        warnings.warn(f"Error deleting files: {out}")
 
         assert out is not None
         return out
