@@ -39,10 +39,10 @@ class TreeNode:
         self.count = 0
         self.parent = parent
 
-    def add_count(self):
+    def add_count_bubble_up(self):
         self.count += 1
         if self.parent:
-            self.parent.add_count()
+            self.parent.add_count_bubble_up()
 
     def get_path(self) -> str:
         paths_reversed: list[str] = [self.name]
@@ -85,9 +85,6 @@ def _merge(node: TreeNode, parent_path: str, out: dict[str, list[str]]) -> None:
     if node.files:
         # we saw files, to don't try to go any deeper.
         filelist = out.setdefault(parent_path, [])
-        # for file in node.files:
-        #    filelist.append(file)
-        # out[parent_path] = filelist
         paths = node.get_child_subpaths()
         for path in paths:
             filelist.append(path)
@@ -97,17 +94,11 @@ def _merge(node: TreeNode, parent_path: str, out: dict[str, list[str]]) -> None:
     n_child_nodes = len(node.child_nodes)
 
     if n_child_nodes <= 2:
-        # child = list(node.child_nodes.values())[0]
-        # _merge(child, parent_path, out)
-        # return
         for child in node.child_nodes.values():
             _merge(child, parent_path, out)
         return
 
     filelist = out.setdefault(parent_path, [])
-    # for file in node.files:
-    #    filelist.append(file)
-    # out[parent_path] = filelist
     paths = node.get_child_subpaths()
     for path in paths:
         filelist.append(path)
@@ -126,16 +117,12 @@ def _make_tree(files: list[str]) -> dict[str, TreeNode]:
             node = node.child_nodes.setdefault(parent, TreeNode(parent, parent=node))
             if is_last:
                 node.files.append(parts.name)
-                node.add_count()
+                node.add_count_bubble_up()
     return tree
 
 
-def group_files(files: list[str]) -> dict[str, list[str]]:
-    """split between filename and parent directory path"""
-    tree: dict[str, TreeNode] = _make_tree(files)
-    outpaths: dict[str, list[str]] = {}
-    for _, node in tree.items():
-        _merge(node, "", outpaths)
+#
+def _fixup_rclone_paths(outpaths: dict[str, list[str]]) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for path, files in outpaths.items():
         # fixup path
@@ -145,3 +132,16 @@ def group_files(files: list[str]) -> dict[str, list[str]]:
         path = path.replace("/", ":", 1)
         out[path] = files
     return out
+
+
+def group_files(files: list[str]) -> dict[str, list[str]]:
+    """split between filename and parent directory path"""
+    tree: dict[str, TreeNode] = _make_tree(files)
+    outpaths: dict[str, list[str]] = {}
+    for _, node in tree.items():
+        _merge(node, "", outpaths)
+    out: dict[str, list[str]] = _fixup_rclone_paths(outpaths=outpaths)
+    return out
+
+
+__all__ = ["group_files"]
