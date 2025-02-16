@@ -63,6 +63,13 @@ class Rclone:
     def _launch_process(self, cmd: list[str], capture: bool | None = None) -> Process:
         return self._exec.launch_process(cmd, capture=capture)
 
+    def webgui(self, other_args: list[str] | None = None) -> Process:
+        """Launch the Rclone web GUI."""
+        cmd = ["rcd", "--rc-web-gui"]
+        if other_args:
+            cmd += other_args
+        return self._launch_process(cmd, capture=False)
+
     def obscure(self, password: str) -> str:
         """Obscure a password for use in rclone config files."""
         cmd_list: list[str] = ["obscure", password]
