@@ -5,7 +5,7 @@ from .dir_listing import DirListing
 from .file import File
 from .filelist import FileList
 from .process import Process
-from .rclone import Rclone
+from .rclone import Rclone, rclone_verbose
 from .remote import Remote
 from .rpath import RPath
 
@@ -21,4 +21,5 @@ __all__ = [
     "Process",
     "DiffItem",
     "DiffType",
+    "rclone_verbose",
 ]

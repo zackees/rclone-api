@@ -2,6 +2,7 @@
 Unit test file.
 """
 
+import os
 import subprocess
 import time
 import warnings
@@ -34,6 +35,12 @@ from rclone_api.util import (
 from rclone_api.walk import walk
 
 EXECUTOR = ThreadPoolExecutor(16)
+
+
+def rclone_verbose(verbose: bool | None) -> bool:
+    if verbose is not None:
+        os.environ["RCLONE_API_VERBOSE"] = "1" if verbose else "0"
+    return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
 
 
 class ModTimeStrategy(Enum):
