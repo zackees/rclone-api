@@ -76,6 +76,26 @@ class GroupFilestest(unittest.TestCase):
         self.assertIn(expected_files[1], groups["dst:Bucket/subdir2"])
         print("done")
 
+    def test_two_fine_grained(self) -> None:
+        files = [
+            "dst:TorrentBooks/libgenrs_nonfiction/204000/a2b20b2c89240ce81dec16091e18113e",
+            "dst:TorrentBooks/libgenrs_nonfiction/208000/155fe185bc03048b003a8e145ed097c8",
+            "dst:TorrentBooks/libgenrs_nonfiction/208001/155fe185bc03048b003a8e145ed097c8",
+            "dst:TorrentBooks/libgenrs_nonfiction/208002/155fe185bc03048b003a8e145ed097c8",
+            "dst:TorrentBooks/libgenrs_nonfiction/2080054/155fe185bc03048b003a8e145ed097c4",
+        ]
+        # expect that this all goes under the same parent
+        groups: dict[str, list[str]] = group_files(files)
+        self.assertEqual(len(groups), 1)
+        # dst:/Bucket/subdir should be the key
+        self.assertIn("dst:TorrentBooks/libgenrs_nonfiction", groups)
+        self.assertEqual(len(groups["dst:TorrentBooks/libgenrs_nonfiction"]), 5)
+        expected_files = [
+            "204000/a2b20b2c89240ce81dec16091e18113e",
+            "208000/155fe185bc03048b003a8e145ed097c8",
+        ]
+        self.assertIn(expected_files[0], groups["dst:TorrentBooks/libgenrs_nonfiction"])
+
 
 if __name__ == "__main__":
     unittest.main()
