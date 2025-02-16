@@ -96,7 +96,7 @@ def _merge(node: TreeNode, parent_path: str, out: dict[str, list[str]]) -> None:
 
     n_child_nodes = len(node.child_nodes)
 
-    if n_child_nodes < 4:
+    if n_child_nodes <= 2:
         # child = list(node.child_nodes.values())[0]
         # _merge(child, parent_path, out)
         # return
