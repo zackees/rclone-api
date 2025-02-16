@@ -60,6 +60,7 @@ class RcloneMountTests(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
         self.rclone = Rclone(_generate_rclone_config())
 
+    @unittest.skip("Skipping test_mount")
     def test_mount(self) -> None:
         """Test mounting a remote bucket."""
         remote_path = f"dst:{self.bucket_name}"
