@@ -273,6 +273,7 @@ class Rclone:
         dst: str,
         files: list[str],
         check=True,
+        verbose: bool | None = None,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
         """Copy multiple files from source to destination.
@@ -280,6 +281,7 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
+        verbose = get_verbose(verbose)
         payload: list[str] = convert_to_filestr_list(files)
         if len(payload) == 0:
             return []
@@ -293,6 +295,10 @@ class Rclone:
         for common_prefix, files in datalists.items():
 
             def _task(files=files) -> subprocess.CompletedProcess:
+                if verbose:
+                    nfiles = len(files)
+                    files_str = "\n".join(files)
+                    print(f"Copying {nfiles} files: \n{files_str}")
                 with TemporaryDirectory() as tmpdir:
                     include_files_txt = Path(tmpdir) / "include_files.txt"
                     include_files_txt.write_text("\n".join(files), encoding="utf-8")
@@ -314,6 +320,8 @@ class Rclone:
                         "--transfers",
                         "1000",
                     ]
+                    if verbose:
+                        cmd_list.append("-vvvv")
                     if other_args is not None:
                         cmd_list += other_args
                     out = self._run(cmd_list)
@@ -364,8 +372,11 @@ class Rclone:
         other_args: list[str] | None = None,
     ) -> CompletedProcess:
         """Delete a directory"""
+        verbose = get_verbose(verbose)
         payload: list[str] = convert_to_filestr_list(files)
         if len(payload) == 0:
+            if verbose:
+                print("No files to delete")
             cp = subprocess.CompletedProcess(
                 args=["rclone", "delete", "--files-from", "[]"],
                 returncode=0,
@@ -376,7 +387,6 @@ class Rclone:
 
         datalists: dict[str, list[str]] = group_files(payload)
         completed_processes: list[subprocess.CompletedProcess] = []
-        verbose = get_verbose(verbose)
 
         futures: list[Future] = []
 
