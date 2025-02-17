@@ -284,7 +284,7 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
-        max_partition_workers = max_partition_workers or 8
+        max_partition_workers = max_partition_workers or 1
         low_level_retries = low_level_retries or 10
         retries = retries or 3
         other_args = other_args or []
