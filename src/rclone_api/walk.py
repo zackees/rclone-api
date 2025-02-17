@@ -10,14 +10,17 @@ _MAX_OUT_QUEUE_SIZE = 50
 
 
 def _walk_runner_breadth_first(
-    dir: Dir, max_depth: int, out_queue: Queue[DirListing | None]
+    dir: Dir,
+    max_depth: int,
+    out_queue: Queue[DirListing | None],
+    reverse: bool = False,
 ) -> None:
     queue: Queue[Dir] = Queue()
     queue.put(dir)
     try:
         while not queue.empty():
             current_dir = queue.get()
-            dirlisting = current_dir.ls()
+            dirlisting = current_dir.ls(max_depth=0, reverse=reverse)
             out_queue.put(dirlisting)
             dirs = dirlisting.dirs
 
@@ -38,20 +41,22 @@ def _walk_runner_breadth_first(
 
 
 def _walk_runner_depth_first(
-    dir: Dir, max_depth: int, out_queue: Queue[DirListing | None]
+    dir: Dir, max_depth: int, out_queue: Queue[DirListing | None], reverse=False
 ) -> None:
     try:
         stack = [(dir, max_depth)]
         while stack:
             current_dir, depth = stack.pop()
             dirlisting = current_dir.ls()
+            if reverse:
+                dirlisting.dirs.reverse()
             if depth != 0:
-                for subdir in reversed(
-                    dirlisting.dirs
-                ):  # Process deeper directories first
+                for subdir in dirlisting.dirs:  # Process deeper directories first
                     # stack.append((child, depth - 1 if depth > 0 else depth))
                     next_depth = depth - 1 if depth > 0 else depth
-                    _walk_runner_depth_first(subdir, next_depth, out_queue)
+                    _walk_runner_depth_first(
+                        subdir, next_depth, out_queue, reverse=reverse
+                    )
             out_queue.put(dirlisting)
         out_queue.put(None)
     except KeyboardInterrupt:
@@ -65,6 +70,7 @@ def walk(
     dir: Dir | Remote,
     breadth_first: bool,
     max_depth: int = -1,
+    reverse: bool = False,
 ) -> Generator[DirListing, None, None]:
     """Walk through the given directory recursively.
 
@@ -88,7 +94,7 @@ def walk(
         # Start worker thread
         worker = Thread(
             target=strategy,
-            args=(dir, max_depth, out_queue),
+            args=(dir, max_depth, out_queue, reverse),
             daemon=True,
         )
         worker.start()

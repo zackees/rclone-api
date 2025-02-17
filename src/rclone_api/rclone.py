@@ -122,6 +122,7 @@ class Rclone:
         path: Dir | Remote | str,
         max_depth: int | None = None,
         glob: str | None = None,
+        reverse: bool = False,
     ) -> DirListing:
         """List files in the given path.
 
@@ -162,6 +163,9 @@ class Rclone:
         # do we have a glob pattern?
         if glob is not None:
             paths = [p for p in paths if fnmatch(p.path, glob)]
+
+        if reverse:
+            paths.reverse()
         return DirListing(paths)
 
     def listremotes(self) -> list[Remote]:
@@ -215,7 +219,11 @@ class Rclone:
             yield item
 
     def walk(
-        self, path: Dir | Remote | str, max_depth: int = -1, breadth_first: bool = True
+        self,
+        path: Dir | Remote | str,
+        max_depth: int = -1,
+        breadth_first: bool = True,
+        reverse: bool = False,
     ) -> Generator[DirListing, None, None]:
         """Walk through the given path recursively.
 
@@ -249,7 +257,9 @@ class Rclone:
             dir_obj = Dir(path)  # shut up pyright
             assert f"Invalid type for path: {type(path)}"
 
-        yield from walk(dir_obj, max_depth=max_depth, breadth_first=breadth_first)
+        yield from walk(
+            dir_obj, max_depth=max_depth, breadth_first=breadth_first, reverse=reverse
+        )
 
     def cleanup(
         self, path: str, other_args: list[str] | None = None
