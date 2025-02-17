@@ -261,7 +261,13 @@ class Rclone:
         cmd_list: list[str] = ["copyto", src, dst]
         self._run(cmd_list)
 
-    def copy_to(self, src: File | str, dst: File | str) -> None:
+    def copy_to(
+        self,
+        src: File | str,
+        dst: File | str,
+        check=True,
+        other_args: list[str] | None = None,
+    ) -> None:
         """Copy multiple files from source to destination.
 
         Warning - slow.
@@ -272,9 +278,16 @@ class Rclone:
         src = str(src)
         dst = str(dst)
         cmd_list: list[str] = ["copyto", src, dst]
-        self._run(cmd_list)
+        if other_args is not None:
+            cmd_list += other_args
+        self._run(cmd_list, check=check)
 
-    def copyfiles(self, files: str | File | list[str] | list[File], check=True) -> None:
+    def copyfiles(
+        self,
+        files: str | File | list[str] | list[File],
+        check=True,
+        other_args: list[str] | None = None,
+    ) -> list[CompletedProcess]:
         """Copy multiple files from source to destination.
 
         Warning - slow.
@@ -284,10 +297,11 @@ class Rclone:
         """
         payload: list[str] = convert_to_filestr_list(files)
         if len(payload) == 0:
-            return
+            return []
 
         datalists: dict[str, list[str]] = group_files(payload)
-        out: subprocess.CompletedProcess | None = None
+        # out: subprocess.CompletedProcess | None = None
+        out: list[CompletedProcess] = []
 
         futures: list[Future] = []
 
@@ -309,19 +323,23 @@ class Rclone:
                         "--transfers",
                         "1000",
                     ]
+                    if other_args is not None:
+                        cmd_list += other_args
                     out = self._run(cmd_list)
                     return out
 
             fut: Future = EXECUTOR.submit(_task)
             futures.append(fut)
         for fut in futures:
-            out = fut.result()
-            assert out is not None
-            if out.returncode != 0:
+            cp: subprocess.CompletedProcess = fut.result()
+            assert cp is not None
+            out.append(CompletedProcess.from_subprocess(cp))
+            if cp.returncode != 0:
                 if check:
-                    raise ValueError(f"Error deleting files: {out.stderr}")
+                    raise ValueError(f"Error deleting files: {cp.stderr}")
                 else:
-                    warnings.warn(f"Error deleting files: {out.stderr}")
+                    warnings.warn(f"Error deleting files: {cp.stderr}")
+        return out
 
     def copy(self, src: Dir | str, dst: Dir | str) -> CompletedProcess:
         """Copy files from source to destination.
