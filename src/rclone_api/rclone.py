@@ -286,6 +286,12 @@ class Rclone:
         if len(payload) == 0:
             return []
 
+        for p in payload:
+            if ":" in p:
+                raise ValueError(
+                    f"Invalid file path, contains a remote, which is not allowed for copy_files: {p}"
+                )
+
         datalists: dict[str, list[str]] = group_files(payload, fully_qualified=False)
         # out: subprocess.CompletedProcess | None = None
         out: list[CompletedProcess] = []
@@ -324,7 +330,7 @@ class Rclone:
                         cmd_list.append("-vvvv")
                     if other_args is not None:
                         cmd_list += other_args
-                    out = self._run(cmd_list)
+                    out = self._run(cmd_list, capture=not verbose)
                     return out
 
             fut: Future = EXECUTOR.submit(_task)
