@@ -18,7 +18,7 @@ from rclone_api.completed_process import CompletedProcess
 from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
-from rclone_api.diff import DiffItem, diff_stream_from_running_process
+from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
@@ -45,15 +45,6 @@ def rclone_verbose(verbose: bool | None) -> bool:
 class ModTimeStrategy(Enum):
     USE_SERVER_MODTIME = "use-server-modtime"
     NO_MODTIME = "no-modtime"
-
-
-class DiffOption(Enum):
-    COMBINED = "combined"
-    MISSING_ON_SRC = "missing-on-src"
-    MISSING_ON_DST = "missing-on-dst"
-    DIFFER = "differ"
-    MATCH = "match"
-    ERROR = "error"
 
 
 class ListingOption(Enum):
@@ -245,7 +236,9 @@ class Rclone:
             cmd += other_args
         proc = self._launch_process(cmd, capture=True)
         item: DiffItem
-        for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=dst):
+        for item in diff_stream_from_running_process(
+            running_process=proc, src_slug=src, dst_slug=dst, diff_option=diff_option
+        ):
             if item is None:
                 break
             yield item
