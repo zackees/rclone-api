@@ -56,6 +56,12 @@ class DiffOption(Enum):
     ERROR = "error"
 
 
+class ListingOption(Enum):
+    DIRS_ONLY = "dirs-only"
+    FILES_ONLY = "files-only"
+    ALL = "all"
+
+
 class Rclone:
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
@@ -133,6 +139,7 @@ class Rclone:
         max_depth: int | None = None,
         glob: str | None = None,
         reverse: bool = False,
+        listing_option: ListingOption = ListingOption.ALL,
     ) -> DirListing:
         """List files in the given path.
 
@@ -156,6 +163,9 @@ class Rclone:
             if max_depth > 0:
                 cmd.append("--max-depth")
                 cmd.append(str(max_depth))
+        if listing_option != ListingOption.ALL:
+            cmd.append(f"--{listing_option.value}")
+
         cmd.append(str(path))
         remote = path.remote if isinstance(path, Dir) else path
         assert isinstance(remote, Remote)
