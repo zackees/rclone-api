@@ -27,6 +27,7 @@ from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.util import (
+    get_check,
     get_rclone_exe,
     get_verbose,
     to_path,
@@ -56,7 +57,7 @@ class Rclone:
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
 
     def _run(
-        self, cmd: list[str], check: bool = True, capture: bool | None = None
+        self, cmd: list[str], check: bool = False, capture: bool | None = None
     ) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd, check=check, capture=capture)
 
@@ -276,7 +277,7 @@ class Rclone:
         self,
         src: File | str,
         dst: File | str,
-        check=True,
+        check: bool | None = None,
         other_args: list[str] | None = None,
     ) -> None:
         """Copy multiple files from source to destination.
@@ -286,6 +287,7 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
+        check = get_check(check)
         src = src if isinstance(src, str) else str(src.path)
         dst = dst if isinstance(dst, str) else str(dst.path)
         cmd_list: list[str] = ["copyto", src, dst]
@@ -298,7 +300,7 @@ class Rclone:
         src: str,
         dst: str,
         files: list[str],
-        check=True,
+        check: bool | None = None,
         verbose: bool | None = None,
         checkers: int | None = None,
         transfers: int | None = None,
@@ -312,6 +314,7 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
+        check = get_check(check)
         max_partition_workers = max_partition_workers or 1
         low_level_retries = low_level_retries or 10
         retries = retries or 3
@@ -426,13 +429,14 @@ class Rclone:
     def delete_files(
         self,
         files: str | File | list[str] | list[File],
-        check=True,
+        check: bool | None = None,
         rmdirs=False,
         verbose: bool | None = None,
         max_partition_workers: int | None = None,
         other_args: list[str] | None = None,
     ) -> CompletedProcess:
         """Delete a directory"""
+        check = get_check(check)
         verbose = get_verbose(verbose)
         payload: list[str] = convert_to_filestr_list(files)
         if len(payload) == 0:
@@ -522,7 +526,7 @@ class Rclone:
         dst = convert_to_str(dst)
         cmd_list: list[str] = ["check", str(src), str(dst)]
         try:
-            self._run(cmd_list)
+            self._run(cmd_list, check=True)
             return True
         except subprocess.CalledProcessError:
             return False

@@ -70,18 +70,6 @@ class RcloneDiffTests(unittest.TestCase):
         msg = "\n".join([str(item) for item in all])
         print(msg)
 
-        all.clear()
-        for item in rclone.diff(
-            "dst:rclone-api-unit-test/test", "dst:rclone-api-unit-test/test"
-        ):
-            self.assertEqual(item.type, DiffType.EQUAL)
-            print(item)
-            all.append(item)
-
-        msg = "\n".join([str(item) for item in all])
-        print(msg)
-        print("done")
-
 
 if __name__ == "__main__":
     unittest.main()

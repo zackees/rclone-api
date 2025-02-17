@@ -63,6 +63,13 @@ def get_verbose(verbose: bool | None) -> bool:
     return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
 
 
+def get_check(check: bool | None) -> bool:
+    if check is not None:
+        return check
+    # get it from the environment
+    return bool(int(os.getenv("RCLONE_API_CHECK", "1")))
+
+
 def get_rclone_exe(rclone_exe: Path | None) -> Path:
     if rclone_exe is None:
 
