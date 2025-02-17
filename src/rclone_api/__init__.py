@@ -1,3 +1,4 @@
+from .completed_process import CompletedProcess
 from .config import Config
 from .diff import DiffItem, DiffType
 from .dir import Dir
@@ -22,4 +23,5 @@ __all__ = [
     "DiffItem",
     "DiffType",
     "rclone_verbose",
+    "CompletedProcess",
 ]
