@@ -201,7 +201,7 @@ class Rclone:
         ) = None,  # e. g. "1GB" - see rclone documentation: https://rclone.org/commands/rclone_check/
         diff_option: DiffOption = DiffOption.COMBINED,
         fast_list: bool = True,
-        size_only: bool = False,
+        size_only: bool | None = None,
         other_args: list[str] | None = None,
     ) -> Generator[DiffItem, None, None]:
         """Be extra careful with the src and dst values. If you are off by one
@@ -218,6 +218,11 @@ class Rclone:
             f"--{diff_option.value}",
             "-",
         ]
+        if size_only is None:
+            size_only = diff_option in [
+                DiffOption.MISSING_ON_DST,
+                DiffOption.MISSING_ON_SRC,
+            ]
         if size_only:
             cmd += ["--size-only"]
         if fast_list:
