@@ -5,7 +5,6 @@ from dataclasses import dataclass
 class FilePathParts:
     """File path dataclass."""
 
-    remote: str
     parents: list[str]
     name: str
 
@@ -13,16 +12,13 @@ class FilePathParts:
 def parse_file(file_path: str) -> FilePathParts:
     """Parse file path into parts."""
     assert not file_path.endswith("/"), "This looks like a directory path"
-    parts = file_path.split(":")
-    remote = parts[0]
-    path = parts[1]
-    if path.startswith("/"):
-        path = path[1:]
-    parents = path.split("/")
+    if file_path.startswith("/"):
+        file_path = file_path[1:]
+    parents = file_path.split("/")
     if len(parents) == 1:
-        return FilePathParts(remote=remote, parents=[], name=parents[0])
+        return FilePathParts(parents=[], name=parents[0])
     name = parents.pop()
-    return FilePathParts(remote=remote, parents=parents, name=name)
+    return FilePathParts(parents=parents, name=name)
 
 
 class TreeNode:
@@ -110,7 +106,7 @@ def _make_tree(files: list[str]) -> dict[str, TreeNode]:
     tree: dict[str, TreeNode] = {}
     for file in files:
         parts = parse_file(file)
-        remote = parts.remote
+        remote = "root"
         node: TreeNode = tree.setdefault(remote, TreeNode(remote))
         for parent in parts.parents:
             is_last = parent == parts.parents[-1]
@@ -123,13 +119,12 @@ def _make_tree(files: list[str]) -> dict[str, TreeNode]:
 
 #
 def _fixup_rclone_paths(outpaths: dict[str, list[str]]) -> dict[str, list[str]]:
+    prefix = "/root/"
     out: dict[str, list[str]] = {}
     for path, files in outpaths.items():
         # fixup path
-        assert path.startswith("/"), "Path should start with /"
-        path = path[1:]
-        # replace the first / with :
-        path = path.replace("/", ":", 1)
+        assert path.startswith(prefix), f"Path should start with {prefix}"
+        path = path[len(prefix) :]
         out[path] = files
     return out
 

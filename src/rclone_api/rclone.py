@@ -269,7 +269,9 @@ class Rclone:
 
     def copy_files(
         self,
-        files: str | File | list[str] | list[File],
+        src: str,
+        dst: str,
+        files: list[str],
         check=True,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
@@ -288,17 +290,21 @@ class Rclone:
 
         futures: list[Future] = []
 
-        for remote, files in datalists.items():
+        for common_prefix, files in datalists.items():
 
             def _task(files=files) -> subprocess.CompletedProcess:
                 with TemporaryDirectory() as tmpdir:
                     include_files_txt = Path(tmpdir) / "include_files.txt"
                     include_files_txt.write_text("\n".join(files), encoding="utf-8")
 
+                    src_path = f"{src}/{common_prefix}"
+                    dst_path = f"{dst}/{common_prefix}"
+
                     # print(include_files_txt)
                     cmd_list: list[str] = [
                         "copy",
-                        remote,
+                        src_path,
+                        dst_path,
                         "--files-from",
                         str(include_files_txt),
                         "--checkers",
