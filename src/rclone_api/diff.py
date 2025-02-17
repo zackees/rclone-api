@@ -1,4 +1,3 @@
-import warnings
 from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
@@ -72,7 +71,6 @@ def _async_diff_stream_from_running_process(
 ) -> None:
     count = 0
     first_few_lines: list[str] = []
-    check = True
     try:
         assert running_process.stdout is not None
         n_max = 10
@@ -98,16 +96,15 @@ def _async_diff_stream_from_running_process(
     except KeyboardInterrupt:
         import _thread
 
-        check = False
-
         print("KeyboardInterrupt")
         output.put(None)
         _thread.interrupt_main()
-    if count == 0 and check:
-        first_lines_str = "\n".join(first_few_lines)
-        warning_msg = f"No output from rclone check, first few lines: {first_lines_str}"
-        warnings.warn(warning_msg)
-        raise ValueError(warning_msg)
+    except Exception as e:
+        import _thread
+
+        print(f"Error: {e}")
+        output.put(None)
+        _thread.interrupt_main()
 
 
 def diff_stream_from_running_process(
