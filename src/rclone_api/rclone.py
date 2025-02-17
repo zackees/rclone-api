@@ -284,7 +284,7 @@ class Rclone:
         if len(payload) == 0:
             return []
 
-        datalists: dict[str, list[str]] = group_files(payload)
+        datalists: dict[str, list[str]] = group_files(payload, fully_qualified=False)
         # out: subprocess.CompletedProcess | None = None
         out: list[CompletedProcess] = []
 
@@ -296,10 +296,12 @@ class Rclone:
                 with TemporaryDirectory() as tmpdir:
                     include_files_txt = Path(tmpdir) / "include_files.txt"
                     include_files_txt.write_text("\n".join(files), encoding="utf-8")
-
-                    src_path = f"{src}/{common_prefix}"
-                    dst_path = f"{dst}/{common_prefix}"
-
+                    if common_prefix:
+                        src_path = f"{src}/{common_prefix}"
+                        dst_path = f"{dst}/{common_prefix}"
+                    else:
+                        src_path = src
+                        dst_path = dst
                     # print(include_files_txt)
                     cmd_list: list[str] = [
                         "copy",

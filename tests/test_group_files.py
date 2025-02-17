@@ -4,7 +4,11 @@ Unit test file.
 
 import unittest
 
-from rclone_api.group_files import group_files
+from rclone_api.group_files import group_files as _group_files
+
+
+def group_files(files: list[str]) -> dict[str, list[str]]:
+    return _group_files(files, fully_qualified=False)
 
 
 class GroupFilestest(unittest.TestCase):
@@ -26,6 +30,24 @@ class GroupFilestest(unittest.TestCase):
         ]
         self.assertIn(expected_files[0], groups["Bucket/subdir"])
         self.assertIn(expected_files[1], groups["Bucket/subdir"])
+        print("done")
+
+    def test_no_prefix(self) -> None:
+        files = [
+            "file1.txt",
+            "file2.txt",
+        ]
+        groups: dict[str, list[str]] = group_files(files)
+        self.assertEqual(len(groups), 1)
+        # Bucket/subdir should be the key
+        self.assertIn("", groups)
+        self.assertEqual(len(groups[""]), 2)
+        expected_files = [
+            "file1.txt",
+            "file2.txt",
+        ]
+        self.assertIn(expected_files[0], groups[""])
+        self.assertIn(expected_files[1], groups[""])
         print("done")
 
     def test_different_paths(self) -> None:

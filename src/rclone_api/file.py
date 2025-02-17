@@ -38,6 +38,13 @@ class File:
         """Convert the File to a JSON serializable dictionary."""
         return self.path.to_json()
 
+    def to_string(self, include_remote: bool = True) -> str:
+        """Convert the File to a string."""
+        out = str(self.path)
+        if not include_remote:
+            _, out = out.split(":", 1)
+        return out
+
     def __str__(self) -> str:
         return str(self.path)
 
