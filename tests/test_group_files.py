@@ -7,8 +7,12 @@ import unittest
 from rclone_api.group_files import group_files as _group_files
 
 
-def group_files(files: list[str]) -> dict[str, list[str]]:
-    return _group_files(files, fully_qualified=False)
+def group_files(
+    files: list[str], fully_qualified: bool | None = None
+) -> dict[str, list[str]]:
+    if fully_qualified is None:
+        fully_qualified = False
+    return _group_files(files, fully_qualified=fully_qualified)
 
 
 class GroupFilestest(unittest.TestCase):
@@ -117,6 +121,22 @@ class GroupFilestest(unittest.TestCase):
             "208000/155fe185bc03048b003a8e145ed097c8",
         ]
         self.assertIn(expected_files[0], groups["TorrentBooks/libgenrs_nonfiction"])
+
+    def test_fully_qualified(self) -> None:
+        files = [
+            "dst:TorrentBooks/libgenrs_nonfiction/204000/a2b20b2c89240ce81dec16091e18113e",
+        ]
+        # expect that this all goes under the same parent
+        groups: dict[str, list[str]] = group_files(files, fully_qualified=True)
+        self.assertEqual(len(groups), 1)
+        # Bucket/subdir should be the key
+        self.assertIn("dst:TorrentBooks/libgenrs_nonfiction", groups)
+        self.assertEqual(len(groups["dst:TorrentBooks/libgenrs_nonfiction"]), 5)
+        expected_files = [
+            "204000/a2b20b2c89240ce81dec16091e18113e",
+            "208000/155fe185bc03048b003a8e145ed097c8",
+        ]
+        self.assertIn(expected_files[0], groups["dst:TorrentBooks/libgenrs_nonfiction"])
 
 
 if __name__ == "__main__":

@@ -11,6 +11,11 @@ class FilePathParts:
 
 def parse_file(file_path: str) -> FilePathParts:
     """Parse file path into parts."""
+    parts = file_path.split(":", 1)
+    if len(parts) == 1:
+        file_path = parts[0]
+    else:
+        file_path = parts[1]
     assert not file_path.endswith("/"), "This looks like a directory path"
     if file_path.startswith("/"):
         file_path = file_path[1:]
@@ -112,7 +117,6 @@ def _make_tree(files: list[str], fully_qualified: bool) -> dict[str, TreeNode]:
         else:
             remote = file.split(":", 1)[0]
 
-        
         node: TreeNode = tree.setdefault(remote, TreeNode(remote))
         if not parts.parents:
             node.files.append(parts.name)
