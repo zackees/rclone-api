@@ -47,6 +47,15 @@ class ModTimeStrategy(Enum):
     NO_MODTIME = "no-modtime"
 
 
+class DiffOption(Enum):
+    COMBINED = "combined"
+    MISSING_ON_SRC = "missing-on-src"
+    MISSING_ON_DST = "missing-on-dst"
+    DIFFER = "differ"
+    MATCH = "match"
+    ERROR = "error"
+
+
 class Rclone:
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
@@ -190,6 +199,9 @@ class Rclone:
         max_size: (
             str | None
         ) = None,  # e. g. "1GB" - see rclone documentation: https://rclone.org/commands/rclone_check/
+        diff_option: DiffOption = DiffOption.COMBINED,
+        fast_list: bool = True,
+        size_only: bool = False,
         other_args: list[str] | None = None,
     ) -> Generator[DiffItem, None, None]:
         """Be extra careful with the src and dst values. If you are off by one
@@ -203,9 +215,13 @@ class Rclone:
             "1000",
             "--log-level",
             "INFO",
-            "--combined",
+            f"--{diff_option.value}",
             "-",
         ]
+        if size_only:
+            cmd += ["--size-only"]
+        if fast_list:
+            cmd += ["--fast-list"]
         if min_size:
             cmd += ["--min-size", min_size]
         if max_size:
