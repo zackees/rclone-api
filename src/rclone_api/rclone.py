@@ -283,6 +283,7 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
+        other_args = other_args or []
         checkers = checkers or 1000
         transfers = transfers or 32
         verbose = get_verbose(verbose)
@@ -341,15 +342,11 @@ class Rclone:
                         str(transfers),
                     ]
                     if verbose:
-                        if other_args is not None and not any(
-                            ["-v" in x for x in other_args]
-                        ):
+                        if not any(["-v" in x for x in other_args]):
                             cmd_list.append("-vvvv")
-                        if other_args is not None and not any(
-                            ["--progress" in x for x in other_args]
-                        ):
+                        if not any(["--progress" in x for x in other_args]):
                             cmd_list.append("--progress")
-                    if other_args is not None:
+                    if other_args:
                         cmd_list += other_args
                     out = self._run(cmd_list, capture=not verbose)
                     return out
