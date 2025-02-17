@@ -301,10 +301,7 @@ class Rclone:
         for common_prefix, files in datalists.items():
 
             def _task(files=files) -> subprocess.CompletedProcess:
-                if verbose:
-                    nfiles = len(files)
-                    files_str = "\n".join(files)
-                    print(f"Copying {nfiles} files: \n{files_str}")
+
                 with TemporaryDirectory() as tmpdir:
                     include_files_txt = Path(tmpdir) / "include_files.txt"
                     include_files_txt.write_text("\n".join(files), encoding="utf-8")
@@ -314,6 +311,13 @@ class Rclone:
                     else:
                         src_path = src
                         dst_path = dst
+
+                    if verbose:
+                        nfiles = len(files)
+                        files_fqdn = [f"{src_path}/{f}" for f in files]
+                        files_str = "\n".join(files_fqdn)
+                        print(f"Copying {nfiles} files: \n{files_str}")
+
                     # print(include_files_txt)
                     cmd_list: list[str] = [
                         "copy",
@@ -325,6 +329,7 @@ class Rclone:
                         "1000",
                         "--transfers",
                         "1000",
+                        "--progress",
                     ]
                     if verbose:
                         cmd_list.append("-vvvv")
