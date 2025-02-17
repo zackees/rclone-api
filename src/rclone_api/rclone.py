@@ -72,7 +72,7 @@ class Rclone:
 
     def launch_server(
         self,
-        addr: str | None = None,
+        addr: str,
         user: str | None = None,
         password: str | None = None,
         other_args: list[str] | None = None,
@@ -175,9 +175,21 @@ class Rclone:
         out = [Remote(name=t, rclone=self) for t in tmp]
         return out
 
-    def diff(self, src: str, dst: str) -> Generator[DiffItem, None, None]:
+    def diff(
+        self,
+        src: str,
+        dst: str,
+        min_size: (
+            str | None
+        ) = None,  # e. g. "1MB" - see rclone documentation: https://rclone.org/commands/rclone_check/
+        max_size: (
+            str | None
+        ) = None,  # e. g. "1GB" - see rclone documentation: https://rclone.org/commands/rclone_check/
+        other_args: list[str] | None = None,
+    ) -> Generator[DiffItem, None, None]:
         """Be extra careful with the src and dst values. If you are off by one
         parent directory, you will get a huge amount of false diffs."""
+        other_args = other_args or []
         cmd = [
             "check",
             src,
@@ -189,6 +201,12 @@ class Rclone:
             "--combined",
             "-",
         ]
+        if min_size:
+            cmd += ["--min-size", min_size]
+        if max_size:
+            cmd += ["--max-size", max_size]
+        if other_args:
+            cmd += other_args
         proc = self._launch_process(cmd, capture=True)
         item: DiffItem
         for item in diff_stream_from_running_process(proc, src_slug=src, dst_slug=dst):
