@@ -66,7 +66,7 @@ class RcloneCopyTests(unittest.TestCase):
         # Copy the file to the same location with a different name
         new_name = file.name + "_copy"
         new_path = f"dst:{BUCKET_NAME}/zachs_video/{new_name}"
-        rclone.copyfile(file, new_path)
+        rclone.copy_to(file, new_path)
         # now test that the new file exists
         listing = rclone.ls(f"dst:{BUCKET_NAME}/zachs_video/", glob=f"*{new_name}")
         self.assertEqual(len(listing.files), 1)

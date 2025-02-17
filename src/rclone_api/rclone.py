@@ -246,21 +246,6 @@ class Rclone:
         out = self._run(cmd)
         return CompletedProcess.from_subprocess(out)
 
-    def copyfile(self, src: File | str, dst: File | str) -> None:
-        """Copy a single file from source to destination.
-
-        Args:
-            src: Source file path (including remote if applicable)
-            dst: Destination file path (including remote if applicable)
-
-        Raises:
-            subprocess.CalledProcessError: If the copy operation fails
-        """
-        src = src if isinstance(src, str) else str(src.path)
-        dst = dst if isinstance(dst, str) else str(dst.path)
-        cmd_list: list[str] = ["copyto", src, dst]
-        self._run(cmd_list)
-
     def copy_to(
         self,
         src: File | str,
@@ -275,8 +260,8 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
-        src = str(src)
-        dst = str(dst)
+        src = src if isinstance(src, str) else str(src.path)
+        dst = dst if isinstance(dst, str) else str(dst.path)
         cmd_list: list[str] = ["copyto", src, dst]
         if other_args is not None:
             cmd_list += other_args
