@@ -203,17 +203,20 @@ class Rclone:
         diff_option: DiffOption = DiffOption.COMBINED,
         fast_list: bool = True,
         size_only: bool | None = None,
+        checkers: int | None = None,
         other_args: list[str] | None = None,
     ) -> Generator[DiffItem, None, None]:
         """Be extra careful with the src and dst values. If you are off by one
         parent directory, you will get a huge amount of false diffs."""
         other_args = other_args or []
+        if checkers is None or checkers < 1:
+            checkers = 1000
         cmd = [
             "check",
             src,
             dst,
             "--checkers",
-            "1000",
+            str(checkers),
             "--log-level",
             "INFO",
             f"--{diff_option.value}",

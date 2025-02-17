@@ -85,16 +85,17 @@ def walk(
         # Convert Remote to Dir if needed
         if isinstance(dir, Remote):
             dir = Dir(dir)
-        out_queue: Queue[DirListing] = Queue(maxsize=_MAX_OUT_QUEUE_SIZE)
+        out_queue: Queue[DirListing | None] = Queue(maxsize=_MAX_OUT_QUEUE_SIZE)
 
-        strategy = (
-            _walk_runner_breadth_first if breadth_first else _walk_runner_depth_first
-        )
+        def _task() -> None:
+            if breadth_first:
+                _walk_runner_breadth_first(dir, max_depth, out_queue, reverse)
+            else:
+                _walk_runner_depth_first(dir, max_depth, out_queue, reverse)
 
         # Start worker thread
         worker = Thread(
-            target=strategy,
-            args=(dir, max_depth, out_queue, reverse),
+            target=_task,
             daemon=True,
         )
         worker.start()
