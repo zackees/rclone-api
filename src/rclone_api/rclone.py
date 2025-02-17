@@ -318,9 +318,15 @@ class Rclone:
 
                     if verbose:
                         nfiles = len(files)
-                        files_fqdn = [f"{src_path}/{f}" for f in files]
-                        files_str = "\n".join(files_fqdn)
-                        print(f"Copying {nfiles} files: \n{files_str}")
+                        files_fqdn = [f"  {src_path}/{f}" for f in files]
+                        print(f"Copying {nfiles} files:")
+                        chunk_size = 100
+                        for i in range(0, nfiles, chunk_size):
+                            chunk = files_fqdn[i : i + chunk_size]
+                            files_str = "\n".join(chunk)
+                            print(f"{files_str}")
+                        # files_str = "\n".join(files_fqdn)
+                        # print(f"Copying {nfiles} files: \n{files_str}")
 
                     # print(include_files_txt)
                     cmd_list: list[str] = [
