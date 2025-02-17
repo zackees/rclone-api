@@ -232,6 +232,8 @@ class Rclone:
             cmd += ["--min-size", min_size]
         if max_size:
             cmd += ["--max-size", max_size]
+        if diff_option == DiffOption.MISSING_ON_DST:
+            cmd += ["--one-way"]
         if other_args:
             cmd += other_args
         proc = self._launch_process(cmd, capture=True)
