@@ -83,15 +83,7 @@ class RcloneCopyFilesTest(unittest.TestCase):
             print(proc.stderr)
             self.assertTrue(proc.returncode == 0)
         self.assertTrue(rclone.exists(dst_prefix))
-
-        # Copy the file to the same location with different names
-        # rclone.copy_to([first_file], [dest_file])
-
-        # now test that the new file exists
-        # exists = rclone.exists(dest_file)
-        # self.assertTrue(exists)
-
-        rclone.delete_files(dst_prefix)
+        rclone.purge(dst_prefix)
         print(f"Checking that {dst_prefix} was deleted")
         still_exists = rclone.exists(dst_prefix)
         self.assertFalse(still_exists)

@@ -5,25 +5,24 @@ from dataclasses import dataclass
 class FilePathParts:
     """File path dataclass."""
 
+    remote: str
     parents: list[str]
     name: str
 
 
 def parse_file(file_path: str) -> FilePathParts:
     """Parse file path into parts."""
-    parts = file_path.split(":", 1)
-    if len(parts) == 1:
-        file_path = parts[0]
-    else:
-        file_path = parts[1]
     assert not file_path.endswith("/"), "This looks like a directory path"
-    if file_path.startswith("/"):
-        file_path = file_path[1:]
-    parents = file_path.split("/")
+    parts = file_path.split(":")
+    remote = parts[0]
+    path = parts[1]
+    if path.startswith("/"):
+        path = path[1:]
+    parents = path.split("/")
     if len(parents) == 1:
-        return FilePathParts(parents=[], name=parents[0])
+        return FilePathParts(remote=remote, parents=[], name=parents[0])
     name = parents.pop()
-    return FilePathParts(parents=parents, name=name)
+    return FilePathParts(remote=remote, parents=parents, name=name)
 
 
 class TreeNode:
@@ -107,55 +106,62 @@ def _merge(node: TreeNode, parent_path: str, out: dict[str, list[str]]) -> None:
     return
 
 
-def _make_tree(files: list[str], fully_qualified: bool) -> dict[str, TreeNode]:
+def _make_tree(files: list[str]) -> dict[str, TreeNode]:
     tree: dict[str, TreeNode] = {}
     for file in files:
-
         parts = parse_file(file)
-        if not fully_qualified:
-            remote = "root"
-        else:
-            remote = file.split(":", 1)[0]
-
+        remote = parts.remote
         node: TreeNode = tree.setdefault(remote, TreeNode(remote))
-        if not parts.parents:
+        if parts.parents:
+            for parent in parts.parents:
+                is_last = parent == parts.parents[-1]
+                node = node.child_nodes.setdefault(
+                    parent, TreeNode(parent, parent=node)
+                )
+                if is_last:
+                    node.files.append(parts.name)
+                    node.add_count_bubble_up()
+        else:
             node.files.append(parts.name)
             node.add_count_bubble_up()
-            continue
-        for parent in parts.parents:
-            is_last = parent == parts.parents[-1]
-            node = node.child_nodes.setdefault(parent, TreeNode(parent, parent=node))
-            if is_last:
-                node.files.append(parts.name)
-                node.add_count_bubble_up()
+
     return tree
 
 
 #
-def _fixup_rclone_paths(
-    outpaths: dict[str, list[str]], fully_qualified: bool
-) -> dict[str, list[str]]:
-    prefix = "/root" if not fully_qualified else ""
+def _fixup_rclone_paths(outpaths: dict[str, list[str]]) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for path, files in outpaths.items():
         # fixup path
-        assert path.startswith(prefix), f"Path should start with {prefix}"
-        path = path[len(prefix) :]
-        if path.startswith("/"):
-            path = path[1:]
+        assert path.startswith("/"), "Path should start with /"
+        path = path[1:]
+        # replace the first / with :
+        path = path.replace("/", ":", 1)
         out[path] = files
     return out
 
 
-def group_files(files: list[str], fully_qualified=True) -> dict[str, list[str]]:
+def group_files(files: list[str], fully_qualified: bool = True) -> dict[str, list[str]]:
     """split between filename and parent directory path"""
-    tree: dict[str, TreeNode] = _make_tree(files, fully_qualified=fully_qualified)
+    if fully_qualified is False:
+        for i, file in enumerate(files):
+            file = "root:" + file
+            files[i] = file
+    tree: dict[str, TreeNode] = _make_tree(files)
     outpaths: dict[str, list[str]] = {}
     for _, node in tree.items():
         _merge(node, "", outpaths)
-    out: dict[str, list[str]] = _fixup_rclone_paths(
-        outpaths=outpaths, fully_qualified=fully_qualified
-    )
+    tmp: dict[str, list[str]] = _fixup_rclone_paths(outpaths=outpaths)
+    out: dict[str, list[str]] = {}
+    if fully_qualified is False:
+        for path, files in tmp.items():
+            if path.startswith("root"):
+                path = path.replace("root", "")
+                if path.startswith(":"):
+                    path = path[1:]
+            out[path] = [file.replace("/root/", "") for file in files]
+    else:
+        out = tmp
     return out
 
 

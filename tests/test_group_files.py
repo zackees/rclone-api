@@ -130,13 +130,14 @@ class GroupFilestest(unittest.TestCase):
         groups: dict[str, list[str]] = group_files(files, fully_qualified=True)
         self.assertEqual(len(groups), 1)
         # Bucket/subdir should be the key
-        self.assertIn("dst:TorrentBooks/libgenrs_nonfiction", groups)
-        self.assertEqual(len(groups["dst:TorrentBooks/libgenrs_nonfiction"]), 5)
+        self.assertIn("dst:TorrentBooks/libgenrs_nonfiction/204000", groups)
+        self.assertEqual(len(groups["dst:TorrentBooks/libgenrs_nonfiction/204000"]), 1)
         expected_files = [
-            "204000/a2b20b2c89240ce81dec16091e18113e",
-            "208000/155fe185bc03048b003a8e145ed097c8",
+            "a2b20b2c89240ce81dec16091e18113e",
         ]
-        self.assertIn(expected_files[0], groups["dst:TorrentBooks/libgenrs_nonfiction"])
+        self.assertIn(
+            expected_files[0], groups["dst:TorrentBooks/libgenrs_nonfiction/204000"]
+        )
 
 
 if __name__ == "__main__":

@@ -382,7 +382,9 @@ class Rclone:
 
         for remote, files in datalists.items():
 
-            def _task(files=files, check=check) -> subprocess.CompletedProcess:
+            def _task(
+                files=files, check=check, remote=remote
+            ) -> subprocess.CompletedProcess:
                 with TemporaryDirectory() as tmpdir:
                     include_files_txt = Path(tmpdir) / "include_files.txt"
                     include_files_txt.write_text("\n".join(files), encoding="utf-8")
