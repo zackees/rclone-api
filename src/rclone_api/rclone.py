@@ -267,15 +267,13 @@ class Rclone:
             cmd_list += other_args
         self._run(cmd_list, check=check)
 
-    def copyfiles(
+    def copy_files(
         self,
         files: str | File | list[str] | list[File],
         check=True,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
         """Copy multiple files from source to destination.
-
-        Warning - slow.
 
         Args:
             payload: Dictionary of source and destination file paths
