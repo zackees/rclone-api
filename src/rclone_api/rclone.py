@@ -274,6 +274,8 @@ class Rclone:
         files: list[str],
         check=True,
         verbose: bool | None = None,
+        checkers: int | None = None,
+        transfers: int | None = None,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
         """Copy multiple files from source to destination.
@@ -281,6 +283,8 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
+        checkers = checkers or 1000
+        transfers = transfers or 32
         verbose = get_verbose(verbose)
         payload: list[str] = convert_to_filestr_list(files)
         if len(payload) == 0:
@@ -326,13 +330,19 @@ class Rclone:
                         "--files-from",
                         str(include_files_txt),
                         "--checkers",
-                        "1000",
+                        str(checkers),
                         "--transfers",
-                        "1000",
-                        "--progress",
+                        str(transfers),
                     ]
                     if verbose:
-                        cmd_list.append("-vvvv")
+                        if other_args is not None and not any(
+                            ["-v" in x for x in other_args]
+                        ):
+                            cmd_list.append("-vvvv")
+                        if other_args is not None and not any(
+                            ["--progress" in x for x in other_args]
+                        ):
+                            cmd_list.append("--progress")
                     if other_args is not None:
                         cmd_list += other_args
                     out = self._run(cmd_list, capture=not verbose)
