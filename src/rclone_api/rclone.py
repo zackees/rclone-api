@@ -34,8 +34,6 @@ from rclone_api.util import (
 )
 from rclone_api.walk import walk
 
-EXECUTOR = ThreadPoolExecutor(16)
-
 
 def rclone_verbose(verbose: bool | None) -> bool:
     if verbose is not None:
@@ -276,6 +274,9 @@ class Rclone:
         verbose: bool | None = None,
         checkers: int | None = None,
         transfers: int | None = None,
+        low_level_retries: int | None = None,
+        retries: int | None = None,
+        max_partition_workers: int | None = None,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
         """Copy multiple files from source to destination.
@@ -283,6 +284,9 @@ class Rclone:
         Args:
             payload: Dictionary of source and destination file paths
         """
+        max_partition_workers = max_partition_workers or 8
+        low_level_retries = low_level_retries or 10
+        retries = retries or 3
         other_args = other_args or []
         checkers = checkers or 1000
         transfers = transfers or 32
@@ -303,65 +307,69 @@ class Rclone:
 
         futures: list[Future] = []
 
-        for common_prefix, files in datalists.items():
+        with ThreadPoolExecutor(max_workers=max_partition_workers) as executor:
+            for common_prefix, files in datalists.items():
 
-            def _task(files=files) -> subprocess.CompletedProcess:
+                def _task(files=files) -> subprocess.CompletedProcess:
+                    with TemporaryDirectory() as tmpdir:
+                        include_files_txt = Path(tmpdir) / "include_files.txt"
+                        include_files_txt.write_text("\n".join(files), encoding="utf-8")
+                        if common_prefix:
+                            src_path = f"{src}/{common_prefix}"
+                            dst_path = f"{dst}/{common_prefix}"
+                        else:
+                            src_path = src
+                            dst_path = dst
 
-                with TemporaryDirectory() as tmpdir:
-                    include_files_txt = Path(tmpdir) / "include_files.txt"
-                    include_files_txt.write_text("\n".join(files), encoding="utf-8")
-                    if common_prefix:
-                        src_path = f"{src}/{common_prefix}"
-                        dst_path = f"{dst}/{common_prefix}"
+                        if verbose:
+                            nfiles = len(files)
+                            files_fqdn = [f"  {src_path}/{f}" for f in files]
+                            print(f"Copying {nfiles} files:")
+                            chunk_size = 100
+                            for i in range(0, nfiles, chunk_size):
+                                chunk = files_fqdn[i : i + chunk_size]
+                                files_str = "\n".join(chunk)
+                                print(f"{files_str}")
+                            # files_str = "\n".join(files_fqdn)
+                            # print(f"Copying {nfiles} files: \n{files_str}")
+
+                        # print(include_files_txt)
+                        cmd_list: list[str] = [
+                            "copy",
+                            src_path,
+                            dst_path,
+                            "--files-from",
+                            str(include_files_txt),
+                            "--checkers",
+                            str(checkers),
+                            "--transfers",
+                            str(transfers),
+                            "--low-level-retries",
+                            str(low_level_retries),
+                            "--retries",
+                            str(retries),
+                        ]
+                        if verbose:
+                            if not any(["-v" in x for x in other_args]):
+                                cmd_list.append("-vvvv")
+                            if not any(["--progress" in x for x in other_args]):
+                                cmd_list.append("--progress")
+                        if other_args:
+                            cmd_list += other_args
+                        out = self._run(cmd_list, capture=not verbose)
+                        return out
+
+                fut: Future = executor.submit(_task)
+                futures.append(fut)
+            for fut in futures:
+                cp: subprocess.CompletedProcess = fut.result()
+                assert cp is not None
+                out.append(CompletedProcess.from_subprocess(cp))
+                if cp.returncode != 0:
+                    if check:
+                        raise ValueError(f"Error deleting files: {cp.stderr}")
                     else:
-                        src_path = src
-                        dst_path = dst
-
-                    if verbose:
-                        nfiles = len(files)
-                        files_fqdn = [f"  {src_path}/{f}" for f in files]
-                        print(f"Copying {nfiles} files:")
-                        chunk_size = 100
-                        for i in range(0, nfiles, chunk_size):
-                            chunk = files_fqdn[i : i + chunk_size]
-                            files_str = "\n".join(chunk)
-                            print(f"{files_str}")
-                        # files_str = "\n".join(files_fqdn)
-                        # print(f"Copying {nfiles} files: \n{files_str}")
-
-                    # print(include_files_txt)
-                    cmd_list: list[str] = [
-                        "copy",
-                        src_path,
-                        dst_path,
-                        "--files-from",
-                        str(include_files_txt),
-                        "--checkers",
-                        str(checkers),
-                        "--transfers",
-                        str(transfers),
-                    ]
-                    if verbose:
-                        if not any(["-v" in x for x in other_args]):
-                            cmd_list.append("-vvvv")
-                        if not any(["--progress" in x for x in other_args]):
-                            cmd_list.append("--progress")
-                    if other_args:
-                        cmd_list += other_args
-                    out = self._run(cmd_list, capture=not verbose)
-                    return out
-
-            fut: Future = EXECUTOR.submit(_task)
-            futures.append(fut)
-        for fut in futures:
-            cp: subprocess.CompletedProcess = fut.result()
-            assert cp is not None
-            out.append(CompletedProcess.from_subprocess(cp))
-            if cp.returncode != 0:
-                if check:
-                    raise ValueError(f"Error deleting files: {cp.stderr}")
-                else:
-                    warnings.warn(f"Error deleting files: {cp.stderr}")
+                        warnings.warn(f"Error deleting files: {cp.stderr}")
         return out
 
     def copy(self, src: Dir | str, dst: Dir | str) -> CompletedProcess:
@@ -393,6 +401,7 @@ class Rclone:
         check=True,
         rmdirs=False,
         verbose: bool | None = None,
+        max_partition_workers: int | None = None,
         other_args: list[str] | None = None,
     ) -> CompletedProcess:
         """Delete a directory"""
@@ -414,48 +423,50 @@ class Rclone:
 
         futures: list[Future] = []
 
-        for remote, files in datalists.items():
+        with ThreadPoolExecutor(max_workers=max_partition_workers) as executor:
 
-            def _task(
-                files=files, check=check, remote=remote
-            ) -> subprocess.CompletedProcess:
-                with TemporaryDirectory() as tmpdir:
-                    include_files_txt = Path(tmpdir) / "include_files.txt"
-                    include_files_txt.write_text("\n".join(files), encoding="utf-8")
+            for remote, files in datalists.items():
 
-                    # print(include_files_txt)
-                    cmd_list: list[str] = [
-                        "delete",
-                        remote,
-                        "--files-from",
-                        str(include_files_txt),
-                        "--checkers",
-                        "1000",
-                        "--transfers",
-                        "1000",
-                    ]
-                    if verbose:
-                        cmd_list.append("-vvvv")
-                    if rmdirs:
-                        cmd_list.append("--rmdirs")
-                    if other_args:
-                        cmd_list += other_args
-                    out = self._run(cmd_list, check=check)
-                if out.returncode != 0:
-                    if check:
-                        completed_processes.append(out)
-                        raise ValueError(f"Error deleting files: {out}")
-                    else:
-                        warnings.warn(f"Error deleting files: {out}")
-                return out
+                def _task(
+                    files=files, check=check, remote=remote
+                ) -> subprocess.CompletedProcess:
+                    with TemporaryDirectory() as tmpdir:
+                        include_files_txt = Path(tmpdir) / "include_files.txt"
+                        include_files_txt.write_text("\n".join(files), encoding="utf-8")
 
-            fut: Future = EXECUTOR.submit(_task)
-            futures.append(fut)
+                        # print(include_files_txt)
+                        cmd_list: list[str] = [
+                            "delete",
+                            remote,
+                            "--files-from",
+                            str(include_files_txt),
+                            "--checkers",
+                            "1000",
+                            "--transfers",
+                            "1000",
+                        ]
+                        if verbose:
+                            cmd_list.append("-vvvv")
+                        if rmdirs:
+                            cmd_list.append("--rmdirs")
+                        if other_args:
+                            cmd_list += other_args
+                        out = self._run(cmd_list, check=check)
+                    if out.returncode != 0:
+                        if check:
+                            completed_processes.append(out)
+                            raise ValueError(f"Error deleting files: {out}")
+                        else:
+                            warnings.warn(f"Error deleting files: {out}")
+                    return out
 
-        for fut in futures:
-            out = fut.result()
-            assert out is not None
-            completed_processes.append(out)
+                fut: Future = executor.submit(_task)
+                futures.append(fut)
+
+            for fut in futures:
+                out = fut.result()
+                assert out is not None
+                completed_processes.append(out)
 
         return CompletedProcess(completed_processes)
 
