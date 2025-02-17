@@ -300,7 +300,7 @@ class Rclone:
 
                     # print(include_files_txt)
                     cmd_list: list[str] = [
-                        "delete",
+                        "copy",
                         remote,
                         "--files-from",
                         str(include_files_txt),
