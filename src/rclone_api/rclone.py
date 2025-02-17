@@ -299,7 +299,7 @@ class Rclone:
         self,
         src: str,
         dst: str,
-        files: list[str],
+        files: list[str] | Path,
         check: bool | None = None,
         verbose: bool | None = None,
         checkers: int | None = None,
@@ -322,7 +322,11 @@ class Rclone:
         checkers = checkers or 1000
         transfers = transfers or 32
         verbose = get_verbose(verbose)
-        payload: list[str] = convert_to_filestr_list(files)
+        payload: list[str] = (
+            files
+            if isinstance(files, list)
+            else [f.strip() for f in files.read_text().splitlines() if f.strip()]
+        )
         if len(payload) == 0:
             return []
 
@@ -341,10 +345,26 @@ class Rclone:
         with ThreadPoolExecutor(max_workers=max_partition_workers) as executor:
             for common_prefix, files in datalists.items():
 
-                def _task(files=files) -> subprocess.CompletedProcess:
+                def _task(
+                    files: list[str] | Path = files,
+                ) -> subprocess.CompletedProcess:
                     with TemporaryDirectory() as tmpdir:
-                        include_files_txt = Path(tmpdir) / "include_files.txt"
-                        include_files_txt.write_text("\n".join(files), encoding="utf-8")
+                        filelist: list[str] = []
+                        filepath: Path
+                        if isinstance(files, list):
+                            include_files_txt = Path(tmpdir) / "include_files.txt"
+                            include_files_txt.write_text(
+                                "\n".join(files), encoding="utf-8"
+                            )
+                            filelist = list(files)
+                            filepath = Path(include_files_txt)
+                        elif isinstance(files, Path):
+                            filelist = [
+                                f.strip()
+                                for f in files.read_text().splitlines()
+                                if f.strip()
+                            ]
+                            filepath = files
                         if common_prefix:
                             src_path = f"{src}/{common_prefix}"
                             dst_path = f"{dst}/{common_prefix}"
@@ -353,8 +373,8 @@ class Rclone:
                             dst_path = dst
 
                         if verbose:
-                            nfiles = len(files)
-                            files_fqdn = [f"  {src_path}/{f}" for f in files]
+                            nfiles = len(filelist)
+                            files_fqdn = [f"  {src_path}/{f}" for f in filelist]
                             print(f"Copying {nfiles} files:")
                             chunk_size = 100
                             for i in range(0, nfiles, chunk_size):
@@ -370,7 +390,7 @@ class Rclone:
                             src_path,
                             dst_path,
                             "--files-from",
-                            str(include_files_txt),
+                            str(filepath),
                             "--checkers",
                             str(checkers),
                             "--transfers",
