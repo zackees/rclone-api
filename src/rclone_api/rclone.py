@@ -349,11 +349,15 @@ class Rclone:
         dst: str,
         files: list[str] | Path,
         check: bool | None = None,
+        max_backlog: int | None = None,
         verbose: bool | None = None,
         checkers: int | None = None,
         transfers: int | None = None,
         low_level_retries: int | None = None,
         retries: int | None = None,
+        retries_sleep: str | None = None,
+        metadata: bool | None = None,
+        timeout: str | None = None,
         max_partition_workers: int | None = None,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
@@ -444,6 +448,14 @@ class Rclone:
                             "--retries",
                             str(retries),
                         ]
+                        if metadata:
+                            cmd_list.append("--metadata")
+                        if retries_sleep is not None:
+                            cmd_list += ["--retries-sleep", retries_sleep]
+                        if timeout is not None:
+                            cmd_list += ["--timeout", timeout]
+                        if max_backlog is not None:
+                            cmd_list += ["--max-backlog", str(max_backlog)]
                         if verbose:
                             if not any(["-v" in x for x in other_args]):
                                 cmd_list.append("-vvvv")
