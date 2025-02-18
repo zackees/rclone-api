@@ -7,8 +7,8 @@ import unittest
 
 from dotenv import load_dotenv
 
-from rclone_api import Config, DiffOption, Rclone
-from rclone_api.diff import DiffItem, DiffType
+from rclone_api import Config, Rclone
+from rclone_api.diff import DiffItem, DiffOption, DiffType
 
 load_dotenv()
 

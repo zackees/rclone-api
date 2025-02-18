@@ -5,7 +5,7 @@ from typing import Generator
 from rclone_api.dir_listing import DirListing
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import ListingOption
+from rclone_api.types import ListingOption, Order
 
 
 class Dir:
@@ -47,7 +47,7 @@ class Dir:
         self,
         max_depth: int | None = None,
         glob: str | None = None,
-        reverse: bool = False,
+        order: Order = Order.NORMAL,
         listing_option: ListingOption = ListingOption.ALL,
     ) -> DirListing:
         """List files and directories in the given path."""
@@ -57,7 +57,7 @@ class Dir:
             dir,
             max_depth=max_depth,
             glob=glob,
-            reverse=reverse,
+            order=order,
             listing_option=listing_option,
         )
 

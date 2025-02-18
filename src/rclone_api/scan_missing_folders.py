@@ -1,3 +1,4 @@
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
@@ -6,7 +7,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.dir_listing import DirListing
-from rclone_api.types import ListingOption
+from rclone_api.types import ListingOption, Order
 from rclone_api.walk import walk_runner_depth_first
 
 _MAX_OUT_QUEUE_SIZE = 50
@@ -14,15 +15,15 @@ _MAX_OUT_QUEUE_SIZE = 50
 
 # ONLY Works from src -> dst diffing.
 def _async_diff_dir_walk_task(
-    src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], reverse: bool
+    src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], order: Order
 ) -> None:
     curr_src, curr_dst = src, dst
     with ThreadPoolExecutor(max_workers=2) as executor:
         t1 = executor.submit(
-            src.ls, listing_option=ListingOption.DIRS_ONLY, reverse=reverse
+            src.ls, listing_option=ListingOption.DIRS_ONLY, order=order
         )
         t2 = executor.submit(
-            dst.ls, listing_option=ListingOption.DIRS_ONLY, reverse=reverse
+            dst.ls, listing_option=ListingOption.DIRS_ONLY, order=order
         )
         src_dir_listing: DirListing = t1.result()
         dst_dir_listing: DirListing = t2.result()
@@ -31,9 +32,12 @@ def _async_diff_dir_walk_task(
     src_dirs: list[str] = [d.name for d in src_dir_listing.dirs]
     dst_files_set: set[str] = set(dst_dirs)
     matching_dirs: list[str] = []
-    if reverse:
+    if order == Order.REVERSE:
         src_dirs.reverse()
         dst_dirs.reverse()
+    elif order == Order.RANDOM:
+        random.shuffle(src_dirs)
+        random.shuffle(dst_dirs)
     for file in src_dirs:
         if file not in dst_files_set:
             queue_dir_listing: Queue[DirListing | None] = Queue()
@@ -41,7 +45,7 @@ def _async_diff_dir_walk_task(
                 walk_runner_depth_first(
                     dir=curr_src,
                     out_queue=queue_dir_listing,
-                    reverse=reverse,
+                    order=order,
                     max_depth=next_depth,
                 )
             while dirlisting := queue_dir_listing.get():
@@ -63,15 +67,17 @@ def _async_diff_dir_walk_task(
                 dst=dst_next,
                 max_depth=next_depth,
                 out_queue=out_queue,
-                reverse=reverse,
+                order=order,
             )
 
 
 def async_diff_dir_walk_task(
-    src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], reverse=False
+    src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], order: Order
 ) -> None:
     try:
-        _async_diff_dir_walk_task(src, dst, max_depth, out_queue, reverse)
+        _async_diff_dir_walk_task(
+            src=src, dst=dst, max_depth=max_depth, out_queue=out_queue, order=order
+        )
     except Exception:
         import _thread
 
@@ -85,7 +91,7 @@ def scan_missing_folders(
     src: Dir,
     dst: Dir,
     max_depth: int = -1,
-    reverse: bool = False,
+    order: Order = Order.NORMAL,
 ) -> Generator[Dir, None, None]:
     """Walk through the given directory recursively.
 
@@ -106,7 +112,7 @@ def scan_missing_folders(
                 dst=dst,
                 max_depth=max_depth,
                 out_queue=out_queue,
-                reverse=reverse,
+                order=order,
             )
 
         worker = Thread(

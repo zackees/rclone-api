@@ -8,6 +8,7 @@ import unittest
 from dotenv import load_dotenv
 
 from rclone_api import Config, Dir, Rclone
+from rclone_api.types import Order
 
 load_dotenv()
 
@@ -61,7 +62,10 @@ class RcloneScanMissingFoldersTests(unittest.TestCase):
         item: Dir
         all: list[Dir] = []
         for item in rclone.scan_missing_folders(
-            "dst:rclone-api-unit-test", "dst:rclone-api-unit-test"
+            src="dst:rclone-api-unit-test",
+            dst="dst:rclone-api-unit-test",
+            max_depth=-1,
+            order=Order.NORMAL,
         ):
             all.append(item)
         self.assertEqual(len(all), 0)

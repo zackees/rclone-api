@@ -15,7 +15,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 # Change this with the version number bump.
-version = "1.0.70"
+version = "1.0.71"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -10,3 +10,9 @@ class ListingOption(Enum):
     DIRS_ONLY = "dirs-only"
     FILES_ONLY = "files-only"
     ALL = "all"
+
+
+class Order(Enum):
+    NORMAL = "normal"
+    REVERSE = "reverse"
+    RANDOM = "random"

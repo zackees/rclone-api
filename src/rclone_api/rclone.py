@@ -3,6 +3,7 @@ Unit test file.
 """
 
 import os
+import random
 import subprocess
 import time
 import warnings
@@ -25,7 +26,7 @@ from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import ListingOption, ModTimeStrategy
+from rclone_api.types import ListingOption, ModTimeStrategy, Order
 from rclone_api.util import (
     get_check,
     get_rclone_exe,
@@ -118,7 +119,7 @@ class Rclone:
         path: Dir | Remote | str,
         max_depth: int | None = None,
         glob: str | None = None,
-        reverse: bool = False,
+        order: Order = Order.NORMAL,
         listing_option: ListingOption = ListingOption.ALL,
     ) -> DirListing:
         """List files in the given path.
@@ -164,8 +165,10 @@ class Rclone:
         if glob is not None:
             paths = [p for p in paths if fnmatch(p.path, glob)]
 
-        if reverse:
+        if order == Order.REVERSE:
             paths.reverse()
+        elif order == Order.RANDOM:
+            random.shuffle(paths)
         return DirListing(paths)
 
     def listremotes(self) -> list[Remote]:
@@ -242,7 +245,7 @@ class Rclone:
         path: Dir | Remote | str,
         max_depth: int = -1,
         breadth_first: bool = True,
-        reverse: bool = False,
+        order: Order = Order.NORMAL,
     ) -> Generator[DirListing, None, None]:
         """Walk through the given path recursively.
 
@@ -277,7 +280,7 @@ class Rclone:
             assert f"Invalid type for path: {type(path)}"
 
         yield from walk(
-            dir_obj, max_depth=max_depth, breadth_first=breadth_first, reverse=reverse
+            dir_obj, max_depth=max_depth, breadth_first=breadth_first, order=order
         )
 
     def scan_missing_folders(
@@ -285,7 +288,7 @@ class Rclone:
         src: Dir | Remote | str,
         dst: Dir | Remote | str,
         max_depth: int = -1,
-        reverse: bool = False,
+        order: Order = Order.NORMAL,
     ) -> Generator[Dir, None, None]:
         """Walk through the given path recursively.
 
@@ -304,7 +307,7 @@ class Rclone:
         src_dir = Dir(to_path(src, self))
         dst_dir = Dir(to_path(dst, self))
         yield from scan_missing_folders(
-            src=src_dir, dst=dst_dir, max_depth=max_depth, reverse=reverse
+            src=src_dir, dst=dst_dir, max_depth=max_depth, order=order
         )
 
     def cleanup(
