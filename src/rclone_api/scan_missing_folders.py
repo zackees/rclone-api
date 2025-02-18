@@ -18,12 +18,20 @@ def _async_diff_dir_walk_task(
     src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], order: Order
 ) -> None:
     curr_src, curr_dst = src, dst
+    can_scan_two_deep = max_depth > 1 or max_depth == -1
+    ls_depth = 2 if can_scan_two_deep else 1
     with ThreadPoolExecutor(max_workers=2) as executor:
         t1 = executor.submit(
-            src.ls, listing_option=ListingOption.DIRS_ONLY, order=order
+            src.ls,
+            listing_option=ListingOption.DIRS_ONLY,
+            order=order,
+            max_depth=ls_depth,
         )
         t2 = executor.submit(
-            dst.ls, listing_option=ListingOption.DIRS_ONLY, order=order
+            dst.ls,
+            listing_option=ListingOption.DIRS_ONLY,
+            order=order,
+            max_depth=ls_depth,
         )
         src_dir_listing: DirListing = t1.result()
         dst_dir_listing: DirListing = t2.result()
