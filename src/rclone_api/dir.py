@@ -66,7 +66,7 @@ class Dir:
         self_path = Path(self.path.path)
         other_path = Path(other.path.path)
         rel_path = self_path.relative_to(other_path)
-        return str(rel_path)
+        return str(rel_path.as_posix())
 
     def walk(
         self, breadth_first: bool, max_depth: int = -1
