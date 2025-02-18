@@ -55,16 +55,18 @@ def _async_diff_dir_walk_task(
     matching_dirs: list[str] = []
     _reorder_inplace(src_dirs, order)
     _reorder_inplace(dst_dirs, order)
-    for file in src_dirs:
-        if file not in dst_files_set:
+    for i, src_dir in enumerate(src_dirs):
+        if src_dir not in dst_files_set:
             queue_dir_listing: Queue[DirListing | None] = Queue()
+            src_dir_dir = curr_src / src_dir
             if next_depth > 0 or next_depth == -1:
                 walk_runner_depth_first(
-                    dir=curr_src,
+                    dir=src_dir_dir,
                     out_queue=queue_dir_listing,
                     order=order,
                     max_depth=next_depth,
                 )
+                out_queue.put(src_dir_dir)
             while dirlisting := queue_dir_listing.get():
                 if dirlisting is None:
                     break
@@ -72,7 +74,7 @@ def _async_diff_dir_walk_task(
                 for d in dirlisting.dirs:
                     out_queue.put(d)
         else:
-            matching_dirs.append(file)
+            matching_dirs.append(src_dir)
 
     for matching_dir in matching_dirs:
         # print(f"matching dir: {matching_dir}")
