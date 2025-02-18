@@ -7,7 +7,6 @@ import subprocess
 import time
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from enum import Enum
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -26,6 +25,7 @@ from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
+from rclone_api.types import ListingOption, ModTimeStrategy
 from rclone_api.util import (
     get_check,
     get_rclone_exe,
@@ -40,17 +40,6 @@ def rclone_verbose(verbose: bool | None) -> bool:
     if verbose is not None:
         os.environ["RCLONE_API_VERBOSE"] = "1" if verbose else "0"
     return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
-
-
-class ModTimeStrategy(Enum):
-    USE_SERVER_MODTIME = "use-server-modtime"
-    NO_MODTIME = "no-modtime"
-
-
-class ListingOption(Enum):
-    DIRS_ONLY = "dirs-only"
-    FILES_ONLY = "files-only"
-    ALL = "all"
 
 
 class Rclone:

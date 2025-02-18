@@ -4,6 +4,7 @@ from typing import Generator
 from rclone_api.dir_listing import DirListing
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
+from rclone_api.types import ListingOption
 
 
 class Dir:
@@ -41,11 +42,23 @@ class Dir:
         # self.path.set_rclone(self.path.remote.rclone)
         assert self.path.rclone is not None
 
-    def ls(self, max_depth: int = 0, reverse: bool = False) -> DirListing:
+    def ls(
+        self,
+        max_depth: int | None = None,
+        glob: str | None = None,
+        reverse: bool = False,
+        listing_option: ListingOption = ListingOption.ALL,
+    ) -> DirListing:
         """List files and directories in the given path."""
         assert self.path.rclone is not None
         dir = Dir(self.path)
-        return self.path.rclone.ls(dir, max_depth=max_depth, reverse=reverse)
+        return self.path.rclone.ls(
+            dir,
+            max_depth=max_depth,
+            glob=glob,
+            reverse=reverse,
+            listing_option=listing_option,
+        )
 
     def walk(
         self, breadth_first: bool, max_depth: int = -1
