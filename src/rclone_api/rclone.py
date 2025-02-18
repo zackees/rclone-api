@@ -280,7 +280,7 @@ class Rclone:
             dir_obj, max_depth=max_depth, breadth_first=breadth_first, reverse=reverse
         )
 
-    def diff_walk(
+    def scan_missing_folders(
         self,
         src: Dir | Remote | str,
         dst: Dir | Remote | str,
@@ -299,11 +299,11 @@ class Rclone:
         Yields:
             DirListing: Directory listing for each directory encountered
         """
-        from rclone_api.diff_walk import diff_walk
+        from rclone_api.scan_missing_folders import scan_missing_folders
 
         src_dir = Dir(to_path(src, self))
         dst_dir = Dir(to_path(dst, self))
-        yield from diff_walk(
+        yield from scan_missing_folders(
             src=src_dir, dst=dst_dir, max_depth=max_depth, reverse=reverse
         )
 
@@ -426,10 +426,6 @@ class Rclone:
                                 chunk = files_fqdn[i : i + chunk_size]
                                 files_str = "\n".join(chunk)
                                 print(f"{files_str}")
-                            # files_str = "\n".join(files_fqdn)
-                            # print(f"Copying {nfiles} files: \n{files_str}")
-
-                        # print(include_files_txt)
                         cmd_list: list[str] = [
                             "copy",
                             src_path,

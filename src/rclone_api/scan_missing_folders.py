@@ -14,12 +14,10 @@ _MAX_OUT_QUEUE_SIZE = 50
 
 # ONLY Works from src -> dst diffing.
 def _async_diff_dir_walk_task(
-    src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], reverse
+    src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], reverse: bool
 ) -> None:
     curr_src, curr_dst = src, dst
     with ThreadPoolExecutor(max_workers=2) as executor:
-        # src_dir_listing = src.ls(listing_option=ListingOption.DIRS_ONLY)
-        # dst_dir_listing = dst.ls(listing_option=ListingOption.DIRS_ONLY)
         t1 = executor.submit(
             src.ls, listing_option=ListingOption.DIRS_ONLY, reverse=reverse
         )
@@ -29,13 +27,15 @@ def _async_diff_dir_walk_task(
         src_dir_listing: DirListing = t1.result()
         dst_dir_listing: DirListing = t2.result()
     next_depth = max_depth - 1 if max_depth > 0 else max_depth
-    dst_files: list[str] = [d.name for d in dst_dir_listing.dirs]
-    src_files: list[str] = [d.name for d in src_dir_listing.dirs]
-    dst_files_set: set[str] = set(dst_files)
+    dst_dirs: list[str] = [d.name for d in dst_dir_listing.dirs]
+    src_dirs: list[str] = [d.name for d in src_dir_listing.dirs]
+    dst_files_set: set[str] = set(dst_dirs)
     matching_dirs: list[str] = []
-    for file in src_files:
+    if reverse:
+        src_dirs.reverse()
+        dst_dirs.reverse()
+    for file in src_dirs:
         if file not in dst_files_set:
-            # print(f"missing dir on src: {file}")
             queue_dir_listing: Queue[DirListing | None] = Queue()
             if next_depth > 0 or next_depth == -1:
                 walk_runner_depth_first(
@@ -81,7 +81,7 @@ def async_diff_dir_walk_task(
         out_queue.put(None)
 
 
-def diff_walk(
+def scan_missing_folders(
     src: Dir,
     dst: Dir,
     max_depth: int = -1,
@@ -101,7 +101,13 @@ def diff_walk(
         out_queue: Queue[Dir | None] = Queue(maxsize=_MAX_OUT_QUEUE_SIZE)
 
         def task() -> None:
-            async_diff_dir_walk_task(src, dst, max_depth, out_queue, reverse=reverse)
+            async_diff_dir_walk_task(
+                src=src,
+                dst=dst,
+                max_depth=max_depth,
+                out_queue=out_queue,
+                reverse=reverse,
+            )
 
         worker = Thread(
             target=task,
@@ -111,10 +117,10 @@ def diff_walk(
 
         while True:
             try:
-                dirlisting = out_queue.get_nowait()
-                if dirlisting is None:
+                dir = out_queue.get_nowait()
+                if dir is None:
                     break
-                yield dirlisting
+                yield dir
             except Empty:
                 time.sleep(0.1)
 

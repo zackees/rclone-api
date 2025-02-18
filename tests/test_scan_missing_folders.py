@@ -37,7 +37,7 @@ endpoint = {BUCKET_URL}
     return out
 
 
-class RcloneDiffTests(unittest.TestCase):
+class RcloneScanMissingFoldersTests(unittest.TestCase):
     """Test rclone functionality."""
 
     def setUp(self) -> None:
@@ -55,12 +55,12 @@ class RcloneDiffTests(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    def test_diff_walk(self) -> None:
+    def test_scan_missing_folders(self) -> None:
         """Test copying a single file to remote storage."""
         rclone = Rclone(_generate_rclone_config())
         item: Dir
         all: list[Dir] = []
-        for item in rclone.diff_walk(
+        for item in rclone.scan_missing_folders(
             "dst:rclone-api-unit-test", "dst:rclone-api-unit-test"
         ):
             all.append(item)
