@@ -66,7 +66,7 @@ def _async_diff_dir_walk_task(
                     order=order,
                     max_depth=next_depth,
                 )
-                out_queue.put(src_dir_dir)
+                out_queue.put(curr_src)
             while dirlisting := queue_dir_listing.get():
                 if dirlisting is None:
                     break
