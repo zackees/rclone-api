@@ -13,6 +13,19 @@ from rclone_api.walk import walk_runner_depth_first
 _MAX_OUT_QUEUE_SIZE = 50
 
 
+def _reorder_inplace(data: list, order: Order) -> None:
+    if order == Order.NORMAL:
+        return
+    elif order == Order.REVERSE:
+        data.reverse()
+        return
+    elif order == Order.RANDOM:
+        random.shuffle(data)
+        return
+    else:
+        raise ValueError(f"Invalid order: {order}")
+
+
 # ONLY Works from src -> dst diffing.
 def _async_diff_dir_walk_task(
     src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], order: Order
@@ -35,17 +48,13 @@ def _async_diff_dir_walk_task(
         )
         src_dir_listing: DirListing = t1.result()
         dst_dir_listing: DirListing = t2.result()
-    next_depth = max_depth - 1 if max_depth > 0 else max_depth
+    next_depth = max_depth - ls_depth if max_depth > 0 else max_depth
     dst_dirs: list[str] = [d.name for d in dst_dir_listing.dirs]
     src_dirs: list[str] = [d.name for d in src_dir_listing.dirs]
     dst_files_set: set[str] = set(dst_dirs)
     matching_dirs: list[str] = []
-    if order == Order.REVERSE:
-        src_dirs.reverse()
-        dst_dirs.reverse()
-    elif order == Order.RANDOM:
-        random.shuffle(src_dirs)
-        random.shuffle(dst_dirs)
+    _reorder_inplace(src_dirs, order)
+    _reorder_inplace(dst_dirs, order)
     for file in src_dirs:
         if file not in dst_files_set:
             queue_dir_listing: Queue[DirListing | None] = Queue()
