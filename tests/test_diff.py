@@ -83,7 +83,7 @@ class RcloneDiffTests(unittest.TestCase):
                 item.type, DiffType.MISSING_ON_DST
             )  # should be equal because same repo
             all.append(item)
-        self.assertGreater(len(all), 0)
+        self.assertEqual(len(all), 47)
         msg = "\n".join([str(item) for item in all])
         print(msg)
 
@@ -98,7 +98,7 @@ class RcloneDiffTests(unittest.TestCase):
         ):
             self.assertEqual(item.type, DiffType.MISSING_ON_SRC)
             all.append(item)
-        self.assertGreater(len(all), 0)
+        self.assertEqual(len(all), 47)
         msg = "\n".join([str(item) for item in all])
         print(msg)
 

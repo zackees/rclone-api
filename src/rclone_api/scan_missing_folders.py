@@ -30,7 +30,6 @@ def _reorder_inplace(data: list, order: Order) -> None:
 def _async_diff_dir_walk_task(
     src: Dir, dst: Dir, max_depth: int, out_queue: Queue[Dir | None], order: Order
 ) -> None:
-    curr_src, curr_dst = src, dst
     can_scan_two_deep = max_depth > 1 or max_depth == -1
     ls_depth = 2 if can_scan_two_deep else 1
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -56,9 +55,9 @@ def _async_diff_dir_walk_task(
     _reorder_inplace(src_dirs, order)
     _reorder_inplace(dst_dirs, order)
     for i, src_dir in enumerate(src_dirs):
+        src_dir_dir = src / src_dir
         if src_dir not in dst_files_set:
             queue_dir_listing: Queue[DirListing | None] = Queue()
-            src_dir_dir = curr_src / src_dir
             if next_depth > 0 or next_depth == -1:
                 walk_runner_depth_first(
                     dir=src_dir_dir,
@@ -66,7 +65,7 @@ def _async_diff_dir_walk_task(
                     order=order,
                     max_depth=next_depth,
                 )
-                out_queue.put(curr_src)
+                out_queue.put(src)
             while dirlisting := queue_dir_listing.get():
                 if dirlisting is None:
                     break
@@ -79,8 +78,8 @@ def _async_diff_dir_walk_task(
     for matching_dir in matching_dirs:
         # print(f"matching dir: {matching_dir}")
         if next_depth > 0 or next_depth == -1:
-            src_next = curr_src / matching_dir
-            dst_next = curr_dst / matching_dir
+            src_next = src / matching_dir
+            dst_next = dst / matching_dir
             _async_diff_dir_walk_task(
                 src=src_next,
                 dst=dst_next,
