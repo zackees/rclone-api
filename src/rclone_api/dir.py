@@ -102,7 +102,7 @@ class Dir:
         path = Path(self.path.path) / other
         rpath = RPath(
             self.path.remote,
-            str(path),
+            str(path.as_posix()),
             name=other,
             size=0,
             mime_type="inode/directory",
