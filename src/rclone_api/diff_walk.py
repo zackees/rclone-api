@@ -6,6 +6,7 @@ from typing import Generator
 from rclone_api import Dir
 from rclone_api.dir_listing import DirListing
 from rclone_api.types import ListingOption
+from rclone_api.walk import walk_runner_depth_first
 
 _MAX_OUT_QUEUE_SIZE = 50
 
@@ -62,19 +63,39 @@ def _async_diff_dir_walk_task(
             dst_files_set: set[str] = set(dst_files)
             # src_files_set: set[str] = set(src_files)
 
-            print(f"src_files: {src_files}")
-            print(f"dst_files: {dst_files}")
+            # print(f"src_files: {src_files}")
+            # print(f"dst_files: {dst_files}")
 
             matching_dirs: list[str] = []
 
             for file in src_files:
                 if file not in dst_files_set:
-                    print(f"missing dir on src: {file}")
+                    # print(f"missing dir on src: {file}")
+                    queue_dir_listing: Queue[DirListing | None] = Queue()
+                    walk_runner_depth_first(
+                        dir=curr_src,
+                        max_depth=max_depth,
+                        out_queue=queue_dir_listing,
+                        reverse=reverse,
+                    )
+                    while dirlisting := queue_dir_listing.get():
+                        if dirlisting is None:
+                            break
+                        # print(f"dirlisting: {dirlisting}")
+                        for d in dirlisting.dirs:
+                            out_queue.put(d)
                 else:
                     matching_dirs.append(file)
 
             for matching_dir in matching_dirs:
-                print(f"matching dir: {matching_dir}")
+                # print(f"matching dir: {matching_dir}")
+                _async_diff_dir_walk_task(
+                    src=curr_src / matching_dir,
+                    dst=curr_dst / matching_dir,
+                    max_depth=max_depth,
+                    out_queue=out_queue,
+                    reverse=reverse,
+                )
 
         out_queue.put(None)
     except KeyboardInterrupt:

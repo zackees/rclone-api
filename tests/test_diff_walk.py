@@ -64,7 +64,7 @@ class RcloneDiffTests(unittest.TestCase):
             "dst:rclone-api-unit-test", "dst:rclone-api-unit-test"
         ):
             all.append(item)
-        # self.assertGreater(len(all), 10)
+        self.assertEqual(len(all), 0)
         msg = "\n".join([str(item) for item in all])
         print(msg)
 

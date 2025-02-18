@@ -95,3 +95,19 @@ class Dir:
         if not include_remote:
             _, out = out.split(":", 1)
         return out
+
+    # / operator
+    def __truediv__(self, other: str) -> "Dir":
+        """Join the current path with another path."""
+        path = Path(self.path.path) / other
+        rpath = RPath(
+            self.path.remote,
+            str(path),
+            name=other,
+            size=0,
+            mime_type="inode/directory",
+            mod_time="",
+            is_dir=True,
+        )
+        rpath.set_rclone(self.path.rclone)
+        return Dir(rpath)
