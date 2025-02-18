@@ -359,6 +359,7 @@ class Rclone:
         metadata: bool | None = None,
         timeout: str | None = None,
         max_partition_workers: int | None = None,
+        multi_thread_streams: int | None = None,
         other_args: list[str] | None = None,
     ) -> list[CompletedProcess]:
         """Copy multiple files from source to destination.
@@ -456,6 +457,11 @@ class Rclone:
                             cmd_list += ["--timeout", timeout]
                         if max_backlog is not None:
                             cmd_list += ["--max-backlog", str(max_backlog)]
+                        if multi_thread_streams is not None:
+                            cmd_list += [
+                                "--multi-thread-streams",
+                                str(multi_thread_streams),
+                            ]
                         if verbose:
                             if not any(["-v" in x for x in other_args]):
                                 cmd_list.append("-vvvv")
