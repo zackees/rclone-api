@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Generator
 
 from rclone_api.dir_listing import DirListing
@@ -60,6 +61,13 @@ class Dir:
             listing_option=listing_option,
         )
 
+    def relative_to(self, other: "Dir") -> str:
+        """Return the relative path to the other directory."""
+        self_path = Path(self.path.path)
+        other_path = Path(other.path.path)
+        rel_path = self_path.relative_to(other_path)
+        return str(rel_path)
+
     def walk(
         self, breadth_first: bool, max_depth: int = -1
     ) -> Generator[DirListing, None, None]:
@@ -80,3 +88,10 @@ class Dir:
         data = self.path.to_json()
         data_str = json.dumps(data)
         return data_str
+
+    def to_string(self, include_remote: bool = True) -> str:
+        """Convert the File to a string."""
+        out = str(self.path)
+        if not include_remote:
+            _, out = out.split(":", 1)
+        return out

@@ -280,6 +280,33 @@ class Rclone:
             dir_obj, max_depth=max_depth, breadth_first=breadth_first, reverse=reverse
         )
 
+    def diff_walk(
+        self,
+        src: Dir | Remote | str,
+        dst: Dir | Remote | str,
+        max_depth: int = -1,
+        reverse: bool = False,
+    ) -> Generator[Dir, None, None]:
+        """Walk through the given path recursively.
+
+        WORK IN PROGRESS!!
+
+        Args:
+            src: Source directory or Remote to walk through
+            dst: Destination directory or Remote to walk through
+            max_depth: Maximum depth to traverse (-1 for unlimited)
+
+        Yields:
+            DirListing: Directory listing for each directory encountered
+        """
+        from rclone_api.diff_walk import diff_walk
+
+        src_dir = Dir(to_path(src, self))
+        dst_dir = Dir(to_path(dst, self))
+        yield from diff_walk(
+            src=src_dir, dst=dst_dir, max_depth=max_depth, reverse=reverse
+        )
+
     def cleanup(
         self, path: str, other_args: list[str] | None = None
     ) -> CompletedProcess:

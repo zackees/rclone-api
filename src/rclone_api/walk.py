@@ -9,7 +9,7 @@ from rclone_api.remote import Remote
 _MAX_OUT_QUEUE_SIZE = 50
 
 
-def _walk_runner_breadth_first(
+def walk_runner_breadth_first(
     dir: Dir,
     max_depth: int,
     out_queue: Queue[DirListing | None],
@@ -40,7 +40,7 @@ def _walk_runner_breadth_first(
         _thread.interrupt_main()
 
 
-def _walk_runner_depth_first(
+def walk_runner_depth_first(
     dir: Dir, max_depth: int, out_queue: Queue[DirListing | None], reverse=False
 ) -> None:
     try:
@@ -54,7 +54,7 @@ def _walk_runner_depth_first(
                 for subdir in dirlisting.dirs:  # Process deeper directories first
                     # stack.append((child, depth - 1 if depth > 0 else depth))
                     next_depth = depth - 1 if depth > 0 else depth
-                    _walk_runner_depth_first(
+                    walk_runner_depth_first(
                         subdir, next_depth, out_queue, reverse=reverse
                     )
             out_queue.put(dirlisting)
@@ -89,9 +89,9 @@ def walk(
 
         def _task() -> None:
             if breadth_first:
-                _walk_runner_breadth_first(dir, max_depth, out_queue, reverse)
+                walk_runner_breadth_first(dir, max_depth, out_queue, reverse)
             else:
-                _walk_runner_depth_first(dir, max_depth, out_queue, reverse)
+                walk_runner_depth_first(dir, max_depth, out_queue, reverse)
 
         # Start worker thread
         worker = Thread(
