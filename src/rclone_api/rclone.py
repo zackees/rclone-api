@@ -840,7 +840,7 @@ class Rclone:
         grouping: GroupingOption = GroupingOption.BUCKET,
         check: bool = False,
     ) -> CompletedProcess:
-        """Get the size of a list of files."""
+        """Get the size of a list of files. Example of files items: "remote:bucket/to/file"."""
         file_list: dict[str, list[str]]
         out: list[subprocess.CompletedProcess] = []
         if grouping == GroupingOption.BUCKET:
@@ -848,7 +848,7 @@ class Rclone:
         elif grouping == GroupingOption.REMOTE:
             file_list = group_under_remote(files)
         for remote, files in file_list.items():
-            cmd = ["lsjson", remote]
+            cmd = ["lsjson", remote, "--files-only", "-R"]
             with TemporaryDirectory() as tmpdir:
                 print("files: " + ",".join(files))
                 include_files_txt = Path(tmpdir) / "include_files.txt"
