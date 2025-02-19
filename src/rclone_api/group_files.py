@@ -178,23 +178,6 @@ def group_files(files: list[str], fully_qualified: bool = True) -> dict[str, lis
     return out
 
 
-def group_under_remote(
-    files: list[str], fully_qualified: bool = True
-) -> dict[str, list[str]]:
-    """split between filename and remote"""
-
-    #### DOE STHIS NEED TO BE REMOVEDD????? #####
-
-    assert fully_qualified is True, "Not implemented for fully_qualified=False"
-    out: dict[str, list[str]] = {}
-    for file in files:
-        parsed = parse_file(file)
-        remote = f"{parsed.remote}:"
-        file_list = out.setdefault(remote, [])
-        file_list.append(parsed.to_string(include_remote=False, include_bucket=True))
-    return out
-
-
 def group_under_remote_bucket(
     files: list[str], fully_qualified: bool = True
 ) -> dict[str, list[str]]:
@@ -212,4 +195,4 @@ def group_under_remote_bucket(
     return out
 
 
-__all__ = ["group_files", "group_under_remote", "group_under_remote_bucket"]
+__all__ = ["group_files", "group_under_remote_bucket"]
