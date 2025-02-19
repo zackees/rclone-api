@@ -30,7 +30,13 @@ from rclone_api.group_files import (
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import GroupingOption, ListingOption, ModTimeStrategy, Order
+from rclone_api.types import (
+    GroupingOption,
+    ListingOption,
+    ModTimeStrategy,
+    Order,
+    SizeResult,
+)
 from rclone_api.util import (
     get_check,
     get_rclone_exe,
@@ -838,19 +844,22 @@ class Rclone:
         fast_list: bool = True,
         other_args: list[str] | None = None,
         grouping: GroupingOption = GroupingOption.BUCKET,
-        check: bool = False,
-    ) -> CompletedProcess:
+        check: bool | None = False,
+        verbose: bool | None = None,
+    ) -> SizeResult:
         """Get the size of a list of files. Example of files items: "remote:bucket/to/file"."""
+        verbose = get_verbose(verbose)
+        check = get_check(check)
         file_list: dict[str, list[str]]
-        out: list[subprocess.CompletedProcess] = []
         if grouping == GroupingOption.BUCKET:
             file_list = group_under_remote_bucket(files)
         elif grouping == GroupingOption.REMOTE:
             file_list = group_under_remote(files)
-        for remote, files in file_list.items():
-            cmd = ["lsjson", remote, "--files-only", "-R"]
+        all_files: list[File] = []
+        for src_path, files in file_list.items():
+            cmd = ["lsjson", src_path, "--files-only", "-R"]
             with TemporaryDirectory() as tmpdir:
-                print("files: " + ",".join(files))
+                # print("files: " + ",".join(files))
                 include_files_txt = Path(tmpdir) / "include_files.txt"
                 include_files_txt.write_text("\n".join(files), encoding="utf-8")
                 cmd += ["--files-from", str(include_files_txt)]
@@ -859,5 +868,37 @@ class Rclone:
                 if other_args:
                     cmd += other_args
                 cp = self._run(cmd, check=check)
-                out.append(cp)
-        return CompletedProcess(out)
+
+                if cp.returncode != 0:
+                    if check:
+                        raise ValueError(f"Error getting file sizes: {cp.stderr}")
+                    else:
+                        warnings.warn(f"Error getting file sizes: {cp.stderr}")
+                stdout = cp.stdout
+                pieces = src_path.split(":", 1)
+                remote_name = pieces[0]
+                parent_path: str | None
+                if len(pieces) > 1:
+                    parent_path = pieces[1]
+                else:
+                    parent_path = None
+                remote = Remote(name=remote_name, rclone=self)
+                paths: list[RPath] = RPath.from_json_str(
+                    stdout, remote, parent_path=parent_path
+                )
+                # print(paths)
+                all_files += [File(p) for p in paths]
+        file_sizes: dict[str, int] = {}
+        f: File
+        for f in all_files:
+            p = f.to_string(include_remote=True)
+            if p in file_sizes:
+                warnings.warn(f"Duplicate file found: {p}")
+                continue
+            size = f.size
+            if size == 0:
+                warnings.warn(f"File size is 0: {p}")
+            file_sizes[p] = f.size
+        total_size = sum(file_sizes.values())
+        out: SizeResult = SizeResult(total_size=total_size, file_sizes=file_sizes)
+        return out

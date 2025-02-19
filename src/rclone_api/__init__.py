@@ -9,7 +9,7 @@ from .process import Process
 from .rclone import Rclone, rclone_verbose
 from .remote import Remote
 from .rpath import RPath
-from .types import GroupingOption, ListingOption, Order
+from .types import GroupingOption, ListingOption, Order, SizeResult
 
 __all__ = [
     "Rclone",
@@ -30,4 +30,5 @@ __all__ = [
     "Order",
     "ListingOption",
     "GroupingOption",
+    "SizeResult",
 ]

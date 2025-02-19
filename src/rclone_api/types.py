@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -21,3 +22,11 @@ class Order(Enum):
 class GroupingOption(Enum):
     BUCKET = "bucket"
     REMOTE = "remote"
+
+
+@dataclass
+class SizeResult:
+    """Size result dataclass."""
+
+    total_size: int
+    file_sizes: dict[str, int]

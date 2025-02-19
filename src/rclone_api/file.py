@@ -40,10 +40,17 @@ class File:
 
     def to_string(self, include_remote: bool = True) -> str:
         """Convert the File to a string."""
-        out = str(self.path)
-        if not include_remote:
-            _, out = out.split(":", 1)
-        return out
+        # out = str(self.path)
+        remote = self.path.remote
+        rest = self.path.path
+        if include_remote:
+            return f"{remote.name}:{rest}"
+        return rest
+
+    @property
+    def size(self) -> int:
+        """Get the size of the file."""
+        return self.path.size
 
     def __str__(self) -> str:
         return str(self.path)

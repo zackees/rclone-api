@@ -7,7 +7,7 @@ import unittest
 
 from dotenv import load_dotenv
 
-from rclone_api import CompletedProcess, Config, DirListing, Rclone
+from rclone_api import Config, DirListing, Rclone, SizeResult
 
 load_dotenv()
 
@@ -69,15 +69,14 @@ class RcloneSizeFilesTester(unittest.TestCase):
                 # assert it's first.txt
                 self.assertEqual(dirlisting.files[0].name, "first.txt")
                 is_first = False
-            print(dirlisting)
+            # print(dirlisting)
             for file in dirlisting.files:
                 files.append(str(file))
 
         # print(files)
 
-        cp: CompletedProcess = rclone.size_files(files, check=True)
-        print(cp.stdout)
-        print(cp)
+        size_map: SizeResult = rclone.size_files(files, check=True)
+        print(size_map)
         print("done")
 
 
