@@ -24,7 +24,6 @@ from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import (
     group_files,
-    group_under_remote_bucket,
 )
 from rclone_api.process import Process
 from rclone_api.remote import Remote
@@ -849,44 +848,39 @@ class Rclone:
         verbose = get_verbose(verbose)
         check = get_check(check)
         files = list(files)
-        prefix = src if src.endswith(":") else f"{src}/"
-        if src:
-            files = [f"{prefix}{f}" for f in files]
-        file_list: dict[str, list[str]]
-        file_list = group_under_remote_bucket(files)
         all_files: list[File] = []
-        for src_path, files in file_list.items():
-            cmd = ["lsjson", src_path, "--files-only", "-R"]
-            with TemporaryDirectory() as tmpdir:
-                # print("files: " + ",".join(files))
-                include_files_txt = Path(tmpdir) / "include_files.txt"
-                include_files_txt.write_text("\n".join(files), encoding="utf-8")
-                cmd += ["--files-from", str(include_files_txt)]
-                if fast_list:
-                    cmd.append("--fast-list")
-                if other_args:
-                    cmd += other_args
-                cp = self._run(cmd, check=check)
 
-                if cp.returncode != 0:
-                    if check:
-                        raise ValueError(f"Error getting file sizes: {cp.stderr}")
-                    else:
-                        warnings.warn(f"Error getting file sizes: {cp.stderr}")
-                stdout = cp.stdout
-                pieces = src_path.split(":", 1)
-                remote_name = pieces[0]
-                parent_path: str | None
-                if len(pieces) > 1:
-                    parent_path = pieces[1]
+        cmd = ["lsjson", src, "--files-only", "-R"]
+        with TemporaryDirectory() as tmpdir:
+            # print("files: " + ",".join(files))
+            include_files_txt = Path(tmpdir) / "include_files.txt"
+            include_files_txt.write_text("\n".join(files), encoding="utf-8")
+            cmd += ["--files-from", str(include_files_txt)]
+            if fast_list:
+                cmd.append("--fast-list")
+            if other_args:
+                cmd += other_args
+            cp = self._run(cmd, check=check)
+
+            if cp.returncode != 0:
+                if check:
+                    raise ValueError(f"Error getting file sizes: {cp.stderr}")
                 else:
-                    parent_path = None
-                remote = Remote(name=remote_name, rclone=self)
-                paths: list[RPath] = RPath.from_json_str(
-                    stdout, remote, parent_path=parent_path
-                )
-                # print(paths)
-                all_files += [File(p) for p in paths]
+                    warnings.warn(f"Error getting file sizes: {cp.stderr}")
+            stdout = cp.stdout
+            pieces = src.split(":", 1)
+            remote_name = pieces[0]
+            parent_path: str | None
+            if len(pieces) > 1:
+                parent_path = pieces[1]
+            else:
+                parent_path = None
+            remote = Remote(name=remote_name, rclone=self)
+            paths: list[RPath] = RPath.from_json_str(
+                stdout, remote, parent_path=parent_path
+            )
+            # print(paths)
+            all_files += [File(p) for p in paths]
         file_sizes: dict[str, int] = {}
         f: File
         for f in all_files:
@@ -903,9 +897,9 @@ class Rclone:
         for path, size in file_sizes.items():
             # remove the prefix
             path_path = Path(path)
-            path_str = path_path.relative_to(prefix).as_posix()
+            path_str = path_path.relative_to(src).as_posix()
             file_sizes_path_corrected[path_str] = size
         out: SizeResult = SizeResult(
-            prefix=prefix, total_size=total_size, file_sizes=file_sizes_path_corrected
+            prefix=src, total_size=total_size, file_sizes=file_sizes_path_corrected
         )
         return out
