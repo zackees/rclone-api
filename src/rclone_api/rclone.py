@@ -22,11 +22,15 @@ from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_proce
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
-from rclone_api.group_files import group_files
+from rclone_api.group_files import (
+    group_files,
+    group_under_remote,
+    group_under_remote_bucket,
+)
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import ListingOption, ModTimeStrategy, Order
+from rclone_api.types import GroupingOption, ListingOption, ModTimeStrategy, Order
 from rclone_api.util import (
     get_check,
     get_rclone_exe,
@@ -827,3 +831,33 @@ class Rclone:
         if proc.poll() is not None:
             raise ValueError("NFS serve process failed to start")
         return proc
+
+    def size_files(
+        self,
+        files: list[str],
+        fast_list: bool = True,
+        other_args: list[str] | None = None,
+        grouping: GroupingOption = GroupingOption.BUCKET,
+        check: bool = False,
+    ) -> CompletedProcess:
+        """Get the size of a list of files."""
+        file_list: dict[str, list[str]]
+        out: list[subprocess.CompletedProcess] = []
+        if grouping == GroupingOption.BUCKET:
+            file_list = group_under_remote_bucket(files)
+        elif grouping == GroupingOption.REMOTE:
+            file_list = group_under_remote(files)
+        for remote, files in file_list.items():
+            cmd = ["size", remote]
+            with TemporaryDirectory() as tmpdir:
+                print("files: " + ",".join(files))
+                include_files_txt = Path(tmpdir) / "include_files.txt"
+                include_files_txt.write_text("\n".join(files), encoding="utf-8")
+                cmd += ["--files-from", str(include_files_txt)]
+                if fast_list:
+                    cmd.append("--fast-list")
+                if other_args:
+                    cmd += other_args
+                cp = self._run(cmd, check=check)
+                out.append(cp)
+        return CompletedProcess(out)

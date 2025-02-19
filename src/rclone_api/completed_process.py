@@ -47,3 +47,14 @@ class CompletedProcess:
             if rtn != 0:
                 return rtn
         return 0
+
+    def __str__(self) -> str:
+
+        cmd_strs: list[str] = []
+        rtn_cods: list[int] = []
+        for cp in self.completed:
+            cmd_strs.append(subprocess.list2cmdline(cp.args))
+            rtn_cods.append(cp.returncode)
+        msg = f"CompletedProcess: {len(cmd_strs)} commands\n"
+        msg += "\n".join([f"{cmd} -> {rtn}" for cmd, rtn in zip(cmd_strs, rtn_cods)])
+        return msg

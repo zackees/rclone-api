@@ -16,3 +16,8 @@ class Order(Enum):
     NORMAL = "normal"
     REVERSE = "reverse"
     RANDOM = "random"
+
+
+class GroupingOption(Enum):
+    BUCKET = "bucket"
+    REMOTE = "remote"

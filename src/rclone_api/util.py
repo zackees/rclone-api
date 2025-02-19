@@ -104,7 +104,7 @@ def rclone_execute(
         )
         if verbose:
             cmd_str = subprocess.list2cmdline(cmd)
-            print(f"Running: {cmd_str}")
+            print(f"\nRunning: {cmd_str}")
         cp = subprocess.run(
             cmd, capture_output=capture, encoding="utf-8", check=False, shell=False
         )

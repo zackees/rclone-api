@@ -9,6 +9,19 @@ class FilePathParts:
     parents: list[str]
     name: str
 
+    def to_string(self, include_remote: bool, include_bucket: bool) -> str:
+        """Convert to string, may throw for not include_bucket=False."""
+        parents = list(self.parents)
+        if not include_bucket:
+            parents.pop(0)
+        path = "/".join(parents)
+        if path:
+            path += "/"
+        path += self.name
+        if include_remote:
+            return f"{self.remote}{path}"
+        return path
+
 
 def parse_file(file_path: str) -> FilePathParts:
     """Parse file path into parts."""
@@ -165,4 +178,35 @@ def group_files(files: list[str], fully_qualified: bool = True) -> dict[str, lis
     return out
 
 
-__all__ = ["group_files"]
+def group_under_remote(
+    files: list[str], fully_qualified: bool = True
+) -> dict[str, list[str]]:
+    """split between filename and remote"""
+    assert fully_qualified is True, "Not implemented for fully_qualified=False"
+    out: dict[str, list[str]] = {}
+    for file in files:
+        parsed = parse_file(file)
+        remote = f"{parsed.remote}:"
+        file_list = out.setdefault(remote, [])
+        file_list.append(parsed.to_string(include_remote=False, include_bucket=True))
+    return out
+
+
+def group_under_remote_bucket(
+    files: list[str], fully_qualified: bool = True
+) -> dict[str, list[str]]:
+    """split between filename and bucket"""
+    assert fully_qualified is True, "Not implemented for fully_qualified=False"
+    out: dict[str, list[str]] = {}
+    for file in files:
+        parsed = parse_file(file)
+        remote = f"{parsed.remote}:"
+        parts = parsed.parents
+        bucket = parts[0]
+        remote_bucket = f"{remote}{bucket}"
+        file_list = out.setdefault(remote_bucket, [])
+        file_list.append(parsed.to_string(include_remote=False, include_bucket=False))
+    return out
+
+
+__all__ = ["group_files", "group_under_remote", "group_under_remote_bucket"]
