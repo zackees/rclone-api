@@ -247,7 +247,7 @@ def group_under_one_prefix(prefix: str, files: list[str]) -> tuple[str, list[str
         return prefix, []
     prefix = prefix
     result = _common_prefix(prefix, files)
-    return result.prefix, result.files
+    return result.prefix.replace(":/", ":"), result.files
 
 
 __all__ = ["group_files", "group_under_remote_bucket", "group_under_one_prefix"]

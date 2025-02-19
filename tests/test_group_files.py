@@ -5,6 +5,7 @@ Unit test file.
 import unittest
 
 from rclone_api.group_files import group_files as _group_files
+from rclone_api.group_files import group_under_one_prefix
 
 
 def group_files(
@@ -138,6 +139,22 @@ class GroupFilestest(unittest.TestCase):
         self.assertIn(
             expected_files[0], groups["dst:TorrentBooks/libgenrs_nonfiction/204000"]
         )
+
+    def test_group_under_one_prefix(self) -> None:
+        files = [
+            "Bucket/subdir/file1.txt",
+            "Bucket/subdir/file2.txt",
+        ]
+        prefix, grouped_files = group_under_one_prefix("src:", files)
+        self.assertEqual(prefix, "src:Bucket/subdir")
+        self.assertEqual(len(grouped_files), 2)
+        expected_files = [
+            "file1.txt",
+            "file2.txt",
+        ]
+        self.assertIn(expected_files[0], grouped_files)
+        self.assertIn(expected_files[1], grouped_files)
+        print("done")
 
 
 if __name__ == "__main__":
