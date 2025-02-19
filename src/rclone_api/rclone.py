@@ -24,14 +24,12 @@ from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import (
     group_files,
-    group_under_remote,
     group_under_remote_bucket,
 )
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.types import (
-    GroupingOption,
     ListingOption,
     ModTimeStrategy,
     Order,
@@ -840,21 +838,22 @@ class Rclone:
 
     def size_files(
         self,
+        src: str,
         files: list[str],
         fast_list: bool = True,
         other_args: list[str] | None = None,
-        grouping: GroupingOption = GroupingOption.BUCKET,
         check: bool | None = False,
         verbose: bool | None = None,
     ) -> SizeResult:
         """Get the size of a list of files. Example of files items: "remote:bucket/to/file"."""
         verbose = get_verbose(verbose)
         check = get_check(check)
+        files = list(files)
+        prefix = src if src.endswith(":") else f"{src}/"
+        if src:
+            files = [f"{prefix}{f}" for f in files]
         file_list: dict[str, list[str]]
-        if grouping == GroupingOption.BUCKET:
-            file_list = group_under_remote_bucket(files)
-        elif grouping == GroupingOption.REMOTE:
-            file_list = group_under_remote(files)
+        file_list = group_under_remote_bucket(files)
         all_files: list[File] = []
         for src_path, files in file_list.items():
             cmd = ["lsjson", src_path, "--files-only", "-R"]
@@ -900,5 +899,13 @@ class Rclone:
                 warnings.warn(f"File size is 0: {p}")
             file_sizes[p] = f.size
         total_size = sum(file_sizes.values())
-        out: SizeResult = SizeResult(total_size=total_size, file_sizes=file_sizes)
+        file_sizes_path_corrected: dict[str, int] = {}
+        for path, size in file_sizes.items():
+            # remove the prefix
+            path_path = Path(path)
+            path_str = path_path.relative_to(prefix).as_posix()
+            file_sizes_path_corrected[path_str] = size
+        out: SizeResult = SizeResult(
+            prefix=prefix, total_size=total_size, file_sizes=file_sizes_path_corrected
+        )
         return out

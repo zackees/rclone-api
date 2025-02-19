@@ -182,6 +182,9 @@ def group_under_remote(
     files: list[str], fully_qualified: bool = True
 ) -> dict[str, list[str]]:
     """split between filename and remote"""
+
+    #### DOE STHIS NEED TO BE REMOVEDD????? #####
+
     assert fully_qualified is True, "Not implemented for fully_qualified=False"
     out: dict[str, list[str]] = {}
     for file in files:

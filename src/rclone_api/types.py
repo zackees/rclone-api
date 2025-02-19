@@ -19,14 +19,15 @@ class Order(Enum):
     RANDOM = "random"
 
 
-class GroupingOption(Enum):
-    BUCKET = "bucket"
-    REMOTE = "remote"
+# class GroupingOption(Enum):
+#     BUCKET = "bucket"
+#     REMOTE = "remote"
 
 
 @dataclass
 class SizeResult:
     """Size result dataclass."""
 
+    prefix: str
     total_size: int
     file_sizes: dict[str, int]

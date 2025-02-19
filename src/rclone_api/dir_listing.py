@@ -29,6 +29,16 @@ class DirListing:
         self.dirs: list[Dir] = [Dir(d) for d in dirs_and_files if d.is_dir]
         self.files: list[File] = [File(f) for f in dirs_and_files if not f.is_dir]
 
+    def files_relative(self, prefix: str) -> list[str]:
+        """Return a list of file paths relative to the root directory."""
+        from rclone_api.file import File
+
+        out: list[str] = []
+        f: File
+        for f in self.files:
+            out.append(f.relative_to(prefix))
+        return out
+
     def __str__(self) -> str:
         n_files = len(self.files)
         n_dirs = len(self.dirs)

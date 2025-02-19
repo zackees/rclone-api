@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from rclone_api.rpath import RPath
 
@@ -46,6 +47,12 @@ class File:
         if include_remote:
             return f"{remote.name}:{rest}"
         return rest
+
+    def relative_to(self, prefix: str) -> str:
+        """Return the relative path to the other directory."""
+        self_path = Path(str(self))
+        rel_path = self_path.relative_to(prefix)
+        return str(rel_path.as_posix())
 
     @property
     def size(self) -> int:
