@@ -70,6 +70,29 @@ class RcloneDiffTests(unittest.TestCase):
         msg = "\n".join([str(item) for item in all])
         print(msg)
 
+    def test_min_max_size(self) -> None:
+        rclone = Rclone(_generate_rclone_config())
+        item: DiffItem
+        all: list[DiffItem] = list(
+            rclone.diff(
+                "dst:rclone-api-unit-test", "dst:rclone-api-unit-test", min_size="70M"
+            )
+        )
+        for item in all:
+            if "internaly_ai_alignment.mp4" in item.path:
+                break
+        else:
+            self.fail("internaly_ai_alignment.mp4 not found")
+        all.clear()
+        all = list(
+            rclone.diff(
+                "dst:rclone-api-unit-test", "dst:rclone-api-unit-test", max_size="70M"
+            )
+        )
+        for item in all:
+            if "internaly_ai_alignment.mp4" in item.path:
+                self.fail("internaly_ai_alignment.mp4 not filtered")
+
     def test_diff_missing_on_dst(self) -> None:
         rclone = Rclone(_generate_rclone_config())
         item: DiffItem
