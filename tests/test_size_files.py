@@ -76,6 +76,7 @@ class RcloneSizeFilesTester(unittest.TestCase):
         # print(files)
 
         cp: CompletedProcess = rclone.size_files(files, check=True)
+        print(cp.stdout)
         print(cp)
         print("done")
 
