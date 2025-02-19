@@ -22,7 +22,7 @@ from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_proce
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
-from rclone_api.group_files import group_files, group_under_one_prefix
+from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -847,7 +847,7 @@ class Rclone:
         check = get_check(check)
         files = list(files)
         all_files: list[File] = []
-        src, files = group_under_one_prefix(src, files)
+        # prefix, files = group_under_one_prefix(src, files)
         cmd = ["lsjson", src, "--files-only", "-R"]
         with TemporaryDirectory() as tmpdir:
             # print("files: " + ",".join(files))
