@@ -848,7 +848,7 @@ class Rclone:
         elif grouping == GroupingOption.REMOTE:
             file_list = group_under_remote(files)
         for remote, files in file_list.items():
-            cmd = ["size", remote]
+            cmd = ["lsjson", remote]
             with TemporaryDirectory() as tmpdir:
                 print("files: " + ",".join(files))
                 include_files_txt = Path(tmpdir) / "include_files.txt"
