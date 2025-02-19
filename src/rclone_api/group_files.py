@@ -1,4 +1,11 @@
 from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass
+class PrefixResult:
+    prefix: str
+    files: list[str]
 
 
 @dataclass
@@ -195,4 +202,52 @@ def group_under_remote_bucket(
     return out
 
 
-__all__ = ["group_files", "group_under_remote_bucket"]
+def _get_prefix(path: str) -> tuple[str, str] | None:
+    path_path: Path = Path(path)
+    parts = path_path.parts
+    if len(parts) == 1:
+        return None
+    return parts[0], "/".join(parts[1:])
+
+
+def _common_prefix(prefix: str, files: list[str]) -> PrefixResult:
+    if not files:
+        return PrefixResult(prefix=prefix, files=[])
+    prefix = prefix
+    tmp: list[str] = list(files)
+    while True:
+        if not tmp:
+            break
+        prefix_set: set[str | None] = set()
+        for file in tmp:
+            pair = _get_prefix(file)
+            if pair is None:
+                break
+            _prefix, _ = pair
+            prefix_set.add(_prefix)
+        if len(prefix_set) > 1 or len(prefix_set) == 0:
+            break
+        next_prefix: str | None = prefix_set.pop()
+        if next_prefix is None:
+            break
+        prefix += f"/{next_prefix}"
+        new_tmp: list[str] = []
+        for file in tmp:
+            pair = _get_prefix(file)
+            assert pair is not None
+            _, path = pair
+            new_tmp.append(path)
+        tmp = new_tmp
+    return PrefixResult(prefix=prefix, files=tmp)
+
+
+def group_under_one_prefix(prefix: str, files: list[str]) -> tuple[str, list[str]]:
+    """Group files under one prefix."""
+    if not files:
+        return prefix, []
+    prefix = prefix
+    result = _common_prefix(prefix, files)
+    return result.prefix, result.files
+
+
+__all__ = ["group_files", "group_under_remote_bucket", "group_under_one_prefix"]
