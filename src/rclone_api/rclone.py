@@ -871,7 +871,7 @@ class Rclone:
         self,
         src: str,
         files: list[str],
-        fast_list: bool = True,
+        fast_list: bool = False,  # Recommend that this is False
         other_args: list[str] | None = None,
         check: bool | None = False,
         verbose: bool | None = None,
@@ -879,6 +879,10 @@ class Rclone:
         """Get the size of a list of files. Example of files items: "remote:bucket/to/file"."""
         verbose = get_verbose(verbose)
         check = get_check(check)
+        if fast_list or (other_args and "--fast-list" in other_args):
+            warnings.warn(
+                "It's not recommended to use --fast-list with size_files as the entire repository has to be listed"
+            )
         files = list(files)
         all_files: list[File] = []
         # prefix, files = group_under_one_prefix(src, files)
