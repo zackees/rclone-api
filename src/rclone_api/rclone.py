@@ -394,7 +394,12 @@ class Rclone:
                     f"Invalid file path, contains a remote, which is not allowed for copy_files: {p}"
                 )
 
-        datalists: dict[str, list[str]] = group_files(payload, fully_qualified=False)
+        if max_partition_workers > 1:
+            datalists: dict[str, list[str]] = group_files(
+                payload, fully_qualified=False
+            )
+        else:
+            datalists = {"": payload}
         # out: subprocess.CompletedProcess | None = None
         out: list[CompletedProcess] = []
 
