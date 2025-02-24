@@ -394,6 +394,12 @@ class Rclone:
                     f"Invalid file path, contains a remote, which is not allowed for copy_files: {p}"
                 )
 
+        using_fast_list = "--fast-list" in other_args
+        if using_fast_list:
+            warnings.warn(
+                "It's not recommended to use --fast-list with copy_files as the entire repository has to be listed"
+            )
+
         if max_partition_workers > 1:
             datalists: dict[str, list[str]] = group_files(
                 payload, fully_qualified=False
