@@ -495,7 +495,16 @@ class Rclone:
                         warnings.warn(f"Error deleting files: {cp.stderr}")
         return out
 
-    def copy(self, src: Dir | str, dst: Dir | str) -> CompletedProcess:
+    def copy(
+        self,
+        src: Dir | str,
+        dst: Dir | str,
+        check: bool | None = None,
+        transfers: int | None = None,
+        checkers: int | None = None,
+        multi_thread_streams: int | None = None,
+        other_args: list[str] | None = None,
+    ) -> CompletedProcess:
         """Copy files from source to destination.
 
         Args:
@@ -506,8 +515,17 @@ class Rclone:
         # dst_dir = dst.path.path
         src_dir = convert_to_str(src)
         dst_dir = convert_to_str(dst)
+        check = get_check(check)
+        checkers = checkers or 1000
+        transfers = transfers or 32
         cmd_list: list[str] = ["copy", src_dir, dst_dir]
-        cp = self._run(cmd_list)
+        cmd_list += ["--checkers", str(checkers)]
+        cmd_list += ["--transfers", str(transfers)]
+        if multi_thread_streams is not None:
+            cmd_list += ["--multi-thread-streams", str(multi_thread_streams)]
+        if other_args:
+            cmd_list += other_args
+        cp = self._run(cmd_list, check=check, capture=False)
         return CompletedProcess.from_subprocess(cp)
 
     def purge(self, path: Dir | str) -> CompletedProcess:
