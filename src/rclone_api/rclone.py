@@ -503,6 +503,8 @@ class Rclone:
         transfers: int | None = None,
         checkers: int | None = None,
         multi_thread_streams: int | None = None,
+        low_level_retries: int | None = None,
+        retries: int | None = None,
         other_args: list[str] | None = None,
     ) -> CompletedProcess:
         """Copy files from source to destination.
@@ -518,9 +520,12 @@ class Rclone:
         check = get_check(check)
         checkers = checkers or 1000
         transfers = transfers or 32
+        low_level_retries = low_level_retries or 10
+        retries = retries or 3
         cmd_list: list[str] = ["copy", src_dir, dst_dir]
         cmd_list += ["--checkers", str(checkers)]
         cmd_list += ["--transfers", str(transfers)]
+        cmd_list += ["--low-level-retries", str(low_level_retries)]
         if multi_thread_streams is not None:
             cmd_list += ["--multi-thread-streams", str(multi_thread_streams)]
         if other_args:
