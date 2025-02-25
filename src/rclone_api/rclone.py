@@ -687,8 +687,8 @@ class Rclone:
         cp = self._run(cmd_list)
         return CompletedProcess.from_subprocess(cp)
 
-    def sftp_reget_to_mount(self, src: str, dst: str) -> CompletedProcess:
-        """Reget a file to a mount path."""
+    def sftp_resumable_copy_to_s3(self, src: str, dst: str) -> CompletedProcess:
+        """Uses a special resumable algorithim to copy files from an sftp server to an s3 bucket."""
         # use the dst path rclone path to construct the mount path.
         # cmd_list: list[str] = ["sftp", "reget", src, str(mount_path)]
         # cp = self._run(cmd_list)
