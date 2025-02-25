@@ -331,6 +331,7 @@ class Rclone:
         src: File | str,
         dst: File | str,
         check: bool | None = None,
+        verbose: bool | None = None,
         other_args: list[str] | None = None,
     ) -> None:
         """Copy multiple files from source to destination.
@@ -341,6 +342,7 @@ class Rclone:
             payload: Dictionary of source and destination file paths
         """
         check = get_check(check)
+        verbose = get_verbose(verbose)
         src = src if isinstance(src, str) else str(src.path)
         dst = dst if isinstance(dst, str) else str(dst.path)
         cmd_list: list[str] = ["copyto", src, dst]
