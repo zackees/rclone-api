@@ -64,6 +64,11 @@ def _make_copy_config(sftp_path: str, dst_path: str, config: Config) -> _CopyCon
         raise
 
 
+def _do_resumable_copy(copy_config: _CopyConfig, chunk_size: int) -> CompletedProcess:
+    """Perform the resumable copy operation."""
+    raise NotImplementedError("Resumable copy not implemented")
+
+
 def sftp_resumable_file_copy_to_s3(
     src_sftp: str, dst_s3: str, config: Config, chunk_size: int
 ) -> CompletedProcess:
@@ -74,5 +79,5 @@ def sftp_resumable_file_copy_to_s3(
     # return CompletedProcess.from_subprocess(cp)
 
     copy_config: _CopyConfig = _make_copy_config(src_sftp, dst_s3, config)
-    print(copy_config)
-    raise NotImplementedError("sftp reget to mount not implemented")
+    out = _do_resumable_copy(copy_config, chunk_size)
+    return out
