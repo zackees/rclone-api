@@ -1,5 +1,5 @@
 from .completed_process import CompletedProcess
-from .config import Config
+from .config import Config, Parsed, ParsedSection
 from .diff import DiffItem, DiffOption, DiffType
 from .dir import Dir
 from .dir_listing import DirListing
@@ -30,4 +30,6 @@ __all__ = [
     "Order",
     "ListingOption",
     "SizeResult",
+    "Parsed",
+    "ParsedSection",
 ]
