@@ -21,10 +21,22 @@ def _generate_rclone_config() -> Config:
     # Load additional environment variables
     BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
     BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
+    SRC_SFTP_HOST = os.getenv("SRC_SFTP_HOST")
+    SRC_SFTP_USER = os.getenv("SRC_SFTP_USER")
+    SRC_SFTP_PORT = os.getenv("SRC_SFTP_PORT")
+    SRC_SFTP_PASS = os.getenv("SRC_SFTP_PASS")
+
     # BUCKET_URL = os.getenv("BUCKET_URL")
     BUCKET_URL = "sfo3.digitaloceanspaces.com"
 
     config_text = f"""
+[src]
+type = sftp
+host = {SRC_SFTP_HOST}
+user = {SRC_SFTP_USER}
+port = {SRC_SFTP_PORT}
+pass = {SRC_SFTP_PASS}
+
 [dst]
 type = s3
 provider = DigitalOcean
@@ -57,7 +69,7 @@ class RcloneLsTests(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     def test_sftp_resumable_file_copy_to_s3(self) -> None:
-        src = "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
+        src = "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
         dst = "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
         rclone = Rclone(_generate_rclone_config())
 
