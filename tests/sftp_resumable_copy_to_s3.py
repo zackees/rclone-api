@@ -69,3 +69,7 @@ class RcloneLsTests(unittest.TestCase):
                 chunk_size=100 * 1024 * 1024,
             )
         print("done")
+
+
+if __name__ == "__main__":
+    unittest.main()
