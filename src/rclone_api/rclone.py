@@ -687,8 +687,12 @@ class Rclone:
         cp = self._run(cmd_list)
         return CompletedProcess.from_subprocess(cp)
 
-    def sftp_resumable_copy_to_s3(self, src: str, dst: str) -> CompletedProcess:
+    def sftp_resumable_copy_to_s3(
+        self, src: str, dst: str, chunk_size: int | None
+    ) -> CompletedProcess:
         """Uses a special resumable algorithim to copy files from an sftp server to an s3 bucket."""
+        if chunk_size is None:
+            chunk_size = 100 * 1024 * 1024  # 100MB
         # use the dst path rclone path to construct the mount path.
         # cmd_list: list[str] = ["sftp", "reget", src, str(mount_path)]
         # cp = self._run(cmd_list)
