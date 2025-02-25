@@ -399,7 +399,7 @@ class Rclone:
         using_fast_list = "--fast-list" in other_args
         if using_fast_list:
             warnings.warn(
-                "It's not recommended to use --fast-list with copy_files as the entire repository has to be listed"
+                "It's not recommended to use --fast-list with copy_files as this will perform poorly on large repositories since the entire repository has to be scanned."
             )
 
         if max_partition_workers > 1:
@@ -891,7 +891,7 @@ class Rclone:
         check = get_check(check)
         if fast_list or (other_args and "--fast-list" in other_args):
             warnings.warn(
-                "It's not recommended to use --fast-list with size_files as the entire repository has to be listed"
+                "It's not recommended to use --fast-list with size_files as this will perform poorly on large repositories since the entire repository has to be scanned."
             )
         files = list(files)
         all_files: list[File] = []
