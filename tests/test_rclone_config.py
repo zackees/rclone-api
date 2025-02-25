@@ -58,7 +58,7 @@ class RcloneConfigParseTester(unittest.TestCase):
     def test_copyfile(self) -> None:
         """Test copying a single file to remote storage."""
         config: Config = _generate_rclone_config()
-        parsed: Parsed = config.parsed
+        parsed: Parsed = config.parse()
         print(parsed)
         print()
 

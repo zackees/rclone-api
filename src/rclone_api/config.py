@@ -23,8 +23,7 @@ class Config:
 
     text: str
 
-    @property
-    def parsed(self) -> Parsed:
+    def parse(self) -> Parsed:
         return Parsed.parse(self.text)
 
 
