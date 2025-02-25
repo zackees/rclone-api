@@ -62,6 +62,9 @@ class RcloneConfigParseTester(unittest.TestCase):
         print(parsed)
         print()
 
+        # If you use the --vfs-fast-fingerprint flag then rclone will not include the slow operations in the fingerprint.
+        # This makes the fingerprinting less accurate but much faster and will improve the opening time of cached files.
+
 
 if __name__ == "__main__":
     unittest.main()

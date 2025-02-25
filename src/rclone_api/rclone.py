@@ -15,7 +15,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
-from rclone_api.config import Config
+from rclone_api.config import Config, Parsed
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
@@ -48,6 +48,14 @@ def rclone_verbose(verbose: bool | None) -> bool:
     return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
 
 
+def _to_rclone_conf(config: Config | Path) -> Config:
+    if isinstance(config, Path):
+        content = config.read_text(encoding="utf-8")
+        return Config(content)
+    else:
+        return config
+
+
 class Rclone:
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
@@ -56,6 +64,7 @@ class Rclone:
             if not rclone_conf.exists():
                 raise ValueError(f"Rclone config file not found: {rclone_conf}")
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
+        self.config: Config = _to_rclone_conf(rclone_conf)
 
     def _run(
         self, cmd: list[str], check: bool = False, capture: bool | None = None
@@ -684,6 +693,8 @@ class Rclone:
         # cmd_list: list[str] = ["sftp", "reget", src, str(mount_path)]
         # cp = self._run(cmd_list)
         # return CompletedProcess.from_subprocess(cp)
+        parsed: Parsed = self.config.parse()
+        print(parsed)
         raise NotImplementedError("sftp reget to mount not implemented")
 
     def mount(
