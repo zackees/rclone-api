@@ -15,7 +15,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
-from rclone_api.config import Config, Parsed
+from rclone_api.config import Config
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
@@ -687,19 +687,18 @@ class Rclone:
         cp = self._run(cmd_list)
         return CompletedProcess.from_subprocess(cp)
 
-    def sftp_resumable_copy_to_s3(
+    def sftp_resumable_file_copy_to_s3(
         self, src: str, dst: str, chunk_size: int | None
     ) -> CompletedProcess:
+        from rclone_api.sftp_resumable_file_copy_to_s3 import (
+            sftp_resumable_file_copy_to_s3,
+        )
+
         """Uses a special resumable algorithim to copy files from an sftp server to an s3 bucket."""
         if chunk_size is None:
             chunk_size = 100 * 1024 * 1024  # 100MB
-        # use the dst path rclone path to construct the mount path.
-        # cmd_list: list[str] = ["sftp", "reget", src, str(mount_path)]
-        # cp = self._run(cmd_list)
-        # return CompletedProcess.from_subprocess(cp)
-        parsed: Parsed = self.config.parse()
-        print(parsed)
-        raise NotImplementedError("sftp reget to mount not implemented")
+        out = sftp_resumable_file_copy_to_s3(src, dst, self.config, chunk_size)
+        return out
 
     def mount(
         self,

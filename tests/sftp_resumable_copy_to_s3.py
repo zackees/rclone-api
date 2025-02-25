@@ -56,14 +56,14 @@ class RcloneLsTests(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    def test_sftp_resumable_copy_to_s3(self) -> None:
+    def test_sftp_resumable_file_copy_to_s3(self) -> None:
         src = "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
         dst = "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
         rclone = Rclone(_generate_rclone_config())
 
         # test that this throws a NotImplementedError
         with self.assertRaises(NotImplementedError):
-            rclone.sftp_resumable_copy_to_s3(
+            rclone.sftp_resumable_file_copy_to_s3(
                 src=src,
                 dst=dst,
                 chunk_size=100 * 1024 * 1024,
