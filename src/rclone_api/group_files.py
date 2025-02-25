@@ -68,7 +68,10 @@ class TreeNode:
         paths_reversed: list[str] = [self.name]
         node: TreeNode | None = self
         assert node is not None
-        while node := node.parent:
+        while True:
+            node = node.parent
+            if node is None:
+                break
             paths_reversed.append(node.name)
         return "/".join(reversed(paths_reversed))
 

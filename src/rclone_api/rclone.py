@@ -26,12 +26,7 @@ from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.types import (
-    ListingOption,
-    ModTimeStrategy,
-    Order,
-    SizeResult,
-)
+from rclone_api.types import ListingOption, ModTimeStrategy, Order, SizeResult
 from rclone_api.util import (
     get_check,
     get_rclone_exe,
