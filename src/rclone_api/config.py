@@ -10,7 +10,8 @@ class ParsedSection:
 
 @dataclass
 class Parsed:
-    sections: List[ParsedSection]
+    # sections: List[ParsedSection]
+    sections: dict[str, dict[str, str]]
 
     @staticmethod
     def parse(content: str) -> "Parsed":
@@ -53,5 +54,7 @@ def parse_rclone_config(content: str) -> Parsed:
             key, value = line.split("=", 1)
             current_section.options[key.strip()] = value.strip()
 
-    # return sections
-    return Parsed(sections=sections)
+    data: dict[str, dict[str, str]] = {}
+    for section in sections:
+        data[section.name] = section.options
+    return Parsed(sections=data)
