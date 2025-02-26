@@ -112,6 +112,7 @@ class UploadResult:
 def upload_task(
     info: UploadInfo, chunk: bytes, part_number: int, retries: int
 ) -> UploadResult:
+    retries = retries + 1  # Add one for the initial attempt
     for retry in range(retries):
         try:
             if retry > 0:
@@ -173,9 +174,6 @@ def upload_file_multipart(
         )
 
         parts: list[UploadResult] = []
-
-        retries = retries + 1
-
         filechunks: Queue[Item | None] = Queue(10)
         thread = Thread(target=file_chunker, args=(file_path, chunk_size, filechunks))
         thread.start()
