@@ -1,13 +1,31 @@
 import json
 import os
+import time
 from collections.abc import Iterator
-from typing import Any
+from dataclasses import asdict, dataclass, field
+from tempfile import TemporaryFile
 
 import boto3
-from botocore.client import BaseClient  # FIX: Correct typing for S3 client
+from botocore.client import BaseClient  # Correct typing for S3 client
 
-# _CHUNK_SIZE = 1 * 1024 * 1024 * 1024  # 1GB
 _CHUNK_SIZE = 1024 * 1024 * 16
+
+
+@dataclass
+class UploadProgress:
+    file_size: int
+    total_chunks: int
+    uploaded_chunks: list[int] = field(default_factory=list)
+
+    def to_json(self) -> str:
+        """Serialize the dataclass to a JSON string."""
+        return json.dumps(asdict(self), indent=4)
+
+    @staticmethod
+    def from_json(json_str: str) -> "UploadProgress":
+        """Deserialize a JSON string into an UploadProgress instance."""
+        data = json.loads(json_str)
+        return UploadProgress(**data)
 
 
 class S3MultiChunkUploader:
@@ -26,48 +44,60 @@ class S3MultiChunkUploader:
         self.metadata_file: str = metadata_file
         self.s3: BaseClient = boto3.client("s3")  # Explicitly typed S3 client
 
-        self.file_size: int
-        self.total_chunks: int
         self.file_size, self.total_chunks = self._inspect_file()
-
-        self.progress: dict[str, Any] = self._load_progress()
+        self.progress: UploadProgress = self._load_progress()
 
     def _inspect_file(self) -> tuple[int, int]:
         """Get file size and calculate total chunks."""
         file_size: int = os.path.getsize(self.file_path)
-        total_chunks: int = (
-            file_size + self.chunk_size - 1
-        ) // self.chunk_size  # Ceiling division
+        total_chunks: int = (file_size + self.chunk_size - 1) // self.chunk_size
         return file_size, total_chunks
 
-    def _load_progress(self) -> dict[str, Any]:
-        """Load upload progress from JSON if available, else initialize."""
+    def _load_progress(self) -> UploadProgress:
+        """Load upload progress from JSON if available; otherwise, initialize a new instance."""
         if os.path.exists(self.metadata_file):
             with open(self.metadata_file, "r") as f:
-                return json.load(f)
-        return {
-            "file_size": self.file_size,
-            "total_chunks": self.total_chunks,
-            "uploaded_chunks": [],
-        }
+                json_str = f.read()
+            return UploadProgress.from_json(json_str)
+        return UploadProgress(
+            file_size=self.file_size, total_chunks=self.total_chunks, uploaded_chunks=[]
+        )
 
     def _save_progress(self) -> None:
-        """Save progress to a JSON file."""
+        """Save the current progress to a JSON file."""
         with open(self.metadata_file, "w") as f:
-            json.dump(self.progress, f, indent=4)
+            f.write(self.progress.to_json())
 
     def _upload_chunk(self, chunk_number: int, offset: int, size: int) -> str:
-        """Upload a specific chunk of the file to S3, streaming from disk."""
+        """Upload a specific chunk of the file to S3 by copying the byte range into a temporary file."""
         chunk_key: str = f"{self.s3_key}.part{chunk_number}"
 
-        # Open file in read mode, seek to offset and stream upload
-        with open(self.file_path, "rb") as f:
-            f.seek(offset)
+        # Read the specified byte range from the original file.
+        # print(f"Reading chunk {chunk_number} ({size} bytes)...")
+        print(f"@{chunk_number} is ({size} bytes)...")
+        # print(f"Opening file {self.file_path}...")
+        print(f"@{chunk_number} is opening file {self.file_path}...")
+        with open(self.file_path, "rb") as src:
+            # print(f"Seeking to offset {offset}...")
+            print(f"@{chunk_number} is seeking to offset {offset}...")
+            src.seek(offset)
+            # print(f"Reading {size} bytes...")
+            print(f"@{chunk_number} is reading {size} bytes...")
+            chunk_data = src.read(size)
 
-            self.s3.upload_fileobj(f, self.bucket_name, chunk_key)
+        # Write the data into a temporary file and then upload that file.
+        with TemporaryFile("w+b") as tmp:
+            print(f"@{chunk_number} is writing to temporary file...")
+            tmp.write(chunk_data)
+            print(f"@{chunk_number} is finished writing to temporary file...")
+            print(f"@{chunk_number} is seeking to start of temporary file...")
+            tmp.seek(0)
+            print(f"@{chunk_number} is uploading to S3...")
+            self.s3.upload_fileobj(tmp, self.bucket_name, chunk_key)
+            print(f"@{chunk_number} is finished uploading to S3...")
 
+        print(f"@{chunk_number} is returning chunk key {chunk_key}...")
         return chunk_key
-
 
     def _chunk_ranges(self) -> Iterator[tuple[int, int, int]]:
         """Generate chunk ranges as (chunk_number, offset, size)."""
@@ -77,17 +107,15 @@ class S3MultiChunkUploader:
             yield chunk_number, offset, size
 
     def upload_file(self) -> None:
-        """Upload the file in 1GB chunks, resuming if needed."""
+        """Upload the file in chunks, resuming if needed."""
         print(f"File Size: {self.file_size} bytes, Total Chunks: {self.total_chunks}")
 
         for chunk_number, offset, size in self._chunk_ranges():
-            if chunk_number in self.progress["uploaded_chunks"]:
+            if chunk_number in self.progress.uploaded_chunks:
                 print(f"Skipping chunk {chunk_number}, already uploaded.")
                 continue
 
             print(f"Uploading chunk {chunk_number} ({size} bytes)...")
-            import time
-
             start_time = time.time()
             chunk_key: str = self._upload_chunk(chunk_number, offset, size)
             diff_time = time.time() - start_time
@@ -95,8 +123,8 @@ class S3MultiChunkUploader:
                 f"Chunk {chunk_number} uploaded to {chunk_key} in {int(diff_time)} seconds."
             )
 
-            # Update progress
-            self.progress["uploaded_chunks"].append(chunk_number)
+            # Update progress and save progress after each chunk
+            self.progress.uploaded_chunks.append(chunk_number)
             self._save_progress()
             print(f"Chunk {chunk_number} uploaded successfully.")
 
