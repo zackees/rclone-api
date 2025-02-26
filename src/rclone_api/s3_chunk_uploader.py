@@ -155,7 +155,7 @@ def upload_file_multipart(
     bucket_name: str,
     file_path: str,
     object_name: Optional[str] = None,
-    chunk_size: int = 5 * 1024 * 1024,  # Default chunk size is 5MB; can be overridden
+    chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
     retries: int = 20,
 ) -> None:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
