@@ -21,6 +21,8 @@ class UploadInfo:
     retries: int
     chunk_size: int
 
+    def to_json()
+
 
 @dataclass
 class FinishedPiece:
@@ -87,14 +89,13 @@ class FileChunk:
         with open(self.filepart, "rb") as f:
             return f.read()
         return b""
-    
+
     def close(self):
         if self.filepart.exists():
             self.filepart.unlink()
 
     def __del__(self):
-        if self.filepart.exists():
-            self.filepart.unlink()
+        self.close()
 
 
 def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -> None:
