@@ -1,3 +1,4 @@
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -21,9 +22,17 @@ class UploadInfo:
 
 
 @dataclass
-class FinishedPieces:
+class FinishedPiece:
     part_number: int
     etag: str
+
+    def to_json(self) -> str:
+        return f'{{"part_number": {self.part_number}, "etag": "{self.etag}"}}'
+
+    @staticmethod
+    def from_json(json_str: str) -> "FinishedPiece":
+        data = json.loads(json_str)
+        return FinishedPiece(**data)
 
 
 def _get_chunk_tmpdir() -> Path:
@@ -49,6 +58,10 @@ class FileChunk:
         with open(self.filepart, "rb") as f:
             return f.read()
         return b""
+
+    def __del__(self):
+        if self.filepart.exists():
+            self.filepart.unlink()
 
 
 def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -> None:
@@ -76,7 +89,7 @@ def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -
 
 def upload_task(
     info: UploadInfo, chunk: bytes, part_number: int, retries: int
-) -> FinishedPieces:
+) -> FinishedPiece:
     retries = retries + 1  # Add one for the initial attempt
     for retry in range(retries):
         try:
@@ -92,7 +105,7 @@ def upload_task(
                 UploadId=info.upload_id,
                 Body=chunk,
             )
-            out: FinishedPieces = FinishedPieces(
+            out: FinishedPiece = FinishedPiece(
                 etag=part["ETag"], part_number=part_number
             )
             return out
@@ -108,11 +121,11 @@ def upload_task(
 
 def handle_upload(
     upload_info: UploadInfo, file_chunk: FileChunk | None
-) -> FinishedPieces | None:
+) -> FinishedPiece | None:
     if file_chunk is None:
         return None
     chunk, part_number = file_chunk.data, file_chunk.part_number
-    part: FinishedPieces = upload_task(
+    part: FinishedPiece = upload_task(
         info=upload_info,
         chunk=chunk,
         part_number=part_number,
@@ -169,7 +182,7 @@ def upload_file_multipart(
         retries=retries,
     )
 
-    parts_queue: Queue[FinishedPieces | None] = Queue()
+    parts_queue: Queue[FinishedPiece | None] = Queue()
     filechunks: Queue[FileChunk | None] = Queue(10)
 
     try:
@@ -193,7 +206,7 @@ def upload_file_multipart(
 
         thread_chunker.join()
 
-        parts: list[FinishedPieces] = []
+        parts: list[FinishedPiece] = []
         while parts_queue.qsize() > 0:
             qpart = parts_queue.get()
             if qpart is not None:
