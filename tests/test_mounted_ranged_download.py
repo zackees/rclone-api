@@ -194,7 +194,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
             credentials = S3Credentials(
                 access_key_id=os.getenv("BUCKET_KEY_PUBLIC"),
                 secret_access_key=os.getenv("BUCKET_KEY_SECRET"),
-                #endpoint_url=f"https://{os.getenv('BUCKET_URL')}"
+                endpoint_url="https://s3.us-west-002.backblazeb2.com"
             )
             
             # Create upload target
