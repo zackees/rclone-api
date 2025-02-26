@@ -103,7 +103,15 @@ class UploadInfo:
     upload_id: str
 
 
-def upload_task(info: UploadInfo, chunk: bytes, part_number: int, retries: int) -> dict:
+@dataclass
+class UploadResult:
+    part_number: int
+    etag: str
+
+
+def upload_task(
+    info: UploadInfo, chunk: bytes, part_number: int, retries: int
+) -> UploadResult:
     for retry in range(retries):
         try:
             if retry > 0:
@@ -120,7 +128,8 @@ def upload_task(info: UploadInfo, chunk: bytes, part_number: int, retries: int) 
             )
 
             # parts.append({"ETag": part["ETag"], "PartNumber": part_number})
-            out = {"ETag": part["ETag"], "PartNumber": part_number}
+            # out = {"ETag": part["ETag"], "PartNumber": part_number}
+            out: UploadResult = UploadResult(etag=part["ETag"], part_number=part_number)
             return out
             # break
         except Exception as e:
@@ -163,7 +172,7 @@ def upload_file_multipart(
             upload_id=upload_id,
         )
 
-        parts: list[dict] = []
+        parts: list[UploadResult] = []
 
         retries = retries + 1
 
@@ -176,7 +185,7 @@ def upload_file_multipart(
             if item is None:
                 break
             chunk, part_number = item.data, item.part_number
-            part: dict = upload_task(
+            part: UploadResult = upload_task(
                 info=upload_info,
                 chunk=chunk,
                 part_number=part_number,
@@ -184,12 +193,17 @@ def upload_file_multipart(
             )
             parts.append(part)
 
+        print(f"Upload complete, sorting {len(parts)} parts to complete upload")
+        parts.sort(key=lambda x: x.part_number)  # Some backends need this.
+        parts_s3: list[dict] = [
+            {"ETag": p.etag, "PartNumber": p.part_number} for p in parts
+        ]
         print(f"Sending multi part completion message for {file_path}")
         s3_client.complete_multipart_upload(
             Bucket=bucket_name,
             Key=object_name,
             UploadId=upload_id,
-            MultipartUpload={"Parts": parts},
+            MultipartUpload={"Parts": parts_s3},
         )
         print(f"Multipart upload completed: {file_path} to {bucket_name}/{object_name}")
     except Exception:
