@@ -137,7 +137,11 @@ class RcloneMountWebdavTester(unittest.TestCase):
         """Test basic Webdav serve functionality."""
         config = _generate_rclone_config(PORT)
         src_path = "src:aa_misc_data/aa_misc_data/"
-        mount_path = Path("test_mount2")
+        is_windows = os.name == "nt"
+        if is_windows:
+            mount_path = Path("test_mount2")
+        else:
+            mount_path = Path("/tmp/test_mount2")
         expected_file = "world_lending_library_2024_11.tar.zst"
         with rclone_mounted_webdav(src_path, config, mount_path):
             self.assertTrue(mount_path.exists())
