@@ -105,6 +105,7 @@ def upload_file_multipart(
                             Body=data,
                         )
                         parts.append({"ETag": part["ETag"], "PartNumber": part_number})
+                        part_number += 1
                     except Exception as e:
                         if retry == retries - 1:
                             print(f"Error uploading part {part_number}: {e}")
@@ -112,7 +113,6 @@ def upload_file_multipart(
                             exceptions[part_number] = e
                         else:
                             print(f"Error uploading part {part_number}: {e}, retrying")
-                part_number += 1
 
         if exceptions:
             # Throw to outer scope to abort multipart upload
