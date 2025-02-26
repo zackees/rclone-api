@@ -22,6 +22,11 @@ Workflow:
   3. S3 API for upload
     -> Very certain mounting seek doesn't really work for S3
 
+
+Mount target:
+  rclone --config rclone.conf mount 45061:/aa_misc_data/aa_misc_data/ mount
+  file -> world_lending_library_2024_11.tar.zst
+
 """
 
 import os

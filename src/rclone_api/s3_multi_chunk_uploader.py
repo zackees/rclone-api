@@ -7,6 +7,8 @@ from typing import Any
 import boto3
 from botocore.client import BaseClient  # FIX: Correct typing for S3 client
 
+_CHUNK_SIZE = 1 * 1024 * 1024 * 1024  # 1GB
+
 
 class S3Uploader:
     def __init__(
@@ -14,7 +16,7 @@ class S3Uploader:
         file_path: str,
         bucket_name: str,
         s3_key: str,
-        chunk_size: int = 1 * 1024 * 1024 * 1024,  # 1GB
+        chunk_size: int = _CHUNK_SIZE,  # 1GB
         metadata_file: str = "upload_progress.json",
     ) -> None:
         self.file_path: str = file_path
@@ -93,10 +95,14 @@ class S3Uploader:
         print("Upload completed.")
 
 
-if __name__ == "__main__":
-    uploader = S3Uploader(
-        file_path="path/to/9TB-file.bin",
-        bucket_name="your-bucket-name",
-        s3_key="s3-destination/9TB-file.bin",
-    )
+def upload_file(file_path: str, bucket_name: str, s3_key: str) -> None:
+    uploader = S3Uploader(file_path, bucket_name, s3_key)
     uploader.upload_file()
+
+
+if __name__ == "__main__":
+    upload_file(
+        file_path="mount/world_lending_library_2024_11.tar.zst",
+        bucket_name="TorrentBooks",
+        s3_key="aa_misc_data/aa_misc_data/",
+    )
