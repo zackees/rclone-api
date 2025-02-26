@@ -10,7 +10,7 @@ from botocore.client import BaseClient  # FIX: Correct typing for S3 client
 _CHUNK_SIZE = 1 * 1024 * 1024 * 1024  # 1GB
 
 
-class S3Uploader:
+class S3MultiChunkUploader:
     def __init__(
         self,
         file_path: str,
@@ -96,7 +96,7 @@ class S3Uploader:
 
 
 def upload_file(file_path: str, bucket_name: str, s3_key: str) -> None:
-    uploader = S3Uploader(file_path, bucket_name, s3_key)
+    uploader = S3MultiChunkUploader(file_path, bucket_name, s3_key)
     uploader.upload_file()
 
 
