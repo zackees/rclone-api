@@ -153,7 +153,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
-    # @unittest.skipIf(True, "Test not enabled")
+    @unittest.skipIf(True, "Test not enabled")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)

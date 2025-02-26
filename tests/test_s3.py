@@ -85,19 +85,15 @@ class RcloneS3Tester(unittest.TestCase):
         import tempfile
 
         # numbers_0_255 = bytearray(range(256))
-        _bytes: bytearray = bytearray(16_000_000)
-        for i, _ in enumerate(_bytes):
-            _bytes[i] = i % 256
-
+        pattern = bytes(range(256))
+        _bytes = bytearray(pattern * (16 * 1024 * 1024 // len(pattern)))
 
         print("Payload size: ", len(_bytes))
 
         with tempfile.TemporaryDirectory() as tempdir:
             tmpfile = Path(tempdir) / "testfile"
             with open(str(tmpfile), "wb") as f:
-                f.write(
-                    _bytes
-                )  # this will create a 1MB file of 0-255 cyclically.
+                f.write(_bytes)  # this will create a 1MB file of 0-255 cyclically.
                 f.flush()
                 f.seek(0)
 
