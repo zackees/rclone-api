@@ -39,6 +39,7 @@ from rclone_api.walk import walk
 
 _IS_WINDOWS = os.name == "nt"
 
+
 def rclone_verbose(verbose: bool | None) -> bool:
     if verbose is not None:
         os.environ["RCLONE_API_VERBOSE"] = "1" if verbose else "0"
@@ -715,8 +716,6 @@ class Rclone:
                     f"Mount directory already exists and is not empty: {outdir}"
                 )
             outdir.rmdir()
-
-        
 
         if _IS_WINDOWS:
             # Windows -> Must create parent directories only if they don't exist

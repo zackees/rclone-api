@@ -5,8 +5,9 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from tempfile import TemporaryFile
 
-import boto3
 from botocore.client import BaseClient  # Correct typing for S3 client
+
+from rclone_api.s3_create_client import create_backblaze_s3_client
 
 _CHUNK_SIZE = 1024 * 1024 * 16
 
@@ -14,16 +15,18 @@ _CHUNK_SIZE = 1024 * 1024 * 16
 @dataclass
 class S3Credentials:
     """Credentials for accessing S3."""
+
     access_key_id: str
     secret_access_key: str
-    session_token: str = None
-    region_name: str = None
-    endpoint_url: str = None
+    session_token: str | None = None
+    region_name: str | None = None
+    endpoint_url: str | None = None
 
 
 @dataclass
 class S3UploadTarget:
     """Target information for S3 upload."""
+
     file_path: str
     bucket_name: str
     s3_key: str
@@ -59,15 +62,11 @@ class S3MultiChunkUploader:
         self.s3_key: str = target.s3_key
         self.chunk_size: int = chunk_size
         self.metadata_file: str = metadata_file
-        
-        # Use the provided credentials to create the S3 client
-        self.s3: BaseClient = boto3.client(
-            "s3",
-            aws_access_key_id=credentials.access_key_id,
-            aws_secret_access_key=credentials.secret_access_key,
-            aws_session_token=credentials.session_token,
-            region_name=credentials.region_name,
-            endpoint_url=credentials.endpoint_url
+
+        self.s3: BaseClient = create_backblaze_s3_client(
+            access_key=credentials.access_key_id,
+            secret_key=credentials.secret_access_key,
+            endpoint_url=credentials.endpoint_url,
         )
 
         self.file_size, self.total_chunks = self._inspect_file()
@@ -171,11 +170,11 @@ if __name__ == "__main__":
         # region_name="us-east-1",
         # endpoint_url="https://s3.amazonaws.com"
     )
-    
+
     target = S3UploadTarget(
         file_path="mount/world_lending_library_2024_11.tar.zst",
         bucket_name="TorrentBooks",
         s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
     )
-    
+
     upload_file(credentials=credentials, target=target)

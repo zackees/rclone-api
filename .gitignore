@@ -148,3 +148,4 @@ rclone*.conf
 test_mount2
 t.py
 mount
+t2.py

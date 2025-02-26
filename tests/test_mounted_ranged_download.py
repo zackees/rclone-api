@@ -31,7 +31,6 @@ Mount target:
 
 import os
 import unittest
-import time
 
 # context lib
 from contextlib import contextmanager
@@ -41,7 +40,11 @@ from typing import Generator
 from dotenv import load_dotenv
 
 from rclone_api import Config, Process, Rclone
-from rclone_api.s3_multi_chunk_uploader import upload_file, S3Credentials, S3UploadTarget
+from rclone_api.s3_multi_chunk_uploader import (
+    S3Credentials,
+    S3UploadTarget,
+    upload_file,
+)
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
@@ -191,19 +194,28 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
         try:
             # Create credentials from environment variables
+            access_key_id = os.getenv("BUCKET_KEY_PUBLIC")
+            secret_access_key = os.getenv("BUCKET_KEY_SECRET")
+            assert access_key_id is not None
+            assert secret_access_key is not None
             credentials = S3Credentials(
-                access_key_id=os.getenv("BUCKET_KEY_PUBLIC"),
-                secret_access_key=os.getenv("BUCKET_KEY_SECRET"),
-                endpoint_url="https://s3.us-west-002.backblazeb2.com"
+                # access_key_id=os.getenv("BUCKET_KEY_PUBLIC"),
+                access_key_id=access_key_id,
+                # secret_access_key=os.getenv("BUCKET_KEY_SECRET"),
+                secret_access_key=secret_access_key,
+                endpoint_url="https://s3.us-west-002.backblazeb2.com",
             )
-            
+
+            bucket_name = BUCKET_NAME
+            assert bucket_name is not None
+
             # Create upload target
             target = S3UploadTarget(
                 file_path="mount/world_lending_library_2024_11.tar.zst",
-                bucket_name=BUCKET_NAME,
+                bucket_name=bucket_name,
                 s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
             )
-            
+
             # Call the updated upload_file function with the new parameters
             upload_file(credentials=credentials, target=target)
 
