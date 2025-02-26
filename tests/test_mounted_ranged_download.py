@@ -19,6 +19,9 @@ from rclone_api import Config, Process, Rclone
 _IS_WINDOWS = os.name == "nt"
 
 _ENABLED = not _IS_WINDOWS
+_CHUNK_SIZE = 1024 * 1024 * 16
+
+_CHUNK_SIZE *= 10
 
 load_dotenv()
 
@@ -168,7 +171,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
                     # Download the first 16MB of the file
                     print("First download")
                     # start_time = time.time()
-                    byte_range = (0, 1024 * 1024 * 16)
+                    byte_range = (0, _CHUNK_SIZE)
                     # _download_range(target_file, "test_mount2/chunk1", byte_range)
                     # print(f"Download took {time.time() - start_time} seconds")
                     fut = executor.submit(
