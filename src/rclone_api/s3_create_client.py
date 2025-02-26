@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
@@ -7,6 +8,29 @@ from typing import Optional
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
+
+
+@dataclass
+class UploadInfo:
+    s3_client: BaseClient
+    bucket_name: str
+    object_name: str
+    file_path: str
+    upload_id: str
+    retries: int
+    chunk_size: int
+
+
+@dataclass
+class UploadResult:
+    part_number: int
+    etag: str
+
+
+@dataclass
+class Item:
+    part_number: int
+    data: bytes
 
 
 # Create a Boto3 session and S3 client, this is back blaze specific.
@@ -70,16 +94,10 @@ def download_file(
         print(f"Error downloading file: {e}")
 
 
-@dataclass
-class Item:
-    part_number: int
-    data: bytes
-
-
-def file_chunker(
-    file_path: str, chunk_size: int, filechunks: Queue[Item | None]
-) -> None:
+def file_chunker(upload_info: UploadInfo, filechunks: Queue[Item | None]) -> None:
     part_number = 1
+    file_path = upload_info.file_path
+    chunk_size = upload_info.chunk_size
     with open(file_path, "rb") as f:
         try:
             while data := f.read(chunk_size):
@@ -92,21 +110,6 @@ def file_chunker(
             warnings.warn(f"Error reading file: {e}")
         finally:
             filechunks.put(None)
-
-
-@dataclass
-class UploadInfo:
-    s3_client: BaseClient
-    bucket_name: str
-    object_name: str
-    file_path: str
-    upload_id: str
-
-
-@dataclass
-class UploadResult:
-    part_number: int
-    etag: str
 
 
 def upload_task(
@@ -127,22 +130,58 @@ def upload_task(
                 UploadId=info.upload_id,
                 Body=chunk,
             )
-
-            # parts.append({"ETag": part["ETag"], "PartNumber": part_number})
-            # out = {"ETag": part["ETag"], "PartNumber": part_number}
             out: UploadResult = UploadResult(etag=part["ETag"], part_number=part_number)
             return out
-            # break
         except Exception as e:
             if retry == retries - 1:
                 print(f"Error uploading part {part_number}: {e}")
-                # assert part_number not in exceptions
-                # exceptions[part_number] = e
                 raise e
             else:
                 print(f"Error uploading part {part_number}: {e}, retrying")
                 continue
     raise Exception("Should not reach here")
+
+
+def handle_upload(upload_info: UploadInfo, item: Item | None) -> UploadResult | None:
+    if item is None:
+        return None
+    chunk, part_number = item.data, item.part_number
+    part: UploadResult = upload_task(
+        info=upload_info,
+        chunk=chunk,
+        part_number=part_number,
+        retries=upload_info.retries,
+    )
+    return part
+
+
+def prepare_upload_file_multipart(
+    s3_client: BaseClient,
+    bucket_name: str,
+    file_path: str,
+    object_name: Optional[str] = None,
+    chunk_size: int = 5 * 1024 * 1024,  # Default chunk size is 5MB; can be overridden
+    retries: int = 20,
+) -> UploadInfo:
+    """Upload a file to the bucket using multipart upload with customizable chunk size."""
+
+    object_name = object_name or os.path.basename(file_path)
+
+    # Initiate multipart upload
+    print(f"Creating multipart upload for {file_path} to {bucket_name}/{object_name}")
+    mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
+    upload_id = mpu["UploadId"]
+
+    upload_info: UploadInfo = UploadInfo(
+        s3_client=s3_client,
+        bucket_name=bucket_name,
+        object_name=object_name,
+        file_path=file_path,
+        upload_id=upload_id,
+        retries=retries,
+        chunk_size=chunk_size,
+    )
+    return upload_info
 
 
 def upload_file_multipart(
@@ -171,6 +210,8 @@ def upload_file_multipart(
             object_name=object_name,
             file_path=file_path,
             upload_id=upload_id,
+            retries=retries,
+            chunk_size=chunk_size,
         )
 
         # parts: list[UploadResult] = []
@@ -178,11 +219,9 @@ def upload_file_multipart(
         parts_queue: Queue[UploadResult | None] = Queue()
         filechunks: Queue[Item | None] = Queue(10)
         thread_chunker = Thread(
-            target=file_chunker, args=(file_path, chunk_size, filechunks), daemon=True
+            target=file_chunker, args=(upload_info, filechunks), daemon=True
         )
         thread_chunker.start()
-
-        from concurrent.futures import ThreadPoolExecutor
 
         with ThreadPoolExecutor() as executor:
             while True:
@@ -191,16 +230,7 @@ def upload_file_multipart(
                     break
 
                 def task(upload_info=upload_info, item=item):
-                    if item is None:
-                        return None
-                    chunk, part_number = item.data, item.part_number
-                    part: UploadResult = upload_task(
-                        info=upload_info,
-                        chunk=chunk,
-                        part_number=part_number,
-                        retries=retries,
-                    )
-                    return part
+                    return handle_upload(upload_info, item)
 
                 fut = executor.submit(task)
                 fut.add_done_callback(lambda fut: parts_queue.put(fut.result()))
