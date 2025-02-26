@@ -92,12 +92,16 @@ class RcloneS3Tester(unittest.TestCase):
                 )  # this will create a 1MB file of 0-255 cyclically.
                 f.flush()
                 f.seek(0)
-                upload_file_multipart(s3_client, BUCKET_NAME, f.name, "testfile")
-                err = upload_file(
-                    s3_client, BUCKET_NAME, f.name, f"{BUCKET_NAME}/test/testfile"
-                )
-                if err:
-                    raise Exception(err)
+
+            filesize = tmpfile.stat().st_size
+
+            print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
+            upload_file_multipart(s3_client, BUCKET_NAME, f.name, "testfile")
+            err = upload_file(
+                s3_client, BUCKET_NAME, f.name, f"{BUCKET_NAME}/test/testfile"
+            )
+            if err:
+                raise Exception(err)
 
 
 if __name__ == "__main__":
