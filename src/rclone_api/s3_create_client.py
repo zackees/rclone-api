@@ -90,6 +90,7 @@ def upload_file_multipart(
 
         parts = []
         part_number = 1
+        retries = retries + 1
 
         with open(file_path, "rb") as f:
             while True:
