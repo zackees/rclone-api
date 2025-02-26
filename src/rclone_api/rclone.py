@@ -716,6 +716,7 @@ class Rclone:
             outdir.rmdir()
         try:
             outdir.parent.mkdir(parents=True, exist_ok=True)
+            print(f"Created directory: {outdir.absolute()}")
         except PermissionError:
             warnings.warn(
                 f"Permission error creating parent directory: {outdir.parent}"
