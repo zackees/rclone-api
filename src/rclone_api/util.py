@@ -134,7 +134,8 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 60) -> None:
     while time.time() < expire_time:
         rtn = mount_process.poll()
         if rtn is not None:
-            raise subprocess.CalledProcessError(rtn, mount_process.cmd)
+            cmd_str = subprocess.list2cmdline(mount_process.cmd)
+            raise subprocess.CalledProcessError(rtn, cmd_str)
         if path.exists():
             return
     raise TimeoutError(f"Path {path} did not exist after {timeout} seconds")
