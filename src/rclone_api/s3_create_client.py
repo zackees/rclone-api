@@ -91,10 +91,10 @@ def upload_file_multipart(
 
         with open(file_path, "rb") as f:
             while True:
+                data = f.read(chunk_size)
+                if not data:
+                    break
                 for retry in range(retries):
-                    data = f.read(chunk_size)
-                    if not data:
-                        break
                     try:
                         print(f"Uploading part {part_number} for {file_path}")
                         part = s3_client.upload_part(
@@ -111,6 +111,7 @@ def upload_file_multipart(
                             print(f"Error uploading part {part_number}: {e}")
                             assert part_number not in exceptions
                             exceptions[part_number] = e
+                            part_number += 1
                         else:
                             print(f"Error uploading part {part_number}: {e}, retrying")
 
