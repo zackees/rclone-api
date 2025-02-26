@@ -122,7 +122,11 @@ def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -
     with open(file_path, "rb") as f:
         try:
             while data := f.read(chunk_size):
-                file_chunk = FileChunk(src, part_number=part_number, data=data)
+                file_chunk = FileChunk(
+                    src,
+                    part_number=part_number,
+                    data=data,  # del data on the input will be called. Don't use data after this.
+                )
                 filechunks.put(file_chunk)
                 part_number += 1
         except Exception as e:
@@ -217,30 +221,19 @@ def upload_file_multipart(
 ) -> None:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
 
-    object_name = object_name or os.path.basename(file_path)
-    upload_id = None
+    upload_info: UploadInfo = prepare_upload_file_multipart(
+        s3_client=s3_client,
+        bucket_name=bucket_name,
+        file_path=file_path,
+        object_name=object_name,
+        chunk_size=chunk_size,
+        retries=retries,
+    )
+
+    parts_queue: Queue[UploadResult | None] = Queue()
+    filechunks: Queue[FileChunk | None] = Queue(10)
+
     try:
-        # Initiate multipart upload
-        print(
-            f"Creating multipart upload for {file_path} to {bucket_name}/{object_name}"
-        )
-        mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
-        upload_id = mpu["UploadId"]
-
-        upload_info: UploadInfo = UploadInfo(
-            s3_client=s3_client,
-            bucket_name=bucket_name,
-            object_name=object_name,
-            file_path=file_path,
-            upload_id=upload_id,
-            retries=retries,
-            chunk_size=chunk_size,
-        )
-
-        # parts: list[UploadResult] = []
-
-        parts_queue: Queue[UploadResult | None] = Queue()
-        filechunks: Queue[FileChunk | None] = Queue(10)
         thread_chunker = Thread(
             target=file_chunker, args=(upload_info, filechunks), daemon=True
         )
@@ -276,15 +269,15 @@ def upload_file_multipart(
         s3_client.complete_multipart_upload(
             Bucket=bucket_name,
             Key=object_name,
-            UploadId=upload_id,
+            UploadId=upload_info.upload_id,
             MultipartUpload={"Parts": parts_s3},
         )
         print(f"Multipart upload completed: {file_path} to {bucket_name}/{object_name}")
     except Exception:
-        if upload_id:
+        if upload_info.upload_id:
             try:
                 s3_client.abort_multipart_upload(
-                    Bucket=bucket_name, Key=object_name, UploadId=upload_id
+                    Bucket=bucket_name, Key=object_name, UploadId=upload_info.upload_id
                 )
             except Exception:
                 pass
