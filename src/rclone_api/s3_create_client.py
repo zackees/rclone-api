@@ -101,7 +101,7 @@ def upload_file_multipart(
                     try:
                         if retry > 0:
                             print(f"Retrying part {part_number} for {file_path}")
-                        print(f"Uploading part {part_number} for {file_path}")
+                        print(f"Uploading part {part_number} for {file_path} of size {len(data)}")
                         part = s3_client.upload_part(
                             Bucket=bucket_name,
                             Key=object_name,
