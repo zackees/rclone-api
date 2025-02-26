@@ -13,13 +13,11 @@ classifiers = ["Programming Language :: Python :: 3"]
 dependencies = [
     "pyright>=1.1.393",
     "python-dotenv>=1.0.0",
-
-    # EARLIEST KNOWN GOOD
+    
+    # BOTO3 Library needs to be pinned to a specific version
     # BackBlaze S3 fails with checksum header which it doesn't support after 1.35.99
     # The 1.20.1 was the earliest one I checked that worked and is not the true lower bound.
     "boto3>=1.20.1,<=1.35.99",
-    
-    "webdavclient3",
 ]
 
 # Change this with the version number bump.
