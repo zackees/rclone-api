@@ -21,7 +21,7 @@ class UploadInfo:
 
 
 @dataclass
-class UploadResult:
+class FinishedPieces:
     part_number: int
     etag: str
 
@@ -76,7 +76,7 @@ def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -
 
 def upload_task(
     info: UploadInfo, chunk: bytes, part_number: int, retries: int
-) -> UploadResult:
+) -> FinishedPieces:
     retries = retries + 1  # Add one for the initial attempt
     for retry in range(retries):
         try:
@@ -92,7 +92,9 @@ def upload_task(
                 UploadId=info.upload_id,
                 Body=chunk,
             )
-            out: UploadResult = UploadResult(etag=part["ETag"], part_number=part_number)
+            out: FinishedPieces = FinishedPieces(
+                etag=part["ETag"], part_number=part_number
+            )
             return out
         except Exception as e:
             if retry == retries - 1:
@@ -106,11 +108,11 @@ def upload_task(
 
 def handle_upload(
     upload_info: UploadInfo, file_chunk: FileChunk | None
-) -> UploadResult | None:
+) -> FinishedPieces | None:
     if file_chunk is None:
         return None
     chunk, part_number = file_chunk.data, file_chunk.part_number
-    part: UploadResult = upload_task(
+    part: FinishedPieces = upload_task(
         info=upload_info,
         chunk=chunk,
         part_number=part_number,
@@ -167,7 +169,7 @@ def upload_file_multipart(
         retries=retries,
     )
 
-    parts_queue: Queue[UploadResult | None] = Queue()
+    parts_queue: Queue[FinishedPieces | None] = Queue()
     filechunks: Queue[FileChunk | None] = Queue(10)
 
     try:
@@ -191,7 +193,7 @@ def upload_file_multipart(
 
         thread_chunker.join()
 
-        parts: list[UploadResult] = []
+        parts: list[FinishedPieces] = []
         while parts_queue.qsize() > 0:
             qpart = parts_queue.get()
             if qpart is not None:
