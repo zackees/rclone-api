@@ -180,8 +180,8 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
                     futures.append(fut)
 
-                    # offset = 1000 * 1000 * 1000 * 150
-                    offset = _CHUNK_SIZE
+                    offset = 1000 * 1000 * 1000 * 150
+                    #offset = 
                     byte_range = byte_range[0] + offset, byte_range[1] + offset
 
                     fut = executor.submit(
@@ -191,7 +191,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
                     for fut in futures:
                         fut.result()
-                        
+
 
                 # # offset byte range by 100GB
 
