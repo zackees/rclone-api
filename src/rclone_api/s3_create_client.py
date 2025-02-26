@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from queue import Queue
 from threading import Thread
 from typing import Optional
@@ -69,6 +70,71 @@ def download_file(
         print(f"Error downloading file: {e}")
 
 
+@dataclass
+class Item:
+    part_number: int
+    data: bytes
+
+
+def file_chunker(
+    file_path: str, chunk_size: int, filechunks: Queue[Item | None]
+) -> None:
+    part_number = 1
+    with open(file_path, "rb") as f:
+        try:
+            while data := f.read(chunk_size):
+                item = Item(part_number=part_number, data=data)
+                filechunks.put(item)
+                part_number += 1
+        except Exception as e:
+            import warnings
+
+            warnings.warn(f"Error reading file: {e}")
+        finally:
+            filechunks.put(None)
+
+
+@dataclass
+class UploadInfo:
+    s3_client: BaseClient
+    bucket_name: str
+    object_name: str
+    file_path: str
+    upload_id: str
+
+
+def upload_task(info: UploadInfo, chunk: bytes, part_number: int, retries: int) -> dict:
+    for retry in range(retries):
+        try:
+            if retry > 0:
+                print(f"Retrying part {part_number} for {info.file_path}")
+            print(
+                f"Uploading part {part_number} for {info.file_path} of size {len(chunk)}"
+            )
+            part = info.s3_client.upload_part(
+                Bucket=info.bucket_name,
+                Key=info.object_name,
+                PartNumber=part_number,
+                UploadId=info.upload_id,
+                Body=chunk,
+            )
+
+            # parts.append({"ETag": part["ETag"], "PartNumber": part_number})
+            out = {"ETag": part["ETag"], "PartNumber": part_number}
+            return out
+            # break
+        except Exception as e:
+            if retry == retries - 1:
+                print(f"Error uploading part {part_number}: {e}")
+                # assert part_number not in exceptions
+                # exceptions[part_number] = e
+                raise e
+            else:
+                print(f"Error uploading part {part_number}: {e}, retrying")
+                continue
+    raise Exception("Should not reach here")
+
+
 def upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
@@ -89,33 +155,17 @@ def upload_file_multipart(
         mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
         upload_id = mpu["UploadId"]
 
+        upload_info: UploadInfo = UploadInfo(
+            s3_client=s3_client,
+            bucket_name=bucket_name,
+            object_name=object_name,
+            file_path=file_path,
+            upload_id=upload_id,
+        )
+
         parts: list[dict] = []
 
         retries = retries + 1
-
-        from dataclasses import dataclass
-
-        @dataclass
-        class Item:
-            part_number: int
-            data: bytes
-
-        def file_chunker(
-            file_path: str, chunk_size: int, filechunks: Queue[Item | None]
-        ) -> None:
-            part_number = 1
-            with open(file_path, "rb") as f:
-                try:
-                    while data := f.read(chunk_size):
-                        item = Item(part_number=part_number, data=data)
-                        filechunks.put(item)
-                        part_number += 1
-                except Exception as e:
-                    import warnings
-
-                    warnings.warn(f"Error reading file: {e}")
-                finally:
-                    filechunks.put(None)
 
         filechunks: Queue[Item | None] = Queue(10)
         thread = Thread(target=file_chunker, args=(file_path, chunk_size, filechunks))
@@ -126,42 +176,8 @@ def upload_file_multipart(
             if item is None:
                 break
             chunk, part_number = item.data, item.part_number
-
-            def upload_task(
-                s3_client: BaseClient, chunk: bytes, part_number: int, retries: int
-            ) -> dict:
-                for retry in range(retries):
-                    try:
-                        if retry > 0:
-                            print(f"Retrying part {part_number} for {file_path}")
-                        print(
-                            f"Uploading part {part_number} for {file_path} of size {len(chunk)}"
-                        )
-                        part = s3_client.upload_part(
-                            Bucket=bucket_name,
-                            Key=object_name,
-                            PartNumber=part_number,
-                            UploadId=upload_id,
-                            Body=chunk,
-                        )
-
-                        # parts.append({"ETag": part["ETag"], "PartNumber": part_number})
-                        out = {"ETag": part["ETag"], "PartNumber": part_number}
-                        return out
-                        # break
-                    except Exception as e:
-                        if retry == retries - 1:
-                            print(f"Error uploading part {part_number}: {e}")
-                            # assert part_number not in exceptions
-                            # exceptions[part_number] = e
-                            raise e
-                        else:
-                            print(f"Error uploading part {part_number}: {e}, retrying")
-                            continue
-                raise Exception("Should not reach here")
-
             part: dict = upload_task(
-                s3_client=s3_client,
+                info=upload_info,
                 chunk=chunk,
                 part_number=part_number,
                 retries=retries,
