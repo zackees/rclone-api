@@ -6,10 +6,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from rclone_api.s3_chunk_uploader import upload_file_multipart
 from rclone_api.s3_create_client import (
     create_backblaze_s3_client,
     upload_file,
-    upload_file_multipart,
 )
 
 _IS_WINDOWS = os.name == "nt"
