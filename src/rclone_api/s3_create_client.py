@@ -180,19 +180,38 @@ def upload_file_multipart(
         thread = Thread(target=file_chunker, args=(file_path, chunk_size, filechunks))
         thread.start()
 
-        while True:
-            item: Item | None = filechunks.get()
-            if item is None:
-                break
-            chunk, part_number = item.data, item.part_number
-            part: UploadResult = upload_task(
-                info=upload_info,
-                chunk=chunk,
-                part_number=part_number,
-                retries=retries,
-            )
-            # parts.append(part)
-            parts_queue.put(part)
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor() as executor:
+            while True:
+                item: Item | None = filechunks.get()
+
+                if item is None:
+                    break
+
+                def task(upload_info=upload_info, item=item):
+                    if item is None:
+                        return None
+                    chunk, part_number = item.data, item.part_number
+                    part: UploadResult = upload_task(
+                        info=upload_info,
+                        chunk=chunk,
+                        part_number=part_number,
+                        retries=retries,
+                    )
+                    return part
+
+                # chunk, part_number = item.data, item.part_number
+                # part: UploadResult = upload_task(
+                #     info=upload_info,
+                #     chunk=chunk,
+                #     part_number=part_number,
+                #     retries=retries,
+                # )
+                # # parts.append(part)
+                # parts_queue.put(part)
+                fut = executor.submit(task)
+                fut.add_done_callback(lambda fut: parts_queue.put(fut.result()))
 
         thread.join()
 
