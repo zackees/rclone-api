@@ -1,4 +1,3 @@
-import io
 import json
 import os
 from collections.abc import Iterator
@@ -7,7 +6,8 @@ from typing import Any
 import boto3
 from botocore.client import BaseClient  # FIX: Correct typing for S3 client
 
-_CHUNK_SIZE = 1 * 1024 * 1024 * 1024  # 1GB
+# _CHUNK_SIZE = 1 * 1024 * 1024 * 1024  # 1GB
+_CHUNK_SIZE = 1024 * 1024 * 16
 
 
 class S3MultiChunkUploader:
@@ -16,7 +16,7 @@ class S3MultiChunkUploader:
         file_path: str,
         bucket_name: str,
         s3_key: str,
-        chunk_size: int = _CHUNK_SIZE,  # 1GB
+        chunk_size: int = _CHUNK_SIZE,
         metadata_file: str = "upload_progress.json",
     ) -> None:
         self.file_path: str = file_path
@@ -24,7 +24,7 @@ class S3MultiChunkUploader:
         self.s3_key: str = s3_key
         self.chunk_size: int = chunk_size
         self.metadata_file: str = metadata_file
-        self.s3: BaseClient = boto3.client("s3")  # FIX: Explicitly typed S3 client
+        self.s3: BaseClient = boto3.client("s3")  # Explicitly typed S3 client
 
         self.file_size: int
         self.total_chunks: int
@@ -57,13 +57,15 @@ class S3MultiChunkUploader:
             json.dump(self.progress, f, indent=4)
 
     def _upload_chunk(self, chunk_number: int, offset: int, size: int) -> str:
-        """Upload a specific chunk of the file to S3."""
-        with open(self.file_path, "rb") as f:
-            f.seek(offset)  # Move to the chunk start
-            data: bytes = f.read(size)  # Read 1GB chunk
-
+        """Upload a specific chunk of the file to S3, streaming from disk."""
         chunk_key: str = f"{self.s3_key}.part{chunk_number}"
-        self.s3.upload_fileobj(io.BytesIO(data), self.bucket_name, chunk_key)
+
+        # Open file in read mode, seek to offset and stream upload
+        with open(self.file_path, "rb") as f:
+            f.seek(offset)
+            self.s3.upload_fileobj(
+                f, self.bucket_name, chunk_key, ExtraArgs={"ContentLength": size}
+            )
 
         return chunk_key
 
@@ -84,8 +86,14 @@ class S3MultiChunkUploader:
                 continue
 
             print(f"Uploading chunk {chunk_number} ({size} bytes)...")
+            import time
+
+            start_time = time.time()
             chunk_key: str = self._upload_chunk(chunk_number, offset, size)
-            print(f"Chunk {chunk_number} uploaded to {chunk_key}.")
+            diff_time = time.time() - start_time
+            print(
+                f"Chunk {chunk_number} uploaded to {chunk_key} in {int(diff_time)} seconds."
+            )
 
             # Update progress
             self.progress["uploaded_chunks"].append(chunk_number)

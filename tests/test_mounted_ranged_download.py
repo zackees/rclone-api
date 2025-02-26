@@ -30,7 +30,6 @@ Mount target:
 """
 
 import os
-import time
 import unittest
 
 # context lib
@@ -39,7 +38,6 @@ from pathlib import Path
 from typing import Generator
 
 from dotenv import load_dotenv
-from webdav3.client import Client
 
 from rclone_api import Config, Process, Rclone
 
@@ -127,37 +125,6 @@ def rclone_served_webdav(
         process.wait()
 
 
-def _download_range(
-    file_path: str, local_path: str, byte_range: tuple[int, int], port: int
-) -> None:
-    # Open the local file in write-binary mode
-    options = {
-        "webdav_hostname": f"http://localhost:{port}/",
-        "webdav_login": "guest",
-        "webdav_password": "1234",
-        "webdav_timeout": 600,
-    }
-    header_list: list[str] = [
-        # range
-        # "Range: bytes=0-1000",
-        f"Range: bytes={byte_range[0]}-{byte_range[1]}",
-    ]
-    client = Client(options)
-    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
-    with open(local_path, "wb") as local_file:
-        # Download the specified byte range
-        print(f"Downloading {file_path} to {local_path} with range {byte_range}")
-        response = client.execute_request(
-            "download",
-            file_path,
-            headers_ext=header_list,
-        )
-        byte_content: bytes = response.content
-        assert isinstance(byte_content, bytes)
-        # Write the content to the local file
-        local_file.write(byte_content)
-
-
 class RcloneMountWebdavTester(unittest.TestCase):
     """Test rclone functionality."""
 
@@ -177,62 +144,50 @@ class RcloneMountWebdavTester(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
-    @unittest.skipIf(True, "Test not enabled")
+    # @unittest.skipIf(True, "Test not enabled")
     def test_serve_webdav(self) -> None:
         """Test basic Webdav serve functionality."""
         config = _generate_rclone_config(PORT)
         src_path = "src:aa_misc_data/aa_misc_data/"
-        target_file = "/world_lending_library_2024_11.tar.zst"
-        from concurrent.futures import ThreadPoolExecutor
+        # target_file = "world_lending_library_2024_11.tar.zst"
+        # from concurrent.futures import ThreadPoolExecutor
 
-        def task(
-            remote_file: str, local_file: str, byte_range: tuple[int, int], port: int
-        ) -> None:
-            start_time = time.time()
-            _download_range(remote_file, local_file, byte_range, port)
-            print(f"Download took {time.time() - start_time} seconds")
+        OUT_DIR = Path("mount")
+        OUT_DIR.mkdir(exist_ok=True, parents=True)
 
-        with ThreadPoolExecutor() as executor:
-            if False:
-                print(executor)
-            # futures: list[Future] = []
-            with rclone_served_webdav(src_path, config, PORT):
-                with rclone_served_webdav(src_path, config, PORT + 1):
-                    # Download the first 16MB of the file
-                    print("First download")
-                    # start_time = time.time()
-                    byte_range = (0, _CHUNK_SIZE)
-                    # _download_range(target_file, "test_mount2/chunk1", byte_range)
-                    # print(f"Download took {time.time() - start_time} seconds")
-                    # fut = executor.submit(
-                    #     task, target_file, "test_mount2/chunk1", byte_range, PORT
-                    # )
+        other_args = [
+            "--vfs-read-chunk-size",
+            "16M",
+            "--vfs-read-chunk-size-limit",
+            "1G",
+            "--vfs-read-chunk-streams",
+            "64",
+            "--no-modtime",
+            "--vfs-read-wait",
+            "1m",
+            "--vfs-fast-fingerprint",
+        ]
 
-                    # futures.append(fut)
+        rclone = Rclone(config)
+        proc: Process = rclone.mount(
+            src=src_path,
+            outdir=OUT_DIR,
+            vfs_cache_mode="minimal",
+            other_args=other_args,
+        )
 
-                    task(target_file, "test_mount2/chunk1", byte_range, PORT)
+        try:
+            from rclone_api.s3_multi_chunk_uploader import upload_file
 
-                    offset = 1000 * 1000 * 1000 * 150
-                    # offset =
-                    byte_range = byte_range[0] + offset, byte_range[1] + offset
+            upload_file(
+                file_path="mount/world_lending_library_2024_11.tar.zst",
+                bucket_name="TorrentBooks",
+                s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
+            )
 
-                    # fut = executor.submit(
-                    #     task, target_file, "test_mount2/chunk2", byte_range, PORT + 1
-                    # )
-                    # futures.append(fut)
-
-                    task(target_file, "test_mount2/chunk2", byte_range, PORT + 1)
-
-                    # for fut in futures:
-                    #     fut.result()
-
-                # # offset byte range by 100GB
-
-                # print("Second download")
-                # start_time = time.time()
-
-                # _download_range(target_file, "test_mount2/chunk2", byte_range)
-                # print(f"Second download took {time.time() - start_time} seconds")
+        finally:
+            proc.terminate()
+            proc.wait()
 
         print("Done")
 
