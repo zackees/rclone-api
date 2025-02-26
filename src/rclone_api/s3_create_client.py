@@ -81,6 +81,7 @@ def upload_file_multipart(
     exceptions: dict[int, Exception] = {}
     try:
         # Initiate multipart upload
+        print(f"Creating multipart upload for {file_path} to {bucket_name}/{object_name}")
         mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
         upload_id = mpu["UploadId"]
 
@@ -95,6 +96,7 @@ def upload_file_multipart(
                     if not data:
                         break
                     try:
+                        print(f"Uploading part {part_number} for {file_path}")
                         part = s3_client.upload_part(
                             Bucket=bucket_name,
                             Key=object_name,
@@ -114,7 +116,10 @@ def upload_file_multipart(
 
         if exceptions:
             # Throw to outer scope to abort multipart upload
+            print(f"Errors during multipart upload: {exceptions}")
             raise Exception("Errors during multipart upload", exceptions)
+        
+        print(f"Sending multi part completion message for {file_path}")
         s3_client.complete_multipart_upload(
             Bucket=bucket_name,
             Key=object_name,
