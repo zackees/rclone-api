@@ -6,7 +6,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api.s3_create_client import create_backblaze_s3_client, upload_file
+from rclone_api.s3_create_client import (
+    create_backblaze_s3_client,
+    upload_file,
+    upload_file_multipart,
+)
 
 _IS_WINDOWS = os.name == "nt"
 
@@ -88,7 +92,7 @@ class RcloneS3Tester(unittest.TestCase):
                 )  # this will create a 1MB file of 0-255 cyclically.
                 f.flush()
                 f.seek(0)
-                # upload_file_multipart(s3_client, BUCKET_NAME, f.name, "testfile")
+                upload_file_multipart(s3_client, BUCKET_NAME, f.name, "testfile")
                 err = upload_file(
                     s3_client, BUCKET_NAME, f.name, f"{BUCKET_NAME}/test/testfile"
                 )
