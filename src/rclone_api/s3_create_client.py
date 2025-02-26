@@ -48,8 +48,7 @@ def upload_file(
     """Upload a file to the bucket."""
     try:
         object_name = object_name or file_path.split("/")[-1]
-        result = s3_client.upload_file(file_path, bucket_name, object_name)
-        print(f"The result is {result}, which is type {type(result)}")
+        s3_client.upload_file(file_path, bucket_name, object_name)
         print(f"Uploaded {file_path} to {bucket_name}/{object_name}")
     except Exception as e:
         print(f"Error uploading file: {e}")
