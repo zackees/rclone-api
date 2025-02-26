@@ -31,6 +31,7 @@ Mount target:
 
 import os
 import unittest
+import time
 
 # context lib
 from contextlib import contextmanager
@@ -185,6 +186,8 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
         try:
             from rclone_api.s3_multi_chunk_uploader import upload_file
+            print(f"Sleeping for 10 seconds to allow mount to initialize")
+            time.sleep(10)
 
             upload_file(
                 file_path="mount/world_lending_library_2024_11.tar.zst",
