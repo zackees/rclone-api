@@ -84,11 +84,19 @@ class RcloneS3Tester(unittest.TestCase):
         # list_bucket_contents(s3_client, BUCKET_NAME)
         import tempfile
 
+        # numbers_0_255 = bytearray(range(256))
+        _bytes: bytearray = bytearray(16_000_000)
+        for i, _ in enumerate(_bytes):
+            _bytes[i] = i % 256
+
+
+        print("Payload size: ", len(_bytes))
+
         with tempfile.TemporaryDirectory() as tempdir:
             tmpfile = Path(tempdir) / "testfile"
             with open(str(tmpfile), "wb") as f:
                 f.write(
-                    bytearray(range(256)) * 1024 * 1024
+                    _bytes
                 )  # this will create a 1MB file of 0-255 cyclically.
                 f.flush()
                 f.seek(0)
