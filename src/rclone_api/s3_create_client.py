@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import boto3
@@ -18,7 +19,10 @@ def create_backblaze_s3_client(
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         endpoint_url=endpoint_url,
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            s3={"payload_signing_enabled": False},  # Disable checksum header
+        ),
     )
 
 
@@ -40,14 +44,17 @@ def upload_file(
     bucket_name: str,
     file_path: str,
     object_name: Optional[str] = None,
-) -> None:
+) -> Exception | None:
     """Upload a file to the bucket."""
     try:
         object_name = object_name or file_path.split("/")[-1]
-        s3_client.upload_file(file_path, bucket_name, object_name)
+        result = s3_client.upload_file(file_path, bucket_name, object_name)
+        print(f"The result is {result}, which is type {type(result)}")
         print(f"Uploaded {file_path} to {bucket_name}/{object_name}")
     except Exception as e:
         print(f"Error uploading file: {e}")
+        return e
+    return None
 
 
 def download_file(
@@ -59,3 +66,61 @@ def download_file(
         print(f"Downloaded {object_name} from {bucket_name} to {file_path}")
     except Exception as e:
         print(f"Error downloading file: {e}")
+
+
+def upload_file_multipart(
+    s3_client: BaseClient,
+    bucket_name: str,
+    file_path: str,
+    object_name: Optional[str] = None,
+    chunk_size: int = 5 * 1024 * 1024,  # Default chunk size is 5MB; can be overridden
+) -> None:
+    """Upload a file to the bucket using multipart upload with customizable chunk size."""
+
+    object_name = object_name or os.path.basename(file_path)
+    upload_id = None
+    exceptions: list[Exception] = []
+    try:
+        # Initiate multipart upload
+        mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
+        upload_id = mpu["UploadId"]
+
+        parts = []
+        part_number = 1
+
+        with open(file_path, "rb") as f:
+            while True:
+                data = f.read(chunk_size)
+                if not data:
+                    break
+                part = s3_client.upload_part(
+                    Bucket=bucket_name,
+                    Key=object_name,
+                    PartNumber=part_number,
+                    UploadId=upload_id,
+                    Body=data,
+                )
+                parts.append({"ETag": part["ETag"], "PartNumber": part_number})
+                part_number += 1
+
+        s3_client.complete_multipart_upload(
+            Bucket=bucket_name,
+            Key=object_name,
+            UploadId=upload_id,
+            MultipartUpload={"Parts": parts},
+        )
+        print(f"Multipart upload completed: {file_path} to {bucket_name}/{object_name}")
+    except Exception as e:
+        exceptions.append(e)
+        print(f"Error during multipart upload: {e}")
+        if upload_id:
+            try:
+                s3_client.abort_multipart_upload(
+                    Bucket=bucket_name, Key=object_name, UploadId=upload_id
+                )
+            except Exception:
+                pass
+    if exceptions:
+        all_errors = "\n".join([str(e) for e in exceptions])
+        print(f"Errors during multipart upload: {all_errors}")
+        raise Exception("Errors during multipart upload", all_errors)
