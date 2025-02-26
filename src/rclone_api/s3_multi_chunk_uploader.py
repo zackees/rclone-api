@@ -104,5 +104,5 @@ if __name__ == "__main__":
     upload_file(
         file_path="mount/world_lending_library_2024_11.tar.zst",
         bucket_name="TorrentBooks",
-        s3_key="aa_misc_data/aa_misc_data/",
+        s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
     )

@@ -3,7 +3,7 @@ Unit test file.
 
 Notes:
 
-We want seekable writes.
+We want seekable writes, but since s3 doesn't allow appends, we can't use the full cache mode.
 --vfs-cache-mode writes
 
 Seekable Reads:
