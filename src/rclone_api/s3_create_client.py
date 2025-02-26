@@ -173,7 +173,9 @@ def upload_file_multipart(
             upload_id=upload_id,
         )
 
-        parts: list[UploadResult] = []
+        # parts: list[UploadResult] = []
+
+        parts_queue: Queue[UploadResult | None] = Queue()
         filechunks: Queue[Item | None] = Queue(10)
         thread = Thread(target=file_chunker, args=(file_path, chunk_size, filechunks))
         thread.start()
@@ -189,7 +191,16 @@ def upload_file_multipart(
                 part_number=part_number,
                 retries=retries,
             )
-            parts.append(part)
+            # parts.append(part)
+            parts_queue.put(part)
+
+        thread.join()
+
+        parts: list[UploadResult] = []
+        while parts_queue.qsize() > 0:
+            qpart = parts_queue.get()
+            if qpart is not None:
+                parts.append(qpart)
 
         print(f"Upload complete, sorting {len(parts)} parts to complete upload")
         parts.sort(key=lambda x: x.part_number)  # Some backends need this.
