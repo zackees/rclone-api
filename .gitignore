@@ -145,3 +145,4 @@ uv.lock
 !.aiderignore
 
 rclone*.conf
+test_mount2

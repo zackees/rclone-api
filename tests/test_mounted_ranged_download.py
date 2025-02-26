@@ -3,6 +3,7 @@ Unit test file.
 """
 
 import os
+import time
 import unittest
 
 # context lib
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Generator
 
 from dotenv import load_dotenv
+from webdav3.client import Client
 
 from rclone_api import Config, Process, Rclone
 
@@ -130,6 +132,68 @@ def rclone_mounted_webdav(
 # okay let's also make the serving of webdav in a @contextmanager
 
 
+# # WebDAV server options
+# options = {
+#     'webdav_hostname': "https://webdav.server.com",
+#     'webdav_login':    "your_username",
+#     'webdav_password': "your_password"
+# }
+
+# # Initialize the client
+# client = Client(options)
+
+# # Remote file path on the WebDAV server
+# remote_path = '/path/to/remote/file'
+
+# # Local file path where the downloaded content will be saved
+# local_path = '/path/to/local/file'
+
+# # Define the range in bytes (e.g., download the first 1024 bytes)
+# byte_range = (0, 1023)
+
+# # Open the local file in write-binary mode
+# with open(local_path, 'wb') as local_file:
+#     # Download the specified byte range
+#     response = client.execute_request(
+#         'GET',
+#         remote_path,
+#         headers={'Range': f'bytes={byte_range[0]}-{byte_range[1]}'}
+#     )
+#     # Write the content to the local file
+#     local_file.write(response.content)
+
+
+def _download_range(
+    remote_path: str, local_path: str, byte_range: tuple[int, int]
+) -> None:
+    # Open the local file in write-binary mode
+    options = {
+        "webdav_hostname": f"http://localhost:{PORT}/",
+        "webdav_login": "guest",
+        "webdav_password": "1234",
+        "webdav_timeout": 600,
+    }
+    header_list: list[str] = [
+        # range
+        # "Range: bytes=0-1000",
+        f"Range: bytes={byte_range[0]}-{byte_range[1]}",
+    ]
+    client = Client(options)
+    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(local_path, "wb") as local_file:
+        # Download the specified byte range
+        print(f"Downloading {remote_path} to {local_path} with range {byte_range}")
+        response = client.execute_request(
+            "download",
+            remote_path,
+            headers_ext=header_list,
+        )
+        byte_content: bytes = response.content
+        assert isinstance(byte_content, bytes)
+        # Write the content to the local file
+        local_file.write(byte_content)
+
+
 class RcloneMountWebdavTester(unittest.TestCase):
     """Test rclone functionality."""
 
@@ -203,8 +267,22 @@ class RcloneMountWebdavTester(unittest.TestCase):
         """Test basic Webdav serve functionality."""
         config = _generate_rclone_config(PORT)
         src_path = "src:aa_misc_data/aa_misc_data/"
+        target_file = "/world_lending_library_2024_11.tar.zst"
         with rclone_served_webdav(src_path, config, PORT):
-            pass
+            start_time = time.time()
+            byte_range = (0, 1024 * 1024 * 16)
+            _download_range(target_file, "test_mount2/chunk1", byte_range)
+            print(f"Download took {time.time() - start_time} seconds")
+            # offset byte range by 100GB
+            offset = 1000 * 1000 * 100
+            byte_range = byte_range[0] + offset, byte_range[1] + offset
+            print("Second download")
+            start_time = time.time()
+
+            _download_range(target_file, "test_mount2/chunk2", byte_range)
+            print(f"Second download took {time.time() - start_time} seconds")
+
+        print("Done")
 
 
 if __name__ == "__main__":
