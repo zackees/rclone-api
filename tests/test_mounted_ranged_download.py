@@ -57,7 +57,7 @@ load_dotenv()
 BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 
-def _generate_rclone_config(port: int) -> Config:
+def _generate_rclone_config(port: int) -> str:
 
     # BUCKET_NAME = os.getenv("BUCKET_NAME", "TorrentBooks")  # Default if not in .env
 
@@ -96,11 +96,9 @@ pass = d4IbQLV9W0JhI2tm5Zp88hpMtEg
 url = http://localhost:{port}
 vendor = rclone
 """
-    _CONFIG_PATH.write_text(config_text, encoding="utf-8")
-    print(f"Config file written to: {_CONFIG_PATH}")
-
-    out = Config(str(_CONFIG_PATH))
-    return out
+    # _CONFIG_PATH.write_text(config_text, encoding="utf-8")
+    # print(f"Config file written to: {_CONFIG_PATH}")
+    return config_text
 
 
 PORT = 8095
@@ -153,7 +151,10 @@ class RcloneMountWebdavTester(unittest.TestCase):
     # @unittest.skipIf(True, "Test not enabled")
     def test_serve_webdav(self) -> None:
         """Test basic Webdav serve functionality."""
-        config = _generate_rclone_config(PORT)
+        # config = _generate_rclone_config(PORT)
+        config_text = _generate_rclone_config(PORT)
+        _CONFIG_PATH.write_text(config_text, encoding="utf-8")
+        print(f"Config file written to: {_CONFIG_PATH}")
         src_path = "src:aa_misc_data/aa_misc_data/"
         # target_file = "world_lending_library_2024_11.tar.zst"
         # from concurrent.futures import ThreadPoolExecutor
@@ -174,7 +175,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
             "--vfs-fast-fingerprint",
         ]
 
-        rclone = Rclone(config)
+        rclone = Rclone(_CONFIG_PATH)
         proc: Process = rclone.mount(
             src=src_path,
             outdir=OUT_DIR,
