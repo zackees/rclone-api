@@ -126,7 +126,7 @@ def rclone_execute(
                 print(f"Error cleaning up tempdir: {e}")
 
 
-def wait_for_mount(path: Path, mount_process: Any, timeout: int = 60) -> None:
+def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
     from rclone_api.process import Process
 
     assert isinstance(mount_process, Process)
@@ -137,5 +137,8 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 60) -> None:
             cmd_str = subprocess.list2cmdline(mount_process.cmd)
             raise subprocess.CalledProcessError(rtn, cmd_str)
         if path.exists():
-            return
-    raise TimeoutError(f"Path {path} did not exist after {timeout} seconds")
+            # how many files?
+            dircontents = os.listdir(str(path))
+            if len(dircontents) > 0:
+                return
+        time.sleep(1)
