@@ -702,7 +702,7 @@ class Rclone:
         allow_writes=False,
         use_links=True,
         vfs_cache_mode="full",
-        other_cmds: list[str] | None = None,
+        other_args: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
 
@@ -738,8 +738,8 @@ class Rclone:
         if vfs_cache_mode:
             cmd_list.append("--vfs-cache-mode")
             cmd_list.append(vfs_cache_mode)
-        if other_cmds:
-            cmd_list += other_cmds
+        if other_args:
+            cmd_list += other_args
         proc = self._launch_process(cmd_list)
         wait_for_mount(outdir, proc)
         return proc
@@ -750,7 +750,7 @@ class Rclone:
         outdir: Path,
         vfs_cache_mode="full",
         vfs_disk_space_total_size: str | None = "10G",
-        other_cmds: list[str] | None = None,
+        other_args: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
 
@@ -776,8 +776,8 @@ class Rclone:
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         cmd_list.append("--vfs-cache-mode")
         cmd_list.append(vfs_cache_mode)
-        if other_cmds:
-            cmd_list += other_cmds
+        if other_args:
+            cmd_list += other_args
         if vfs_disk_space_total_size is not None:
             cmd_list.append("--vfs-cache-max-size")
             cmd_list.append(vfs_disk_space_total_size)
@@ -806,7 +806,7 @@ class Rclone:
         vfs_fast_fingerprint: bool = True,
         # vfs-refresh
         vfs_refresh: bool = True,
-        other_cmds: list[str] | None = None,
+        other_args: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
 
@@ -814,44 +814,44 @@ class Rclone:
             src: Remote or directory to mount
             outdir: Local path to mount to
         """
-        other_cmds = other_cmds or []
+        other_args = other_args or []
         if modtime_strategy is not None:
-            other_cmds.append(f"--{modtime_strategy.value}")
+            other_args.append(f"--{modtime_strategy.value}")
         if (vfs_cache_mode == "full" or vfs_cache_mode == "writes") and (
-            transfers is not None and "--transfers" not in other_cmds
+            transfers is not None and "--transfers" not in other_args
         ):
-            other_cmds.append("--transfers")
-            other_cmds.append(str(transfers))
-        if dir_cache_time is not None and "--dir-cache-time" not in other_cmds:
-            other_cmds.append("--dir-cache-time")
-            other_cmds.append(dir_cache_time)
+            other_args.append("--transfers")
+            other_args.append(str(transfers))
+        if dir_cache_time is not None and "--dir-cache-time" not in other_args:
+            other_args.append("--dir-cache-time")
+            other_args.append(dir_cache_time)
         if (
             vfs_disk_space_total_size is not None
-            and "--vfs-cache-max-size" not in other_cmds
+            and "--vfs-cache-max-size" not in other_args
         ):
-            other_cmds.append("--vfs-cache-max-size")
-            other_cmds.append(vfs_disk_space_total_size)
-        if vfs_refresh and "--vfs-refresh" not in other_cmds:
-            other_cmds.append("--vfs-refresh")
-        if attribute_timeout is not None and "--attr-timeout" not in other_cmds:
-            other_cmds.append("--attr-timeout")
-            other_cmds.append(attribute_timeout)
+            other_args.append("--vfs-cache-max-size")
+            other_args.append(vfs_disk_space_total_size)
+        if vfs_refresh and "--vfs-refresh" not in other_args:
+            other_args.append("--vfs-refresh")
+        if attribute_timeout is not None and "--attr-timeout" not in other_args:
+            other_args.append("--attr-timeout")
+            other_args.append(attribute_timeout)
         if vfs_read_chunk_streams:
-            other_cmds.append("--vfs-read-chunk-streams")
-            other_cmds.append(str(vfs_read_chunk_streams))
+            other_args.append("--vfs-read-chunk-streams")
+            other_args.append(str(vfs_read_chunk_streams))
         if vfs_read_chunk_size:
-            other_cmds.append("--vfs-read-chunk-size")
-            other_cmds.append(vfs_read_chunk_size)
+            other_args.append("--vfs-read-chunk-size")
+            other_args.append(vfs_read_chunk_size)
         if vfs_fast_fingerprint:
-            other_cmds.append("--vfs-fast-fingerprint")
+            other_args.append("--vfs-fast-fingerprint")
 
-        other_cmds = other_cmds if other_cmds else None
+        other_args = other_args if other_args else None
         return self.mount(
             url,
             outdir,
             allow_writes=allow_writes,
             vfs_cache_mode=vfs_cache_mode,
-            other_cmds=other_cmds,
+            other_args=other_args,
         )
 
     def serve_webdav(
@@ -861,6 +861,7 @@ class Rclone:
         password: str,
         addr: str = "localhost:2049",
         allow_other: bool = False,
+        other_args: list[str] | None = None,
     ) -> Process:
         """Serve a remote or directory via NFS.
 
@@ -880,6 +881,8 @@ class Rclone:
         cmd_list.extend(["--user", user, "--pass", password])
         if allow_other:
             cmd_list.append("--allow-other")
+        if other_args:
+            cmd_list += other_args
         proc = self._launch_process(cmd_list)
         time.sleep(2)  # give it a moment to start
         if proc.poll() is not None:
