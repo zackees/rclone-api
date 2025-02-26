@@ -41,6 +41,10 @@ from dotenv import load_dotenv
 
 from rclone_api import Config, Process, Rclone
 
+_HERE = Path(__file__).parent
+_PROJECT_ROOT = _HERE.parent
+_CONFIG_PATH = _PROJECT_ROOT / "rclone-mounted-ranged-download.conf"
+
 _IS_WINDOWS = os.name == "nt"
 
 _ENABLED = not _IS_WINDOWS
@@ -92,8 +96,10 @@ pass = d4IbQLV9W0JhI2tm5Zp88hpMtEg
 url = http://localhost:{port}
 vendor = rclone
 """
+    _CONFIG_PATH.write_text(config_text, encoding="utf-8")
+    print(f"Config file written to: {_CONFIG_PATH}")
 
-    out = Config(config_text)
+    out = Config(str(_CONFIG_PATH))
     return out
 
 

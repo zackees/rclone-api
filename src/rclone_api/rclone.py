@@ -8,6 +8,7 @@ import subprocess
 import time
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -686,9 +687,9 @@ class Rclone:
         self,
         src: Remote | Dir | str,
         outdir: Path,
-        allow_writes=False,
-        use_links=True,
-        vfs_cache_mode="full",
+        allow_writes: bool | None = False,
+        use_links: bool | None = None,
+        vfs_cache_mode: str | None = None,
         other_args: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
@@ -703,6 +704,9 @@ class Rclone:
         Raises:
             subprocess.CalledProcessError: If the mount operation fails
         """
+        allow_writes = allow_writes or False
+        use_links = use_links or True
+        vfs_cache_mode = vfs_cache_mode or "full"
         if outdir.exists():
             is_empty = not list(outdir.iterdir())
             if not is_empty:
@@ -731,6 +735,33 @@ class Rclone:
         wait_for_mount(outdir, proc)
         return proc
 
+    @contextmanager
+    def scoped_mount(
+        self,
+        src: Remote | Dir | str,
+        outdir: Path,
+        allow_writes: bool | None = None,
+        use_links: bool | None = None,
+        vfs_cache_mode: str | None = None,
+        other_args: list[str] | None = None,
+    ) -> Generator[Process, None, None]:
+        """Like mount, but can be used in a context manager."""
+        proc = self.mount(
+            src,
+            outdir,
+            allow_writes=allow_writes,
+            use_links=use_links,
+            vfs_cache_mode=vfs_cache_mode,
+            other_args=other_args,
+        )
+        try:
+            yield proc
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+            proc.wait()
+
+    @deprecated("mount")
     def mount_webdav(
         self,
         url: str,
@@ -787,6 +818,7 @@ class Rclone:
         wait_for_mount(outdir, proc)
         return proc
 
+    # Settings optimized for s3.
     def mount_s3(
         self,
         url: str,
