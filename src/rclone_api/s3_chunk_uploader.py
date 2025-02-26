@@ -59,7 +59,7 @@ def _get_chunk_tmpdir() -> Path:
     with _TMP_DIR_ACCESS_LOCK:
         dat = _get_chunk_tmpdir.__dict__
         if "out" in dat:
-            return dat["out"]
+            return dat["out"]  # Folder already validated.
         out = Path("chunk_store")
         if out.exists():
             # first access, clean up directory
@@ -70,13 +70,14 @@ def _get_chunk_tmpdir() -> Path:
 
 
 class FileChunk:
-    def __init__(self, src: Path, part_number: int, data: bytes):
+    def __init__(self, src: Path, upload_id: str, part_number: int, data: bytes):
         assert data is not None, f"{src}: Data must not be None"
+        self.upload_id = upload_id
         self.src = src
         self.part_number = part_number
         name = src.name
         self.tmpdir = _get_chunk_tmpdir()
-        self.filepart = self.tmpdir / f"{name}.part_{part_number}.tmp"
+        self.filepart = self.tmpdir / f"{name}_{upload_id}.part_{part_number}.tmp"
         self.filepart.write_bytes(data)
         del data  # free up memory
 
@@ -86,6 +87,10 @@ class FileChunk:
         with open(self.filepart, "rb") as f:
             return f.read()
         return b""
+    
+    def close(self):
+        if self.filepart.exists():
+            self.filepart.unlink()
 
     def __del__(self):
         if self.filepart.exists():
@@ -102,6 +107,7 @@ def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -
             while data := f.read(chunk_size):
                 file_chunk = FileChunk(
                     src,
+                    upload_id=upload_info.upload_id,
                     part_number=part_number,
                     data=data,  # del data on the input will be called. Don't use data after this.
                 )
