@@ -98,7 +98,7 @@ def rclone_served_webdav(
 
 
 def _download_range(
-    remote_path: str, local_path: str, byte_range: tuple[int, int]
+    file_path: str, local_path: str, byte_range: tuple[int, int]
 ) -> None:
     # Open the local file in write-binary mode
     options = {
@@ -116,10 +116,10 @@ def _download_range(
     Path(local_path).parent.mkdir(parents=True, exist_ok=True)
     with open(local_path, "wb") as local_file:
         # Download the specified byte range
-        print(f"Downloading {remote_path} to {local_path} with range {byte_range}")
+        print(f"Downloading {file_path} to {local_path} with range {byte_range}")
         response = client.execute_request(
             "download",
-            remote_path,
+            file_path,
             headers_ext=header_list,
         )
         byte_content: bytes = response.content
@@ -152,19 +152,42 @@ class RcloneMountWebdavTester(unittest.TestCase):
         config = _generate_rclone_config(PORT)
         src_path = "src:aa_misc_data/aa_misc_data/"
         target_file = "/world_lending_library_2024_11.tar.zst"
-        with rclone_served_webdav(src_path, config, PORT):
-            start_time = time.time()
-            byte_range = (0, 1024 * 1024 * 16)
-            _download_range(target_file, "test_mount2/chunk1", byte_range)
-            print(f"Download took {time.time() - start_time} seconds")
-            # offset byte range by 100GB
-            offset = 1000 * 1000 * 100
-            byte_range = byte_range[0] + offset, byte_range[1] + offset
-            print("Second download")
-            start_time = time.time()
+        from concurrent.futures import ThreadPoolExecutor, Future
 
-            _download_range(target_file, "test_mount2/chunk2", byte_range)
-            print(f"Second download took {time.time() - start_time} seconds")
+        def task(remote_file: str, local_file: str, byte_range: tuple[int, int]) -> None:
+            start_time = time.time()
+            _download_range(remote_file, local_file, byte_range)
+            print(f"Download took {time.time() - start_time} seconds")
+
+        with ThreadPoolExecutor() as executor:
+            futures: list[Future] = []
+            with rclone_served_webdav(src_path, config, PORT):
+                # start_time = time.time()
+                # byte_range = (0, 1024 * 1024 * 16)
+                # _download_range(target_file, "test_mount2/chunk1", byte_range)
+                # print(f"Download took {time.time() - start_time} seconds")
+                fut = executor.submit(
+                    task, target_file, "test_mount2/chunk1", byte_range
+                )
+
+                futures.append(fut)
+
+                offset = 1000 * 1000 * 100
+                byte_range = byte_range[0] + offset, byte_range[1] + offset
+
+                fut = executor.submit(
+                    task, target_file, "test_mount2/chunk2", byte_range
+                )
+                futures.append(fut)
+
+
+                # # offset byte range by 100GB
+
+                # print("Second download")
+                # start_time = time.time()
+
+                # _download_range(target_file, "test_mount2/chunk2", byte_range)
+                # print(f"Second download took {time.time() - start_time} seconds")
 
         print("Done")
 
