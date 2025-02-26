@@ -174,23 +174,28 @@ class RcloneMountWebdavTester(unittest.TestCase):
                     byte_range = (0, _CHUNK_SIZE)
                     # _download_range(target_file, "test_mount2/chunk1", byte_range)
                     # print(f"Download took {time.time() - start_time} seconds")
-                    fut = executor.submit(
-                        task, target_file, "test_mount2/chunk1", byte_range, PORT
-                    )
+                    # fut = executor.submit(
+                    #     task, target_file, "test_mount2/chunk1", byte_range, PORT
+                    # )
 
-                    futures.append(fut)
+                    # futures.append(fut)
+
+                    task(target_file, "test_mount2/chunk1", byte_range, PORT)
 
                     offset = 1000 * 1000 * 1000 * 150
                     #offset = 
                     byte_range = byte_range[0] + offset, byte_range[1] + offset
 
-                    fut = executor.submit(
-                        task, target_file, "test_mount2/chunk2", byte_range, PORT + 1
-                    )
-                    futures.append(fut)
+                    # fut = executor.submit(
+                    #     task, target_file, "test_mount2/chunk2", byte_range, PORT + 1
+                    # )
+                    # futures.append(fut)
 
-                    for fut in futures:
-                        fut.result()
+                    task(target_file, "test_mount2/chunk2", byte_range, PORT + 1)
+
+
+                    # for fut in futures:
+                    #     fut.result()
 
 
                 # # offset byte range by 100GB
