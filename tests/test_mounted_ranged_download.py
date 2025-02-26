@@ -163,7 +163,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
             futures: list[Future] = []
             with rclone_served_webdav(src_path, config, PORT):
                 # start_time = time.time()
-                # byte_range = (0, 1024 * 1024 * 16)
+                byte_range = (0, 1024 * 1024 * 16)
                 # _download_range(target_file, "test_mount2/chunk1", byte_range)
                 # print(f"Download took {time.time() - start_time} seconds")
                 fut = executor.submit(
