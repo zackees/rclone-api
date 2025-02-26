@@ -146,3 +146,4 @@ uv.lock
 
 rclone*.conf
 test_mount2
+t.py

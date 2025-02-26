@@ -1,5 +1,27 @@
 """
 Unit test file.
+
+Notes:
+
+We want seekable writes.
+--vfs-cache-mode writes
+
+Seekable Reads:
+--vfs-cache-mode minimal
+
+we cannot use:
+--vfs-cache-mode full
+
+Because it will place a 9TB file in the cache directory.
+
+
+Workflow:
+
+  1. Develop on local machine but test on remote machine.
+  2. Mount read only remote
+  3. S3 API for upload
+    -> Very certain mounting seek doesn't really work for S3
+
 """
 
 import os
@@ -149,13 +171,14 @@ class RcloneMountWebdavTester(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    @unittest.skipIf(not _ENABLED, "Test not enabled")
+    # @unittest.skipIf(not _ENABLED, "Test not enabled")
+    @unittest.skipIf(True, "Test not enabled")
     def test_serve_webdav(self) -> None:
         """Test basic Webdav serve functionality."""
         config = _generate_rclone_config(PORT)
         src_path = "src:aa_misc_data/aa_misc_data/"
         target_file = "/world_lending_library_2024_11.tar.zst"
-        from concurrent.futures import Future, ThreadPoolExecutor
+        from concurrent.futures import ThreadPoolExecutor
 
         def task(
             remote_file: str, local_file: str, byte_range: tuple[int, int], port: int
@@ -165,7 +188,9 @@ class RcloneMountWebdavTester(unittest.TestCase):
             print(f"Download took {time.time() - start_time} seconds")
 
         with ThreadPoolExecutor() as executor:
-            futures: list[Future] = []
+            if False:
+                print(executor)
+            # futures: list[Future] = []
             with rclone_served_webdav(src_path, config, PORT):
                 with rclone_served_webdav(src_path, config, PORT + 1):
                     # Download the first 16MB of the file
@@ -183,7 +208,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
                     task(target_file, "test_mount2/chunk1", byte_range, PORT)
 
                     offset = 1000 * 1000 * 1000 * 150
-                    #offset = 
+                    # offset =
                     byte_range = byte_range[0] + offset, byte_range[1] + offset
 
                     # fut = executor.submit(
@@ -193,10 +218,8 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
                     task(target_file, "test_mount2/chunk2", byte_range, PORT + 1)
 
-
                     # for fut in futures:
                     #     fut.result()
-
 
                 # # offset byte range by 100GB
 
