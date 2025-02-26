@@ -63,11 +63,11 @@ class S3MultiChunkUploader:
         # Open file in read mode, seek to offset and stream upload
         with open(self.file_path, "rb") as f:
             f.seek(offset)
-            self.s3.upload_fileobj(
-                f, self.bucket_name, chunk_key, ExtraArgs={"ContentLength": size}
-            )
+
+            self.s3.upload_fileobj(f, self.bucket_name, chunk_key)
 
         return chunk_key
+
 
     def _chunk_ranges(self) -> Iterator[tuple[int, int, int]]:
         """Generate chunk ranges as (chunk_number, offset, size)."""
