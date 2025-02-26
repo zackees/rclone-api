@@ -4,7 +4,11 @@ Unit test file.
 
 import os
 import unittest
+
+# context lib
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator
 
 from dotenv import load_dotenv
 
@@ -61,6 +65,55 @@ vendor = rclone
     return out
 
 
+PORT = 8093
+
+CHUNK_SIZE = "16M"
+CHUNK_SIZE_READ_AHEAD = "32M"
+CHUNK_SIZE_BYTES = 1000 * 1000 * 16
+
+
+@contextmanager
+def rclone_mounted_webdav(
+    src_path: str,
+    config: Config,
+    mount_point: Path,
+    port: int | None = None,
+) -> Generator[Process, None, None]:
+    rclone = Rclone(config)
+    port = port or PORT
+
+    test_addr = f"localhost:{port}"
+    user = "guest"
+    password = "1234"
+
+    process = rclone.serve_webdav(
+        src_path,
+        addr=test_addr,
+        user=user,
+        password=password,
+    )
+    mount_proc: Process | None = None
+    other_args: list[str] = [
+        "--vfs-cache-mode",
+        "off",
+        "--vfs-read-chunk-size-limit",
+        CHUNK_SIZE_READ_AHEAD,
+        "--vfs-read-chunk-size",
+        CHUNK_SIZE,
+        "--vfs-read-chunk-streams",
+        "1",
+        "--links",
+    ]
+    mount_proc = rclone.mount_webdav("webdav:", mount_point, other_args=other_args)
+    try:
+        yield mount_proc
+    finally:
+        mount_proc.terminate()
+        mount_proc.wait()
+        process.terminate()
+        process.wait()
+
+
 class RcloneMountWebdavTester(unittest.TestCase):
     """Test rclone functionality."""
 
@@ -79,66 +132,52 @@ class RcloneMountWebdavTester(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
+    # @unittest.skipUnless(_ENABLED, "Test is disabled by default")
     def test_serve_webdav_and_mount(self) -> None:
         """Test basic Webdav serve functionality."""
-        port = 8090
-        config = _generate_rclone_config(port)
-        rclone = Rclone(config)
+        config = _generate_rclone_config(PORT)
+        src_path = "src:aa_misc_data/aa_misc_data/"
+        mount_path = Path("test_mount2")
+        expected_file = "world_lending_library_2024_11.tar.zst"
+        with rclone_mounted_webdav(src_path, config, mount_path):
+            self.assertTrue(mount_path.exists())
+            # self.assertIsNotNone(next(expected_file).iterdir())
+            for file in mount_path.iterdir():
+                print(file)
+                self.assertTrue(file.exists())
+                if file.name == expected_file:
+                    break
+            else:
+                self.fail(f"Expected file {expected_file} not found")
 
-        # serve = Remote("webdav", rclone=rclone)
-        test_addr = f"localhost:{port}"
-        user = "guest"
-        password = "1234"
+            # Now do a test where the file is downloaded from 0-128MB, then 100GB to 100GB + 128MB
+            # This will test the ranged download functionality
+            source_file = mount_path / expected_file
+            # now do the first read
+            import time
 
-        # url = f"{remote.name}:{BUCKET_NAME}"
-        url = "src:aa_misc_data/aa_misc_data/"
+            print("Starting first read")
+            start_time = time.time()
+            with source_file.open("rb") as f:
+                print("Seeking to 0")
+                f.seek(0)
+                print("Reading first chunk")
+                first_chunk = f.read(CHUNK_SIZE_BYTES)
+                print("First chunk read")
+                self.assertEqual(len(first_chunk), CHUNK_SIZE_BYTES)
+            print(f"First read took {time.time() - start_time} seconds")
 
-        process = rclone.serve_webdav(
-            url,
-            addr=test_addr,
-            user=user,
-            password=password,
-        )
-        mount_proc: Process | None = None
-
-        try:
-            other_args: list[str] = [
-                "--vfs-read-chunk-size-limit",
-                "128M",
-                "--vfs-read-chunk-size",
-                "128M",
-                "--vfs-read-chunk-size-limit",
-                "128M",
-                "--vfs-read-chunk-streams",
-                "1",
-            ]
-
-            # Verify process is running
-            self.assertIsNone(process.poll())
-            mount_point = Path("test_mount2")
-            print(f"Mounting to {mount_point.absolute()}")
-            mount_proc = rclone.mount_webdav(
-                "webdav:", mount_point, other_args=other_args
-            )
-            # test that the mount point exists
-            self.assertTrue(mount_point.exists())
-            # test the folder is not empty
-            next_path = next(mount_point.iterdir())
-            self.assertIsNotNone(next_path)
-
-        finally:
-            # Clean up
-            if mount_proc:
-                mount_proc.terminate()
-                mount_proc.wait()
-            process.terminate()
-            process.wait()
-            if mount_proc:
-                mount_proc.terminate()
-                mount_proc.wait()
-
-        # Verify process terminated
-        self.assertIsNotNone(process.poll())
+            print("Starting second read")
+            start_time = time.time()
+            # now do the second read
+            with source_file.open("rb") as f:
+                print("Seeking to next chunk")
+                f.seek(CHUNK_SIZE_BYTES + CHUNK_SIZE_BYTES)
+                print("Reading second chunk")
+                second_chunk = f.read(CHUNK_SIZE_BYTES)
+                print("Second chunk read")
+                self.assertEqual(len(second_chunk), CHUNK_SIZE_BYTES)
+            print(f"Second read took {time.time() - start_time} seconds")
 
 
 if __name__ == "__main__":

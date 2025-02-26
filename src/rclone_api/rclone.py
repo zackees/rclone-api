@@ -748,7 +748,7 @@ class Rclone:
         self,
         url: str,
         outdir: Path,
-        vfs_cache_mode="full",
+        vfs_cache_mode: str | None = None,
         vfs_disk_space_total_size: str | None = "10G",
         other_args: list[str] | None = None,
     ) -> Process:
@@ -764,6 +764,20 @@ class Rclone:
         Raises:
             subprocess.CalledProcessError: If the mount operation fails
         """
+        other_args = other_args or []
+        if vfs_cache_mode is None:
+            if "--vfs-cache-mode" in other_args:
+                pass
+            else:
+                vfs_cache_mode = "full"
+        elif "--vfs-cache-mode" in other_args:
+            warnings.warn(
+                f"vfs_cache_mode is set to {vfs_cache_mode} but --vfs-cache-mode is already in other_args"
+            )
+            idx = other_args.index("--vfs-cache-mode")
+            other_args.pop(idx)
+            other_args.pop(idx)  # also the next value which will be the cache mode.
+
         if outdir.exists():
             is_empty = not list(outdir.iterdir())
             if not is_empty:
@@ -774,8 +788,9 @@ class Rclone:
 
         src_str = url
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
-        cmd_list.append("--vfs-cache-mode")
-        cmd_list.append(vfs_cache_mode)
+        if vfs_cache_mode:
+            cmd_list.append("--vfs-cache-mode")
+            cmd_list.append(vfs_cache_mode)
         if other_args:
             cmd_list += other_args
         if vfs_disk_space_total_size is not None:
