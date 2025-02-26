@@ -98,11 +98,11 @@ def rclone_served_webdav(
 
 
 def _download_range(
-    file_path: str, local_path: str, byte_range: tuple[int, int]
+    file_path: str, local_path: str, byte_range: tuple[int, int], port: int
 ) -> None:
     # Open the local file in write-binary mode
     options = {
-        "webdav_hostname": f"http://localhost:{PORT}/",
+        "webdav_hostname": f"http://localhost:{port}/",
         "webdav_login": "guest",
         "webdav_password": "1234",
         "webdav_timeout": 600,
@@ -152,34 +152,38 @@ class RcloneMountWebdavTester(unittest.TestCase):
         config = _generate_rclone_config(PORT)
         src_path = "src:aa_misc_data/aa_misc_data/"
         target_file = "/world_lending_library_2024_11.tar.zst"
-        from concurrent.futures import ThreadPoolExecutor, Future
+        from concurrent.futures import Future, ThreadPoolExecutor
 
-        def task(remote_file: str, local_file: str, byte_range: tuple[int, int]) -> None:
+        def task(
+            remote_file: str, local_file: str, byte_range: tuple[int, int], port: int
+        ) -> None:
             start_time = time.time()
-            _download_range(remote_file, local_file, byte_range)
+            _download_range(remote_file, local_file, byte_range, port)
             print(f"Download took {time.time() - start_time} seconds")
 
         with ThreadPoolExecutor() as executor:
             futures: list[Future] = []
             with rclone_served_webdav(src_path, config, PORT):
-                # start_time = time.time()
-                byte_range = (0, 1024 * 1024 * 16)
-                # _download_range(target_file, "test_mount2/chunk1", byte_range)
-                # print(f"Download took {time.time() - start_time} seconds")
-                fut = executor.submit(
-                    task, target_file, "test_mount2/chunk1", byte_range
-                )
+                with rclone_served_webdav(src_path, config, PORT + 1):
+                    # Download the first 16MB of the file
+                    print("First download")
+                    # start_time = time.time()
+                    byte_range = (0, 1024 * 1024 * 16)
+                    # _download_range(target_file, "test_mount2/chunk1", byte_range)
+                    # print(f"Download took {time.time() - start_time} seconds")
+                    fut = executor.submit(
+                        task, target_file, "test_mount2/chunk1", byte_range, PORT
+                    )
 
-                futures.append(fut)
+                    futures.append(fut)
 
-                offset = 1000 * 1000 * 100
-                byte_range = byte_range[0] + offset, byte_range[1] + offset
+                    offset = 1000 * 1000 * 100
+                    byte_range = byte_range[0] + offset, byte_range[1] + offset
 
-                fut = executor.submit(
-                    task, target_file, "test_mount2/chunk2", byte_range
-                )
-                futures.append(fut)
-
+                    fut = executor.submit(
+                        task, target_file, "test_mount2/chunk2", byte_range, PORT + 1
+                    )
+                    futures.append(fut)
 
                 # # offset byte range by 100GB
 
