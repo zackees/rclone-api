@@ -91,16 +91,26 @@ def upload_file_multipart(
         upload_id = mpu["UploadId"]
 
         parts = []
-        part_number = 1
+
         retries = retries + 1
 
+        from dataclasses import dataclass
+
+        @dataclass
+        class Item:
+            part_number: int
+            data: bytes
+
         def file_chunker(
-            file_path: str, chunk_size: int, filechunks: Queue[bytes | None]
+            file_path: str, chunk_size: int, filechunks: Queue[Item | None]
         ) -> None:
+            part_number = 1
             with open(file_path, "rb") as f:
                 try:
                     while data := f.read(chunk_size):
-                        filechunks.put(data)
+                        item = Item(part_number=part_number, data=data)
+                        filechunks.put(item)
+                        part_number += 1
                 except Exception as e:
                     import warnings
 
@@ -108,15 +118,15 @@ def upload_file_multipart(
                 finally:
                     filechunks.put(None)
 
-        filechunks: Queue[bytes | None] = Queue(10)
+        filechunks: Queue[Item | None] = Queue(10)
         thread = Thread(target=file_chunker, args=(file_path, chunk_size, filechunks))
         thread.start()
 
         while True:
-            chunk = filechunks.get()
-            if chunk is None:
+            item: Item | None = filechunks.get()
+            if item is None:
                 break
-
+            chunk, part_number = item.data, item.part_number
             for retry in range(retries):
                 try:
                     if retry > 0:
