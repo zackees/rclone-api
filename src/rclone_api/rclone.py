@@ -721,6 +721,7 @@ class Rclone:
             warnings.warn(
                 f"Permission error creating parent directory: {outdir.parent}"
             )
+        assert outdir.is_dir(), f"Directory does not exist: {outdir}"
         src_str = convert_to_str(src)
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         if not allow_writes:
