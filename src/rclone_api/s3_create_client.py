@@ -106,6 +106,7 @@ def upload_file_multipart(
                         )
                         parts.append({"ETag": part["ETag"], "PartNumber": part_number})
                         part_number += 1
+                        break
                     except Exception as e:
                         if retry == retries - 1:
                             print(f"Error uploading part {part_number}: {e}")
