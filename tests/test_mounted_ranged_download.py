@@ -73,6 +73,31 @@ CHUNK_SIZE_BYTES = 1000 * 1000 * 16
 
 
 @contextmanager
+def rclone_served_webdav(
+    src_path: str,
+    config: Config,
+    port: int | None = None,
+) -> Generator[Process, None, None]:
+    rclone = Rclone(config)
+    port = port or PORT
+
+    test_addr = f"localhost:{port}"
+    user = "guest"
+    password = "1234"
+    process = rclone.serve_webdav(
+        src_path,
+        addr=test_addr,
+        user=user,
+        password=password,
+    )
+    try:
+        yield process
+    finally:
+        process.terminate()
+        process.wait()
+
+
+@contextmanager
 def rclone_mounted_webdav(
     src_path: str,
     config: Config,
@@ -82,36 +107,27 @@ def rclone_mounted_webdav(
     rclone = Rclone(config)
     port = port or PORT
 
-    test_addr = f"localhost:{port}"
-    user = "guest"
-    password = "1234"
+    with rclone_served_webdav(src_path, config, port):
+        other_args: list[str] = [
+            "--vfs-cache-mode",
+            "off",
+            "--vfs-read-chunk-size-limit",
+            CHUNK_SIZE_READ_AHEAD,
+            "--vfs-read-chunk-size",
+            CHUNK_SIZE,
+            "--vfs-read-chunk-streams",
+            "1",
+            "--links",
+        ]
+        mount_proc = rclone.mount_webdav("webdav:", mount_point, other_args=other_args)
+        try:
+            yield mount_proc
+        finally:
+            mount_proc.terminate()
+            mount_proc.wait()
 
-    process = rclone.serve_webdav(
-        src_path,
-        addr=test_addr,
-        user=user,
-        password=password,
-    )
-    mount_proc: Process | None = None
-    other_args: list[str] = [
-        "--vfs-cache-mode",
-        "off",
-        "--vfs-read-chunk-size-limit",
-        CHUNK_SIZE_READ_AHEAD,
-        "--vfs-read-chunk-size",
-        CHUNK_SIZE,
-        "--vfs-read-chunk-streams",
-        "1",
-        "--links",
-    ]
-    mount_proc = rclone.mount_webdav("webdav:", mount_point, other_args=other_args)
-    try:
-        yield mount_proc
-    finally:
-        mount_proc.terminate()
-        mount_proc.wait()
-        process.terminate()
-        process.wait()
+
+# okay let's also make the serving of webdav in a @contextmanager
 
 
 class RcloneMountWebdavTester(unittest.TestCase):
@@ -132,7 +148,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    # @unittest.skipUnless(_ENABLED, "Test is disabled by default")
+    @unittest.skip("Test is disabled by default")
     def test_serve_webdav_and_mount(self) -> None:
         """Test basic Webdav serve functionality."""
         config = _generate_rclone_config(PORT)
@@ -182,6 +198,13 @@ class RcloneMountWebdavTester(unittest.TestCase):
                 print("Second chunk read")
                 self.assertEqual(len(second_chunk), CHUNK_SIZE_BYTES)
             print(f"Second read took {time.time() - start_time} seconds")
+
+    def test_serve_webdav(self) -> None:
+        """Test basic Webdav serve functionality."""
+        config = _generate_rclone_config(PORT)
+        src_path = "src:aa_misc_data/aa_misc_data/"
+        with rclone_served_webdav(src_path, config, PORT):
+            pass
 
 
 if __name__ == "__main__":
