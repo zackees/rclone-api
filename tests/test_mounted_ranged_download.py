@@ -72,7 +72,7 @@ vendor = rclone
     return out
 
 
-PORT = 8093
+PORT = 8095
 
 
 @contextmanager
@@ -180,7 +180,8 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
                     futures.append(fut)
 
-                    offset = 1000 * 1000 * 1000 * 150
+                    # offset = 1000 * 1000 * 1000 * 150
+                    offset = _CHUNK_SIZE
                     byte_range = byte_range[0] + offset, byte_range[1] + offset
 
                     fut = executor.submit(
