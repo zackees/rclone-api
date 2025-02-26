@@ -154,6 +154,12 @@ class RcloneMountWebdavTester(unittest.TestCase):
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)
+        print("AWS CREDENTIALS")
+        print(f"BUCKET_NAME: {BUCKET_NAME}")
+        BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
+        BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
+        print(f"BUCKET_KEY_PUBLIC: {BUCKET_KEY_PUBLIC}")
+        print(f"BUCKET_KEY_SECRET: {BUCKET_KEY_SECRET}")
         config_text = _generate_rclone_config(PORT)
         _CONFIG_PATH.write_text(config_text, encoding="utf-8")
         print(f"Config file written to: {_CONFIG_PATH}")
