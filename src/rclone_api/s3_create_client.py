@@ -1,6 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from queue import Queue
 from threading import Thread
 from typing import Optional
@@ -27,10 +28,29 @@ class UploadResult:
     etag: str
 
 
-@dataclass
-class Item:
-    part_number: int
-    data: bytes
+def _get_chunk_tmpdir() -> Path:
+    out = Path("chunk_store")
+    out.mkdir(exist_ok=True, parents=True)
+    return out
+
+
+class FileChunk:
+    def __init__(self, src: Path, part_number: int, data: bytes):
+        assert data is not None, f"{src}: Data must not be None"
+        self.src = src
+        self.part_number = part_number
+        name = src.name
+        self.tmpdir = _get_chunk_tmpdir()
+        self.filepart = self.tmpdir / f"{name}.part_{part_number}.tmp"
+        self.filepart.write_bytes(data)
+        del data  # free up memory
+
+    @property
+    def data(self) -> bytes:
+        assert self.filepart is not None
+        with open(self.filepart, "rb") as f:
+            return f.read()
+        return b""
 
 
 # Create a Boto3 session and S3 client, this is back blaze specific.
@@ -94,15 +114,16 @@ def download_file(
         print(f"Error downloading file: {e}")
 
 
-def file_chunker(upload_info: UploadInfo, filechunks: Queue[Item | None]) -> None:
+def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -> None:
     part_number = 1
     file_path = upload_info.file_path
     chunk_size = upload_info.chunk_size
+    src = Path(upload_info.file_path)
     with open(file_path, "rb") as f:
         try:
             while data := f.read(chunk_size):
-                item = Item(part_number=part_number, data=data)
-                filechunks.put(item)
+                file_chunk = FileChunk(src, part_number=part_number, data=data)
+                filechunks.put(file_chunk)
                 part_number += 1
         except Exception as e:
             import warnings
@@ -142,10 +163,12 @@ def upload_task(
     raise Exception("Should not reach here")
 
 
-def handle_upload(upload_info: UploadInfo, item: Item | None) -> UploadResult | None:
-    if item is None:
+def handle_upload(
+    upload_info: UploadInfo, file_chunk: FileChunk | None
+) -> UploadResult | None:
+    if file_chunk is None:
         return None
-    chunk, part_number = item.data, item.part_number
+    chunk, part_number = file_chunk.data, file_chunk.part_number
     part: UploadResult = upload_task(
         info=upload_info,
         chunk=chunk,
@@ -217,7 +240,7 @@ def upload_file_multipart(
         # parts: list[UploadResult] = []
 
         parts_queue: Queue[UploadResult | None] = Queue()
-        filechunks: Queue[Item | None] = Queue(10)
+        filechunks: Queue[FileChunk | None] = Queue(10)
         thread_chunker = Thread(
             target=file_chunker, args=(upload_info, filechunks), daemon=True
         )
@@ -225,12 +248,12 @@ def upload_file_multipart(
 
         with ThreadPoolExecutor() as executor:
             while True:
-                item: Item | None = filechunks.get()
-                if item is None:
+                file_chunk: FileChunk | None = filechunks.get()
+                if file_chunk is None:
                     break
 
-                def task(upload_info=upload_info, item=item):
-                    return handle_upload(upload_info, item)
+                def task(upload_info=upload_info, file_chunk=file_chunk):
+                    return handle_upload(upload_info, file_chunk)
 
                 fut = executor.submit(task)
                 fut.add_done_callback(lambda fut: parts_queue.put(fut.result()))
