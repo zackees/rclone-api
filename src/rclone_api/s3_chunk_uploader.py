@@ -1,10 +1,11 @@
 import json
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Lock, Thread
 from typing import Optional
 
 from botocore.client import BaseClient
@@ -35,10 +36,37 @@ class FinishedPiece:
         return FinishedPiece(**data)
 
 
+# lock
+
+_TMP_DIR_ACCESS_LOCK = Lock()
+
+
+def clean_old_files(out: Path) -> None:
+    # clean up files older than 1 day
+
+    now = time.time()
+    for f in out.iterdir():
+        if f.is_file():
+            filemod = f.stat().st_mtime
+            diff_secs = now - filemod
+            diff_days = diff_secs / (60 * 60 * 24)
+            if diff_days > 1:
+                print(f"Removing old file: {f}")
+                f.unlink()
+
+
 def _get_chunk_tmpdir() -> Path:
-    out = Path("chunk_store")
-    out.mkdir(exist_ok=True, parents=True)
-    return out
+    with _TMP_DIR_ACCESS_LOCK:
+        dat = _get_chunk_tmpdir.__dict__
+        if "out" in dat:
+            return dat["out"]
+        out = Path("chunk_store")
+        if out.exists():
+            # first access, clean up directory
+            clean_old_files(out)
+        out.mkdir(exist_ok=True, parents=True)
+        dat["out"] = out
+        return out
 
 
 class FileChunk:
