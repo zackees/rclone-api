@@ -21,7 +21,7 @@ def create_backblaze_s3_client(
         endpoint_url=endpoint_url,
         config=Config(
             signature_version="s3v4",
-            s3={"payload_signing_enabled": False},  # Disable checksum header
+            # s3={"payload_signing_enabled": False},  # Disable checksum header
         ),
     )
 
@@ -73,6 +73,7 @@ def upload_file_multipart(
     file_path: str,
     object_name: Optional[str] = None,
     chunk_size: int = 5 * 1024 * 1024,  # Default chunk size is 5MB; can be overridden
+    retries: int = 20,
 ) -> dict[int, Exception]:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
 
@@ -89,7 +90,6 @@ def upload_file_multipart(
 
         parts = []
         part_number = 1
-        retries = 20
 
         with open(file_path, "rb") as f:
             while True:
