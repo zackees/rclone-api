@@ -12,6 +12,24 @@ _CHUNK_SIZE = 1024 * 1024 * 16
 
 
 @dataclass
+class S3Credentials:
+    """Credentials for accessing S3."""
+    access_key_id: str
+    secret_access_key: str
+    session_token: str = None
+    region_name: str = None
+    endpoint_url: str = None
+
+
+@dataclass
+class S3UploadTarget:
+    """Target information for S3 upload."""
+    file_path: str
+    bucket_name: str
+    s3_key: str
+
+
+@dataclass
 class UploadProgress:
     file_size: int
     total_chunks: int
@@ -31,18 +49,26 @@ class UploadProgress:
 class S3MultiChunkUploader:
     def __init__(
         self,
-        file_path: str,
-        bucket_name: str,
-        s3_key: str,
+        credentials: S3Credentials,
+        target: S3UploadTarget,
         chunk_size: int = _CHUNK_SIZE,
         metadata_file: str = "upload_progress.json",
     ) -> None:
-        self.file_path: str = file_path
-        self.bucket_name: str = bucket_name
-        self.s3_key: str = s3_key
+        self.file_path: str = target.file_path
+        self.bucket_name: str = target.bucket_name
+        self.s3_key: str = target.s3_key
         self.chunk_size: int = chunk_size
         self.metadata_file: str = metadata_file
-        self.s3: BaseClient = boto3.client("s3")  # Explicitly typed S3 client
+        
+        # Use the provided credentials to create the S3 client
+        self.s3: BaseClient = boto3.client(
+            "s3",
+            aws_access_key_id=credentials.access_key_id,
+            aws_secret_access_key=credentials.secret_access_key,
+            aws_session_token=credentials.session_token,
+            region_name=credentials.region_name,
+            endpoint_url=credentials.endpoint_url
+        )
 
         self.file_size, self.total_chunks = self._inspect_file()
         self.progress: UploadProgress = self._load_progress()
@@ -131,14 +157,25 @@ class S3MultiChunkUploader:
         print("Upload completed.")
 
 
-def upload_file(file_path: str, bucket_name: str, s3_key: str) -> None:
-    uploader = S3MultiChunkUploader(file_path, bucket_name, s3_key)
+def upload_file(credentials: S3Credentials, target: S3UploadTarget) -> None:
+    uploader = S3MultiChunkUploader(credentials, target)
     uploader.upload_file()
 
 
 if __name__ == "__main__":
-    upload_file(
+    credentials = S3Credentials(
+        access_key_id="YOUR_ACCESS_KEY",
+        secret_access_key="YOUR_SECRET_KEY",
+        # Optional parameters
+        # session_token="YOUR_SESSION_TOKEN",
+        # region_name="us-east-1",
+        # endpoint_url="https://s3.amazonaws.com"
+    )
+    
+    target = S3UploadTarget(
         file_path="mount/world_lending_library_2024_11.tar.zst",
         bucket_name="TorrentBooks",
         s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
     )
+    
+    upload_file(credentials=credentials, target=target)

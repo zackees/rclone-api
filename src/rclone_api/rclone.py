@@ -37,6 +37,7 @@ from rclone_api.util import (
 )
 from rclone_api.walk import walk
 
+_IS_WINDOWS = os.name == "nt"
 
 def rclone_verbose(verbose: bool | None) -> bool:
     if verbose is not None:
@@ -714,15 +715,15 @@ class Rclone:
                     f"Mount directory already exists and is not empty: {outdir}"
                 )
             outdir.rmdir()
-        try:
+
+        
+
+        if _IS_WINDOWS:
+            # Windows -> Must create parent directories only if they don't exist
             outdir.parent.mkdir(parents=True, exist_ok=True)
-            print(f"Created directory: {outdir.absolute()}")
-        except PermissionError:
-            warnings.warn(
-                f"Permission error creating parent directory: {outdir.parent}"
-            )
-        outdir.mkdir(exist_ok=True, parents=True)
-        assert outdir.is_dir(), f"Directory does not exist: {outdir}"
+        else:
+            # Linux -> Must create parent directories and the directory itself
+            outdir.mkdir(parents=True, exist_ok=True)
         src_str = convert_to_str(src)
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         if not allow_writes:

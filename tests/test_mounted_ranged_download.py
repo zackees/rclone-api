@@ -41,6 +41,7 @@ from typing import Generator
 from dotenv import load_dotenv
 
 from rclone_api import Config, Process, Rclone
+from rclone_api.s3_multi_chunk_uploader import upload_file, S3Credentials, S3UploadTarget
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
@@ -150,7 +151,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
     # @unittest.skipIf(True, "Test not enabled")
-    def test_serve_webdav(self) -> None:
+    def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)
         config_text = _generate_rclone_config(PORT)
@@ -161,8 +162,6 @@ class RcloneMountWebdavTester(unittest.TestCase):
         # from concurrent.futures import ThreadPoolExecutor
 
         OUT_DIR = Path("mount")
-        OUT_DIR.mkdir(exist_ok=True, parents=True)
-
         other_args = [
             "--vfs-read-chunk-size",
             "16M",
@@ -185,12 +184,22 @@ class RcloneMountWebdavTester(unittest.TestCase):
         )
 
         try:
-            from rclone_api.s3_multi_chunk_uploader import upload_file
-            upload_file(
+            # Create credentials from environment variables
+            credentials = S3Credentials(
+                access_key_id=os.getenv("BUCKET_KEY_PUBLIC"),
+                secret_access_key=os.getenv("BUCKET_KEY_SECRET"),
+                #endpoint_url=f"https://{os.getenv('BUCKET_URL')}"
+            )
+            
+            # Create upload target
+            target = S3UploadTarget(
                 file_path="mount/world_lending_library_2024_11.tar.zst",
-                bucket_name="TorrentBooks",
+                bucket_name=BUCKET_NAME,
                 s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
             )
+            
+            # Call the updated upload_file function with the new parameters
+            upload_file(credentials=credentials, target=target)
 
         finally:
             proc.terminate()
