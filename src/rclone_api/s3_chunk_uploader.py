@@ -8,7 +8,6 @@ from enum import Enum
 from pathlib import Path
 from queue import Queue
 from threading import Lock, Thread
-from typing import Optional
 
 from botocore.client import BaseClient
 
@@ -375,9 +374,9 @@ def prepare_upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
     file_path: str,
-    object_name: Optional[str] = None,
-    chunk_size: int = 5 * 1024 * 1024,  # Default chunk size is 5MB; can be overridden
-    retries: int = 20,
+    object_name: str,
+    chunk_size: int,
+    retries: int,
 ) -> UploadInfo:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
 
