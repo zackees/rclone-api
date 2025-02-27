@@ -17,9 +17,10 @@ _MIN_THRESHOLD_FOR_CHUNKING = 5 * 1024 * 1024
 
 
 class S3Client:
-    def __init__(self, credentials: S3Credentials):
+    def __init__(self, credentials: S3Credentials, verbose: bool = False) -> None:
+        self.verbose = verbose
         self.credentials: S3Credentials = credentials
-        self.client: BaseClient = create_s3_client(credentials)
+        self.client: BaseClient = create_s3_client(credentials, verbose=verbose)
 
     def list_bucket_contents(self, bucket_name: str) -> None:
         list_bucket_contents(self.client, bucket_name)
@@ -83,6 +84,7 @@ class S3Client:
             provider = self.credentials.provider.value
             region_name = self.credentials.region_name
             info_json = {
+                "bucket": bucket_name,
                 "key": key,
                 "access_key_id": access_key_id[:4] + "...",
                 "secret": secret[:4] + "...",
