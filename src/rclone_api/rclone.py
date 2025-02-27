@@ -679,11 +679,12 @@ class Rclone:
         concurrent_chunks: int = 4,  # This setting will scale the performance of the upload
         retries: int = 3,
         max_chunks_before_suspension: int | None = None,
+        mount_path: Path | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         from rclone_api.s3.api import S3Client
         from rclone_api.s3.create import S3Credentials
-        from rclone_api.util import S3PathInfo, split_s3_path
+        from rclone_api.util import S3PathInfo, random_str, split_s3_path
 
         other_args: list[str] = [
             "--no-modtime",
@@ -699,7 +700,7 @@ class Rclone:
             str(concurrent_chunks),
             "--vfs-fast-fingerprint",
         ]
-        mount_path = Path("rclone_api_upload_mount")
+        mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
 
@@ -784,8 +785,7 @@ class Rclone:
             )
 
             out: MultiUploadResult = client.upload_file_multipart(
-                upload_target=upload_target,
-                upload_config=upload_config
+                upload_target=upload_target, upload_config=upload_config
             )
             return out
 
@@ -877,6 +877,7 @@ class Rclone:
         other_args: list[str] | None = None,
     ) -> Generator[Process, None, None]:
         """Like mount, but can be used in a context manager."""
+        error_happened = False
         proc = self.mount(
             src,
             outdir,
@@ -888,6 +889,7 @@ class Rclone:
         try:
             yield proc
         except Exception as e:
+            error_happened = True
             stack_trace = traceback.format_exc()
             warnings.warn(f"Error in scoped_mount: {e}\n\nStack Trace:\n{stack_trace}")
             raise
@@ -895,6 +897,24 @@ class Rclone:
             if proc.poll() is None:
                 proc.terminate()
             proc.wait()
+            if not error_happened and outdir.exists():
+                time.sleep(2)
+                if outdir.exists():
+                    print(f"{outdir} mount still exists, attempting to remove")
+                    if not _IS_WINDOWS:
+                        # attempt
+                        os.system(f"fusermount -u {outdir}")
+                        os.system(f"umount {outdir}")
+                        time.sleep(2)
+                        if outdir.exists():
+                            is_empty = not list(outdir.iterdir())
+                            if not is_empty:
+                                warnings.warn(f"Failed to unmount {outdir}")
+                            else:
+                                try:
+                                    outdir.rmdir()
+                                except Exception as e:
+                                    warnings.warn(f"Failed to remove {outdir}: {e}")
 
     @deprecated("mount")
     def mount_webdav(

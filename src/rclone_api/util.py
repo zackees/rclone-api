@@ -166,3 +166,10 @@ def split_s3_path(path: str) -> S3PathInfo:
     assert bucket
     assert key
     return S3PathInfo(remote=remote, bucket=bucket, key=key)
+
+
+def random_str(length: int) -> str:
+    import random
+    import string
+
+    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
