@@ -1,3 +1,4 @@
+import _thread
 import json
 import os
 import time
@@ -433,6 +434,7 @@ def upload_file_multipart(
     chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
     retries: int = 20,
     max_chunks_before_suspension: int | None = None,
+    abort_transfer_on_failure: bool = False,
 ) -> MultiUploadResult:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
     file_size = os.path.getsize(str(file_path))
@@ -494,7 +496,13 @@ def upload_file_multipart(
         output=filechunks,
         max_chunks=max_chunks_before_suspension,
     ) -> None:
-        file_chunker(upload_state=upload_state, output=output, max_chunks=max_chunks)
+        try:
+            file_chunker(
+                upload_state=upload_state, output=output, max_chunks=max_chunks
+            )
+        except Exception:
+            _thread.interrupt_main()
+            raise
 
     try:
         thread_chunker = Thread(target=chunker_task, daemon=True)
@@ -507,7 +515,11 @@ def upload_file_multipart(
                     break
 
                 def task(upload_info=upload_info, file_chunk=file_chunk):
-                    return handle_upload(upload_info, file_chunk)
+                    try:
+                        return handle_upload(upload_info, file_chunk)
+                    except Exception:
+                        _thread.interrupt_main()
+                        raise
 
                 fut = executor.submit(task)
 
@@ -540,7 +552,7 @@ def upload_file_multipart(
             f"Multipart upload completed: {file_path} to {bucket_name}/{object_name}"
         )
     except Exception:
-        if upload_info.upload_id:
+        if upload_info.upload_id and abort_transfer_on_failure:
             try:
                 s3_client.abort_multipart_upload(
                     Bucket=bucket_name, Key=object_name, UploadId=upload_info.upload_id
