@@ -678,13 +678,25 @@ class Rclone:
             str(concurrent_chunks),
             "--vfs-fast-fingerprint",
         ]
+        mount_path = Path("rclone_api_upload_mount")
+        src_path = Path(src)
+        name = src_path.name
+
+        parent_path = str(src_path.parent)
         with self.scoped_mount(
-            src,
-            Path("src"),
+            parent_path,
+            mount_path,
             use_links=True,
             vfs_cache_mode="minimal",
             other_args=other_args,
         ):
+            # raise NotImplementedError("Not implemented yet")
+            from rclone_api.util import S3PathInfo, split_s3_path
+
+            path_info: S3PathInfo = split_s3_path(dst)
+            bucket_name = path_info.bucket
+            s3_key = path_info.key
+            print(s3_key, bucket_name, name)  # shutup the linter
             raise NotImplementedError("Not implemented yet")
 
     def copy_dir(

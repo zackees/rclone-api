@@ -158,4 +158,6 @@ def split_s3_path(path: str) -> S3PathInfo:
         raise ValueError(f"Invalid S3 path: {path}")
     bucket = parts[0]
     key = "/".join(parts[1:])
+    assert bucket
+    assert key
     return S3PathInfo(bucket=bucket, key=key)
