@@ -260,6 +260,20 @@ def _get_chunk_tmpdir() -> Path:
         return out
 
 
+def _get_file_size(file_path: Path, timeout: int = 60) -> int:
+    sleep_time = timeout / 60 if timeout > 0 else 1
+    start = time.time()
+    while True:
+        try:
+            if file_path.exists():
+                return file_path.stat().st_size
+        except FileNotFoundError:
+            pass
+        if time.time() - start > timeout:
+            raise TimeoutError(f"File {file_path} not found after {timeout} seconds")
+        time.sleep(sleep_time)
+
+
 def file_chunker(
     upload_state: UploadState, max_chunks: int | None, output: Queue[FileChunk | None]
 ) -> None:
@@ -279,7 +293,8 @@ def file_chunker(
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
     src = Path(file_path)
-    file_size = os.path.getsize(file_path)
+    # Mounted files may take a while to appear, so keep retrying.
+    file_size = _get_file_size(src, timeout=60)
     part_number = 1
     done_part_numbers: set[int] = {
         p.part_number for p in upload_state.parts if p is not None
