@@ -23,6 +23,10 @@ def _merge(cls: Type[T], dataclass_a: T, dataclass_b: T) -> T:
     return cls(**merged_kwargs)
 
 
+def _field_name_to_flag(field_name: str) -> str:
+    return f"--{field_name.replace('_', '-')}"
+
+
 @dataclass
 class BaseFlags:
     def to_args(self) -> list[str]:
@@ -38,10 +42,14 @@ class BaseFlags:
             elif isinstance(value, bool):
                 # Only include the flag if the boolean is True.
                 if value:
-                    args.append(f"--{field.name.replace('_', '-')}")
+                    args.append(_field_name_to_flag(field.name))
             else:
-                args.append(f"--{field.name.replace('_', '-')}")
-                args.append(str(value))
+                args.append(_field_name_to_flag(field.name))
+                if isinstance(value, list):
+                    # Join list values with a comma.
+                    args.append(",".join(map(str, value)))
+                else:
+                    args.append(str(value))
         return args
 
     def merge(self, other: "BaseFlags") -> "BaseFlags":
