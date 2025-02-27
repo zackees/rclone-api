@@ -67,17 +67,10 @@ class FinishedPiece:
 
     @staticmethod
     def to_json_array(parts: list["FinishedPiece | None"]) -> list[dict | None]:
-        out: list[dict | None] = []
-        has_none = False
-        for p in parts:
-            if p is None:
-                has_none = True
-            else:
-                dat = p.to_json()
-                out.append(dat)
-        if has_none:
-            out.append(None)
-        return out
+        non_none: list[FinishedPiece] = [p for p in parts if p is not None]
+        all_nones: list[None] = [None for p in parts if p is None]
+        assert len(all_nones) <= 1, "Only one None should be present"
+        return [p.to_json() for p in non_none] + all_nones[:1]
 
     @staticmethod
     def from_json(json_str: str | None) -> "FinishedPiece | None":
