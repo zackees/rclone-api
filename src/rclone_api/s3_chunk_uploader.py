@@ -2,7 +2,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from queue import Queue
 from threading import Lock, Thread
@@ -23,13 +23,13 @@ class UploadInfo:
 
     def to_json(self) -> dict:
         json_dict = {}
-        for field in fields(self):
-            value = getattr(self, field.name)
+        for f in fields(self):
+            value = getattr(self, f.name)
             # Convert non-serializable objects (like s3_client) to a string representation.
-            if field.name == "s3_client":
-                json_dict[field.name] = "RUNTIME OBJECT"
+            if f.name == "s3_client":
+                json_dict[f.name] = "RUNTIME OBJECT"
             else:
-                json_dict[field.name] = value
+                json_dict[f.name] = value
         return json_dict
 
     @staticmethod
@@ -42,47 +42,82 @@ class FinishedPiece:
     part_number: int
     etag: str
 
-    def to_json(self) -> str:
-        return f'{{"part_number": {self.part_number}, "etag": "{self.etag}"}}'
+    def to_json(self) -> dict:
+        return {"part_number": self.part_number, "etag": self.etag}
+
+    def to_json_str(self) -> str:
+        return json.dumps(self.to_json(), indent=0)
 
     @staticmethod
-    def from_json(json_str: str) -> "FinishedPiece":
+    def to_json_array(parts: list["FinishedPiece | None"]) -> list[dict | None]:
+        out: list[dict | None] = []
+        has_none = False
+        for p in parts:
+            if p is None:
+                has_none = True
+            else:
+                dat = p.to_json()
+                out.append(dat)
+        if has_none:
+            out.append(None)
+        return out
+
+    @staticmethod
+    def from_json(json_str: str | None) -> "FinishedPiece | None":
+        if json_str is None:
+            return None
         data = json.loads(json_str)
         return FinishedPiece(**data)
+
+
+_SAVE_STATE_LOCK = Lock()
 
 
 @dataclass
 class UploadState:
     upload_info: UploadInfo
-    finished_parts: Queue[FinishedPiece | None]
+    # finished_parts: Queue[FinishedPiece | None]
     peristant: Path | None
+    lock: Lock = Lock()
+    parts: list[FinishedPiece | None] = field(default_factory=list)
+
+    def add_finished(self, part: FinishedPiece | None) -> None:
+        with self.lock:
+            self.parts.append(part)
+            self._save_no_lock()
 
     def __post_init__(self):
         if self.peristant is None:
-            upload_id = self.upload_info.upload_id
+            # upload_id = self.upload_info.upload_id
             object_name = self.upload_info.object_name
+            chunk_size = self.upload_info.chunk_size
             parent = _get_chunk_tmpdir()
-            self.peristant = parent / f"{object_name}_{upload_id}.json"
+            self.peristant = parent / f"{object_name}_chunk_size_{chunk_size}_.json"
 
     def save(self) -> None:
+        with _SAVE_STATE_LOCK:
+            self._save_no_lock()
+
+    def _save_no_lock(self) -> None:
         assert self.peristant is not None, "No path to save to"
         self.peristant.write_text(self.to_json_str(), encoding="utf-8")
 
     @staticmethod
     def load(s3_client: BaseClient, path: Path) -> "UploadState":
-        return UploadState.from_json(s3_client, path)
+        with _SAVE_STATE_LOCK:
+            return UploadState.from_json(s3_client, path)
 
     def to_json(self) -> dict:
         # queue -> list
-        parts: list[FinishedPiece] = []
-        while self.finished_parts.qsize() > 0:
-            qpart = self.finished_parts.get()
-            if qpart is not None:
-                parts.append(qpart)
-        parts.sort(key=lambda x: x.part_number)  # Some backends need this.
+        # parts: list[dict] = [f.to_json() for f in self.parts]
+        parts: list[FinishedPiece | None] = list(self.parts)
+
+        parts_json = FinishedPiece.to_json_array(parts)
+
+        # parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         return {
             "upload_info": self.upload_info.to_json(),
-            "finished_parts": [p.to_json() for p in parts],
+            "finished_parts": parts_json,
         }
 
     def to_json_str(self) -> str:
@@ -94,11 +129,8 @@ class UploadState:
         data = json.loads(json_str)
         upload_info = UploadInfo.from_json(s3_client, data["upload_info"])
         finished_parts = [FinishedPiece.from_json(p) for p in data["finished_parts"]]
-        queue: Queue[FinishedPiece | None] = Queue()
-        for part in finished_parts:
-            queue.put(part)
         return UploadState(
-            peristant=json_file, upload_info=upload_info, finished_parts=queue
+            peristant=json_file, upload_info=upload_info, parts=finished_parts
         )
 
 
@@ -303,7 +335,7 @@ def upload_file_multipart(
         )
         upload_state = UploadState(
             upload_info=upload_info,
-            finished_parts=Queue(),
+            parts=[],
             peristant=resumable_info_path,
         )
         return upload_state
@@ -311,7 +343,6 @@ def upload_file_multipart(
     filechunks: Queue[FileChunk | None] = Queue(10)
     upload_state = get_upload_state()
     upload_info = upload_state.upload_info
-    parts_queue: Queue[FinishedPiece | None] = upload_state.finished_parts
 
     try:
         thread_chunker = Thread(
@@ -329,17 +360,17 @@ def upload_file_multipart(
                     return handle_upload(upload_info, file_chunk)
 
                 fut = executor.submit(task)
-                fut.add_done_callback(lambda fut: parts_queue.put(fut.result()))
-            parts_queue.put(None)  # Signal the end of the queue
 
+                def done_cb(fut=fut):
+                    result = fut.result()
+                    # upload_state.finished_parts.put(result)
+                    upload_state.add_finished(result)
+
+                fut.add_done_callback(done_cb)
+        # upload_state.finished_parts.put(None)  # Signal the end of the queue
+        upload_state.add_finished(None)
         thread_chunker.join()
-
-        parts: list[FinishedPiece] = []
-        while parts_queue.qsize() > 0:
-            qpart = parts_queue.get()
-            if qpart is not None:
-                parts.append(qpart)
-
+        parts: list[FinishedPiece] = [p for p in upload_state.parts if p is not None]
         print(f"Upload complete, sorting {len(parts)} parts to complete upload")
         parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         parts_s3: list[dict] = [

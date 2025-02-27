@@ -16,7 +16,6 @@ _IS_WINDOWS = os.name == "nt"
 
 _ENABLED = not _IS_WINDOWS
 _CHUNK_SIZE = 1024 * 1024 * 16
-
 _CHUNK_SIZE *= 10
 
 load_dotenv()
