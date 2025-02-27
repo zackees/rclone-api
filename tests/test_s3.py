@@ -1,16 +1,12 @@
 import os
 import tempfile
 import unittest
-
-# context lib
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
-from rclone_api.s3.create import (
-    create_backblaze_s3_client,
-)
+from rclone_api.s3.create import S3Provider, create_s3_client
 
 load_dotenv()
 
@@ -33,7 +29,8 @@ class RcloneS3Tester(unittest.TestCase):
         assert ENDPOINT_URL
 
         # create a file of 1MB and write binary data 0-255 cyclically.
-        s3_client = create_backblaze_s3_client(
+        s3_client = create_s3_client(
+            provider=S3Provider.BACKBLAZE,
             access_key=ACCESS_KEY_ID,
             secret_key=SECRET_ACCESS_KEY,
             endpoint_url=ENDPOINT_URL,

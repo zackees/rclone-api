@@ -1,12 +1,19 @@
+from enum import Enum
+
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
 
 
+class S3Provider(Enum):
+    BACKBLAZE = "Backblaze"
+    DIGITAL_OCEAN = "DigitalOcean"
+
+
 # Create a Boto3 session and S3 client, this is back blaze specific.
 # Add a function if you want to use a different S3 provider.
 # If AWS support is added in a fork then please merge it back here.
-def create_backblaze_s3_client(
+def _create_backblaze_s3_client(
     access_key: str, secret_key: str, endpoint_url: str | None
 ) -> BaseClient:
     """Create and return an S3 client."""
@@ -21,3 +28,13 @@ def create_backblaze_s3_client(
             # s3={"payload_signing_enabled": False},  # Disable checksum header
         ),
     )
+
+
+def create_s3_client(
+    provider: S3Provider, access_key: str, secret_key: str, endpoint_url: str | None
+) -> BaseClient:
+    """Create and return an S3 client."""
+    if provider == S3Provider.BACKBLAZE:
+        return _create_backblaze_s3_client(access_key, secret_key, endpoint_url)
+    else:
+        raise NotImplementedError(f"Provider not implemented: {provider}")
