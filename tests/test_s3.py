@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
 from rclone_api.s3.create import S3Provider, create_s3_client
+from rclone_api.s3.types import S3Credentials
 
 load_dotenv()
 
@@ -28,13 +29,15 @@ class RcloneS3Tester(unittest.TestCase):
         assert SECRET_ACCESS_KEY
         assert ENDPOINT_URL
 
-        # create a file of 1MB and write binary data 0-255 cyclically.
-        s3_client = create_s3_client(
+        credentials = S3Credentials(
             provider=S3Provider.BACKBLAZE,
-            access_key=ACCESS_KEY_ID,
-            secret_key=SECRET_ACCESS_KEY,
+            access_key_id=ACCESS_KEY_ID,
+            secret_access_key=SECRET_ACCESS_KEY,
             endpoint_url=ENDPOINT_URL,
         )
+
+        # create a file of 1MB and write binary data 0-255 cyclically.
+        s3_client = create_s3_client(credentials)
 
         dst_path = "test_data/testfile"
 

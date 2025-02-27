@@ -44,12 +44,7 @@ class S3MultiChunkUploader:
         self.chunk_size: int = chunk_size
         self.metadata_file: str = metadata_file
 
-        self.s3: BaseClient = create_s3_client(
-            provider=S3Provider.BACKBLAZE,
-            access_key=credentials.access_key_id,
-            secret_key=credentials.secret_access_key,
-            endpoint_url=credentials.endpoint_url,
-        )
+        self.s3: BaseClient = create_s3_client(credentials)
 
         self.file_size, self.total_chunks = self._inspect_file()
         self.progress: UploadProgress = self._load_progress()
