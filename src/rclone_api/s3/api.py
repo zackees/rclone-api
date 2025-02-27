@@ -80,7 +80,7 @@ class S3Client:
             access_key_id = self.credentials.access_key_id[:4] + "..."
             secret = self.credentials.secret_access_key[:4] + "..."
             endpoint_url = self.credentials.endpoint_url
-            provider = self.credentials.provider
+            provider = self.credentials.provider.value
             region_name = self.credentials.region_name
             info_json = {
                 "key": key,
