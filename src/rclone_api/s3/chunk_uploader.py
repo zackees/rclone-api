@@ -492,16 +492,20 @@ def upload_file_multipart(
     upload_info = upload_state.upload_info
     max_workers = 8
 
+    chunker_errors: Queue[Exception] = Queue()
+
     def chunker_task(
         upload_state=upload_state,
         output=filechunks,
         max_chunks=max_chunks_before_suspension,
+        queue_errors=chunker_errors,
     ) -> None:
         try:
             file_chunker(
                 upload_state=upload_state, output=output, max_chunks=max_chunks
             )
-        except Exception:
+        except Exception as e:
+            queue_errors.put(e)
             _thread.interrupt_main()
             raise
 
@@ -533,6 +537,9 @@ def upload_file_multipart(
         # upload_state.finished_parts.put(None)  # Signal the end of the queue
         upload_state.add_finished(None)
         thread_chunker.join()
+
+        if not chunker_errors.empty():
+            raise chunker_errors.get()
         if not upload_state.is_done():
             upload_state.save()
             return MultiUploadResult.SUSPENDED
