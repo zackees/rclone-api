@@ -13,7 +13,7 @@ classifiers = ["Programming Language :: Python :: 3"]
 dependencies = [
     "pyright>=1.1.393",
     "python-dotenv>=1.0.0",
-    
+
     # BOTO3 Library needs to be pinned to a specific version
     # BackBlaze S3 fails with checksum header which it doesn't support after 1.35.99
     # The 1.20.1 was the earliest one I checked that worked and is not the true lower bound.
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 # Change this with the version number bump.
-version = "1.0.88"
+version = "1.0.89"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
