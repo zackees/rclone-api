@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 
 class S3Provider(Enum):
@@ -26,3 +27,13 @@ class S3UploadTarget:
     file_path: str
     bucket_name: str
     s3_key: str
+
+
+@dataclass
+class S3MultiUploadInput:
+    """Input for multi-part upload."""
+
+    credentials: S3Credentials
+    upload_target: S3UploadTarget
+    chunk_size: int
+    resume_path_json: Path
