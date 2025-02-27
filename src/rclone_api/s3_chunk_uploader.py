@@ -251,27 +251,40 @@ class FileChunk:
 
 def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> None:
     upload_info = upload_state.upload_info
-    part_number = 1
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
-    src = Path(upload_info.src_file_path)
-    with open(file_path, "rb") as f:
-        try:
-            while data := f.read(chunk_size):
-                file_chunk = FileChunk(
-                    src,
-                    upload_id=upload_info.upload_id,
-                    part_number=part_number,
-                    data=data,  # del data on the input will be called. Don't use data after this.
-                )
-                output.put(file_chunk)
-                part_number += 1
-        except Exception as e:
-            import warnings
+    src = Path(file_path)
+    file_size = os.path.getsize(file_path)
+    part_number = 1
 
-            warnings.warn(f"Error reading file: {e}")
-        finally:
-            output.put(None)
+    try:
+        while True:
+            offset = (part_number - 1) * chunk_size
+            if offset >= file_size:
+                break
+
+            # Open the file, seek, read the chunk, and close immediately.
+            with open(file_path, "rb") as f:
+                f.seek(offset)
+                data = f.read(chunk_size)
+
+            if not data:
+                break
+
+            file_chunk = FileChunk(
+                src,
+                upload_id=upload_info.upload_id,
+                part_number=part_number,
+                data=data,  # After this, data should not be reused.
+            )
+            output.put(file_chunk)
+            part_number += 1
+    except Exception as e:
+        import warnings
+
+        warnings.warn(f"Error reading file: {e}")
+    finally:
+        output.put(None)
 
 
 def upload_task(
