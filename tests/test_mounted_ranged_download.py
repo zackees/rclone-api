@@ -39,19 +39,17 @@ from dotenv import load_dotenv
 
 from rclone_api import Process, Rclone
 from rclone_api.s3.api import S3Client
-from rclone_api.s3.multi_chunk_uploader import (
+from rclone_api.s3.types import (
     S3Credentials,
+    S3MutliPartUploadConfig,
+    S3Provider,
     S3UploadTarget,
 )
-from rclone_api.s3.types import S3MutliPartUploadConfig, S3Provider
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
 _CONFIG_PATH = _PROJECT_ROOT / "rclone-mounted-ranged-download.conf"
 
-_IS_WINDOWS = os.name == "nt"
-
-_ENABLED = not _IS_WINDOWS
 _CHUNK_SIZE = 1024 * 1024 * 16
 
 _CHUNK_SIZE *= 10
