@@ -725,8 +725,21 @@ class Rclone:
                 )
 
             section: Section = sections[remote]
-            type: str = section.type()
-            provider_enum = S3Provider.from_str(type)
+            dst_type = section.type()
+            if dst_type != "s3":
+                raise ValueError(
+                    f"Remote {remote} is not an S3 remote, it is of type {dst_type}"
+                )
+
+            def get_provider_str(section=section) -> str | None:
+                type: str = section.type()
+                provider: str | None = section.provider()
+                if type != "s3":
+                    raise ValueError(f"Remote {remote} is not an S3 remote")
+                return provider
+
+            provider: str = get_provider_str() or S3Provider.S3.value
+            provider_enum = S3Provider.from_str(provider)
 
             s3_creds: S3Credentials = S3Credentials(
                 provider=provider_enum,

@@ -13,11 +13,23 @@ class Section:
     def type(self) -> str:
         return self.data["type"]
 
+    def provider(self) -> str | None:
+        return self.data.get("provider")
+
     def access_key_id(self) -> str:
-        return self.data["access_key_id"]
+        if "access_key_id" in self.data:
+            return self.data["access_key_id"]
+        elif "account" in self.data:
+            return self.data["account"]
+        raise KeyError("No access key found")
 
     def secret_access_key(self) -> str:
-        return self.data["secret_access_key"]
+        # return self.data["secret_access_key"]
+        if "secret_access_key" in self.data:
+            return self.data["secret_access_key"]
+        elif "key" in self.data:
+            return self.data["key"]
+        raise KeyError("No secret access key found")
 
     def endpoint(self) -> str | None:
         return self.data.get("endpoint")

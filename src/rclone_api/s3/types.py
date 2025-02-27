@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 class S3Provider(Enum):
+    S3 = "s3"  # generic S3
     BACKBLAZE = "b2"
     DIGITAL_OCEAN = "DigitalOcean"
 
