@@ -27,6 +27,7 @@ from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
+from rclone_api.s3.types import MultiUploadResult
 from rclone_api.types import ListingOption, ModTimeStrategy, Order, SizeResult
 from rclone_api.util import (
     get_check,
@@ -665,9 +666,12 @@ class Rclone:
         self,
         src: str,
         dst: str,
+        save_state_json: Path,
         chunk_size: int = 16 * 1024 * 1024,
         concurrent_chunks: int = 4,
-    ) -> CompletedProcess:
+        retries: int = 3,
+        max_chunks_before_suspension: int | None = None,
+    ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         other_args: list[str] = [
             "--vfs-read-chunk-size",
@@ -682,7 +686,7 @@ class Rclone:
         src_path = Path(src)
         name = src_path.name
 
-        parent_path = str(src_path.parent)
+        parent_path = str(src_path.parent.as_posix())
         with self.scoped_mount(
             parent_path,
             mount_path,
@@ -697,7 +701,15 @@ class Rclone:
             remote = path_info.remote
             bucket_name = path_info.bucket
             s3_key = path_info.key
-            print(s3_key, bucket_name, name)  # shutup the linter
+            if False:
+                print(
+                    s3_key,
+                    bucket_name,
+                    name,
+                    retries,
+                    save_state_json,
+                    max_chunks_before_suspension,
+                )  # shutup the linter
             parsed: Parsed = self.config.parse()
             sections: dict[str, dict[str, str]] = parsed.sections
             if remote not in sections:

@@ -9,6 +9,7 @@ from .process import Process
 from .rclone import Rclone, rclone_verbose
 from .remote import Remote
 from .rpath import RPath
+from .s3.types import MultiUploadResult
 from .types import ListingOption, Order, SizeResult
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "SizeResult",
     "Parsed",
     "ParsedSection",
+    "MultiUploadResult",
 ]
