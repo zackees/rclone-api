@@ -416,8 +416,8 @@ def upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
     file_path: str,
+    object_name: str,
     resumable_info_path: Path | None,
-    object_name: Optional[str] = None,
     chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
     retries: int = 20,
     max_chunks_before_suspension: int | None = None,
@@ -444,19 +444,6 @@ def upload_file_multipart(
                 f"Resumable info path {resumable_info_path} does not exist for {file_path}"
             )
             return None
-        # upload_info = prepare_upload_file_multipart(
-        #     s3_client=s3_client,
-        #     bucket_name=bucket_name,
-        #     file_path=file_path,
-        #     object_name=object_name,
-        #     chunk_size=chunk_size,
-        #     retries=retries,
-        # )
-        # upload_state = UploadState(
-        #     upload_info=upload_info,
-        #     parts=[],
-        #     peristant=resumable_info_path,
-        # )
         upload_state = UploadState.load(s3_client=s3_client, path=resumable_info_path)
         return upload_state
 
