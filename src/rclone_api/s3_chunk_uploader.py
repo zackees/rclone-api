@@ -256,9 +256,14 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
     src = Path(file_path)
     file_size = os.path.getsize(file_path)
     part_number = 1
-
+    done_part_numbers: set[int] = {
+        p.part_number for p in upload_state.parts if p is not None
+    }
     try:
         while True:
+            if part_number in done_part_numbers:
+                part_number += 1
+                continue
             offset = (part_number - 1) * chunk_size
             if offset >= file_size:
                 break
@@ -277,6 +282,7 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
                 part_number=part_number,
                 data=data,  # After this, data should not be reused.
             )
+            done_part_numbers.add(part_number)
             output.put(file_chunk)
             part_number += 1
     except Exception as e:
