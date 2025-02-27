@@ -2,7 +2,12 @@ import warnings
 
 from botocore.client import BaseClient
 
-from rclone_api.s3.basic_ops import download_file, list_bucket_contents, upload_file
+from rclone_api.s3.basic_ops import (
+    download_file,
+    head,
+    list_bucket_contents,
+    upload_file,
+)
 from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
 from rclone_api.s3.create import create_s3_client
 from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
@@ -31,6 +36,9 @@ class S3Client:
 
     def download_file(self, bucket_name: str, object_name: str, file_path: str) -> None:
         download_file(self.client, bucket_name, object_name, file_path)
+
+    def head(self, bucket_name: str, object_name: str) -> dict | None:
+        return head(self.client, bucket_name, object_name)
 
     def upload_file_multipart(
         self,

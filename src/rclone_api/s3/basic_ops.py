@@ -41,3 +41,21 @@ def download_file(
         print(f"Downloaded {object_name} from {bucket_name} to {file_path}")
     except Exception as e:
         print(f"Error downloading file: {e}")
+
+
+def head(s3_client: BaseClient, bucket_name: str, object_name: str) -> dict | None:
+    """
+    Retrieve metadata for the specified object using a HEAD operation.
+
+    :param s3_client: The S3 client to use.
+    :param bucket_name: The name of the bucket containing the object.
+    :param object_name: The key of the object.
+    :return: A dictionary containing the object's metadata if successful, otherwise None.
+    """
+    try:
+        response = s3_client.head_object(Bucket=bucket_name, Key=object_name)
+        print(f"Metadata for {object_name} in {bucket_name}: {response}")
+        return response
+    except Exception as e:
+        print(f"Error retrieving metadata for {object_name}: {e}")
+        return None
