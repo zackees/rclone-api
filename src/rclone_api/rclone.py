@@ -16,7 +16,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
-from rclone_api.config import Config
+from rclone_api.config import Config, Parsed
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
@@ -694,9 +694,29 @@ class Rclone:
             from rclone_api.util import S3PathInfo, split_s3_path
 
             path_info: S3PathInfo = split_s3_path(dst)
+            remote = path_info.remote
             bucket_name = path_info.bucket
             s3_key = path_info.key
             print(s3_key, bucket_name, name)  # shutup the linter
+            parsed: Parsed = self.config.parse()
+            sections: dict[str, dict[str, str]] = parsed.sections
+            if remote not in sections:
+                raise ValueError(
+                    f"Remote {remote} not found in rclone config, remotes are: {sections.keys()}"
+                )
+
+            remote_config: dict[str, str] = sections[remote]
+            if "provider" not in remote_config:
+                raise ValueError(
+                    f"Remote {remote} does not have a provider in the rclone config"
+                )
+
+            provider: str = remote_config["provider"]
+            if provider != "BB":
+                raise ValueError(
+                    f"Remote {remote} is not an BB s3 remote (the only one support atm), provider is: {provider}"
+                )
+            print(f"Info: {remote_config}")
             raise NotImplementedError("Not implemented yet")
 
     def copy_dir(

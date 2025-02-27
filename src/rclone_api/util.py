@@ -146,9 +146,12 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
 
 
 def split_s3_path(path: str) -> S3PathInfo:
-    if ":" in path:
-        prts = path.split(":", 1)
-        path = prts[1]
+    if ":" not in path:
+        raise ValueError(f"Invalid S3 path: {path}")
+
+    prts = path.split(":", 1)
+    remote = prts[0]
+    path = prts[1]
     parts: list[str] = []
     for part in path.split("/"):
         part = part.strip()
@@ -160,4 +163,4 @@ def split_s3_path(path: str) -> S3PathInfo:
     key = "/".join(parts[1:])
     assert bucket
     assert key
-    return S3PathInfo(bucket=bucket, key=key)
+    return S3PathInfo(remote=remote, bucket=bucket, key=key)

@@ -21,6 +21,7 @@ class Order(Enum):
 
 @dataclass
 class S3PathInfo:
+    remote: str
     bucket: str
     key: str
 
