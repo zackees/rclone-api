@@ -127,6 +127,13 @@ class UploadState:
     lock: Lock = Lock()
     parts: list[FinishedPiece | None] = field(default_factory=list)
 
+    def update_source_file(self, src_file: Path) -> None:
+        new_file_size = os.path.getsize(src_file)
+        if new_file_size != self.upload_info.file_size:
+            raise ValueError("File size changed, cannot resume")
+        self.upload_info.src_file_path = src_file
+        self.save()
+
     def is_done(self) -> bool:
         return self.remaining() == 0
 
@@ -433,6 +440,18 @@ def prepare_upload_file_multipart(
     return upload_info
 
 
+def _abort_previous_upload(upload_state: UploadState) -> None:
+    if upload_state.upload_info.upload_id:
+        try:
+            upload_state.upload_info.s3_client.abort_multipart_upload(
+                Bucket=upload_state.upload_info.bucket_name,
+                Key=upload_state.upload_info.object_name,
+                UploadId=upload_state.upload_info.upload_id,
+            )
+        except Exception as e:
+            locked_print(f"Error aborting previous upload: {e}")
+
+
 def upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
@@ -488,6 +507,13 @@ def upload_file_multipart(
 
     filechunks: Queue[FileChunk | None] = Queue(10)
     upload_state = get_upload_state() or make_new_state()
+    try:
+        upload_state.update_source_file(file_path)
+    except ValueError as e:
+        locked_print(f"Cannot resume upload: {e}, size changed, starting over")
+        _abort_previous_upload(upload_state)
+        upload_state = make_new_state()
+        upload_state.save()
     if upload_state.is_done():
         return MultiUploadResult.ALREADY_DONE
     finished = upload_state.finished()
