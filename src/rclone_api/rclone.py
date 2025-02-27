@@ -28,7 +28,12 @@ from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.s3.types import MultiUploadResult, S3Provider
+from rclone_api.s3.types import (
+    MultiUploadResult,
+    S3MutliPartUploadConfig,
+    S3Provider,
+    S3UploadTarget,
+)
 from rclone_api.types import ListingOption, ModTimeStrategy, Order, SizeResult
 from rclone_api.util import (
     get_check,
@@ -702,15 +707,6 @@ class Rclone:
             remote = path_info.remote
             bucket_name = path_info.bucket
             s3_key = path_info.key
-            if False:
-                print(
-                    s3_key,
-                    bucket_name,
-                    name,
-                    retries,
-                    save_state_json,
-                    max_chunks_before_suspension,
-                )  # shutup the linter
             parsed: Parsed = self.config.parse()
             sections: dict[str, Section] = parsed.sections
             if remote not in sections:
@@ -745,7 +741,40 @@ class Rclone:
             client = S3Client(s3_creds)
             print(f"Client: {client}")
 
-            raise NotImplementedError("Not implemented yet")
+            config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
+                chunk_size=chunk_size,
+                retries=retries,
+                resume_path_json=save_state_json,
+                max_chunks_before_suspension=max_chunks_before_suspension,
+            )
+
+            src_file = mount_path / name
+
+            print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
+            print(f"Source: {src_path}")
+            print(f"bucket_name: {bucket_name}")
+            print(f"upload_config: {config}")
+
+            upload_target: S3UploadTarget
+            upload_config: S3MutliPartUploadConfig
+
+            upload_target = S3UploadTarget(
+                bucket_name=bucket_name,
+                src_file=src_file,
+                s3_key=s3_key,
+            )
+
+            upload_config = S3MutliPartUploadConfig(
+                chunk_size=chunk_size,
+                retries=retries,
+                resume_path_json=save_state_json,
+                max_chunks_before_suspension=max_chunks_before_suspension,
+            )
+
+            out: MultiUploadResult = client.upload_file_multipart(
+                upload_target=upload_target, upload_config=upload_config
+            )
+            return out
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
