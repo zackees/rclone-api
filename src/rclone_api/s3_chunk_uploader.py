@@ -2,7 +2,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from queue import Queue
 from threading import Lock, Thread
@@ -21,7 +21,20 @@ class UploadInfo:
     retries: int
     chunk_size: int
 
-    def to_json()
+    def to_json(self) -> dict:
+        json_dict = {}
+        for field in fields(self):
+            value = getattr(self, field.name)
+            # Convert non-serializable objects (like s3_client) to a string representation.
+            if field.name == "s3_client":
+                json_dict[field.name] = "RUNTIME OBJECT"
+            else:
+                json_dict[field.name] = value
+        return json_dict
+
+    @staticmethod
+    def from_json(s3_client: BaseClient, json_dict: dict) -> "UploadInfo":
+        return UploadInfo(s3_client=s3_client, **json_dict)
 
 
 @dataclass
@@ -36,6 +49,40 @@ class FinishedPiece:
     def from_json(json_str: str) -> "FinishedPiece":
         data = json.loads(json_str)
         return FinishedPiece(**data)
+
+
+@dataclass
+class UploadState:
+    upload_info: UploadInfo
+    finished_parts: list[FinishedPiece]
+    peristant: Path | None
+
+    def save(self) -> None:
+        assert self.peristant is not None, "No path to save to"
+        self.peristant.write_text(self.to_json_str(), encoding="utf-8")
+
+    @staticmethod
+    def load(s3_client: BaseClient, path: Path) -> "UploadState":
+        return UploadState.from_json(s3_client, path)
+
+    def to_json(self) -> dict:
+        return {
+            "upload_info": self.upload_info.to_json(),
+            "finished_parts": [p.to_json() for p in self.finished_parts],
+        }
+
+    def to_json_str(self) -> str:
+        return json.dumps(self.to_json(), indent=4)
+
+    @staticmethod
+    def from_json(s3_client: BaseClient, json_file: Path) -> "UploadState":
+        json_str = json_file.read_text(encoding="utf-8")
+        data = json.loads(json_str)
+        upload_info = UploadInfo.from_json(s3_client, data["upload_info"])
+        finished_parts = [FinishedPiece.from_json(p) for p in data["finished_parts"]]
+        return UploadState(
+            peristant=json_file, upload_info=upload_info, finished_parts=finished_parts
+        )
 
 
 # lock
