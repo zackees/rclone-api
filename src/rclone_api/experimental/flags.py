@@ -1,16 +1,5 @@
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, Type, TypeVar
-
-
-def _to_args(datclass: Any) -> list[str]:
-    args = []
-    for key, value in datclass.__dict__.items():
-        if value is not None:
-            args.append(f"--{key.replace('_', '-')}")
-            if value is not True:
-                args.append(str(value))
-    return args
-
+from typing import Type, TypeVar
 
 T = TypeVar("T")
 
@@ -18,7 +7,6 @@ T = TypeVar("T")
 def _merge(cls: Type[T], dataclass_a: T, dataclass_b: T) -> T:
     if not is_dataclass(dataclass_a) or not is_dataclass(dataclass_b):
         raise ValueError("Both inputs must be dataclass instances")
-
     if type(dataclass_a) is not type(dataclass_b):
         raise ValueError("Dataclass instances must be of the same type")
 
@@ -34,22 +22,38 @@ def _merge(cls: Type[T], dataclass_a: T, dataclass_b: T) -> T:
 
     return cls(**merged_kwargs)
 
+
 @dataclass
 class BaseFlags:
     def to_args(self) -> list[str]:
         args = []
-        if self.flags:
-            args.extend(self.flags.to_args())
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if value is None:
+                continue
+            # If the field value is a nested dataclass that supports to_args, use it.
+            if is_dataclass(value) and hasattr(value, "to_args"):
+                to_args = getattr(value, "to_args")
+                args.extend(to_args())
+            else:
+                arg_name = f"--{field.name.replace('_', '-')}"
+                args.append(arg_name)
+                if (
+                    value is not True
+                ):  # For boolean flags, True means the flag is present.
+                    args.append(str(value))
         return args
 
     def merge(self, other: "BaseFlags") -> "BaseFlags":
-        return _merge(BaseFlags, self, other)
+        # Use the type of self, so merging CopyFlags returns a CopyFlags instance.
+        return _merge(type(self), self, other)
 
     def __repr__(self):
         return str(self.to_args())
 
-@dataclass
-class CopyFlags:
+
+@dataclass(repr=False)
+class CopyFlags(BaseFlags):
     check_first: bool | None = None
     checksum: bool | None = False
     compare_dest: list[str] | None = None
@@ -84,40 +88,25 @@ class CopyFlags:
     streaming_upload_cutoff: str | None = None
     update: bool | None = None
 
-    def to_args(self) -> list[str]:
-        return _to_args(self)
 
-    def merge(self, other: "CopyFlags") -> "CopyFlags":
-        return _merge(CopyFlags, self, other)
-
-    def __repr__(self):
-        return str(self.to_args())
-
-
-@dataclass
-class Flags:
+@dataclass(repr=False)
+class Flags(BaseFlags):
     copy: CopyFlags | None = None
-
-    def to_args(self) -> list[str]:
-        args = []
-        if self.copy:
-            args.extend(self.copy.to_args())
-        return args
-
-    def merge(self, other: "Flags") -> "Flags":
-        return _merge(Flags, self, other)
-
-    def __repr__(self):
-        return str(self.to_args())
-
-
 
 
 def unit_test() -> None:
     copy_flags_a = CopyFlags(compare_dest=["a", "b"])
     copy_flags_b = CopyFlags(checksum=False)
     flags_a = copy_flags_a.merge(copy_flags_b)
-    print(flags_a)
+    print("A:", flags_a)
+
+    copy_flags_c = CopyFlags(checksum=True)
+    copy_flags_d = CopyFlags(checksum=False)
+
+    merged_c_d = copy_flags_c.merge(copy_flags_d)
+    print("B:", merged_c_d)
+    merged_d_c = copy_flags_d.merge(copy_flags_c)
+    print("C:", merged_d_c)
 
 
 if __name__ == "__main__":
