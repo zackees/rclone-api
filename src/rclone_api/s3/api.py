@@ -3,7 +3,7 @@ from pathlib import Path
 from botocore.client import BaseClient
 
 from rclone_api.s3.basic_ops import download_file, list_bucket_contents, upload_file
-from rclone_api.s3.chunk_uploader import upload_file_multipart
+from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
 from rclone_api.s3.create import create_s3_client
 from rclone_api.s3.types import S3Credentials, S3UploadTarget
 
@@ -31,9 +31,9 @@ class S3Client:
         resume_path_json: Path,
         retries: int,
         max_chunks_before_suspension: int | None = None,
-    ) -> None:
+    ) -> MultiUploadResult:
         bucket_name = upload_target.bucket_name
-        upload_file_multipart(
+        out = upload_file_multipart(
             s3_client=self.client,
             bucket_name=bucket_name,
             file_path=upload_target.file_path,
@@ -43,3 +43,4 @@ class S3Client:
             retries=retries,
             max_chunks_before_suspension=max_chunks_before_suspension,
         )
+        return out
