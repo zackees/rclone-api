@@ -5,9 +5,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
-from rclone_api.s3.create import S3Provider, create_s3_client
-from rclone_api.s3.types import S3Credentials
+from rclone_api.s3.api import S3Client
+from rclone_api.s3.chunk_uploader import MultiUploadResult
+from rclone_api.s3.create import S3Provider
+from rclone_api.s3.types import S3Credentials, S3UploadTarget
 
 load_dotenv()
 
@@ -36,10 +37,20 @@ class RcloneS3Tester(unittest.TestCase):
             endpoint_url=ENDPOINT_URL,
         )
 
-        # create a file of 1MB and write binary data 0-255 cyclically.
-        s3_client = create_s3_client(credentials)
+        s3_client = S3Client(credentials)
+
+        # @dataclass
+        # class S3UploadTarget:
+        #     """Target information for S3 upload."""
+
+        #     file_path: str
+        #     bucket_name: str
+        #     s3_key: str
 
         dst_path = "test_data/testfile"
+
+        # create a file of 1MB and write binary data 0-255 cyclically.
+        # s3_client = create_s3_client(credentials)
 
         chunk_size = 5 * 1024 * 1024
         pattern = bytes(range(256))
@@ -52,40 +63,38 @@ class RcloneS3Tester(unittest.TestCase):
                 f.flush()
                 f.seek(0)
             filesize = tmpfile.stat().st_size
-            tmpstate = Path(tempdir) / "state.json"
-            print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
-            rslt: MultiUploadResult = upload_file_multipart(
-                s3_client=s3_client,
+            state_json = Path(tempdir) / "state.json"
+
+            upload_target: S3UploadTarget = S3UploadTarget(
+                src_file=Path(tmpfile),
                 bucket_name=BUCKET_NAME,
-                file_path=f.name,
-                resumable_info_path=tmpstate,
-                object_name=dst_path,
+                s3_key=dst_path,
+            )
+
+            print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
+            rslt: MultiUploadResult = s3_client.upload_file_multipart(
+                upload_target=upload_target,
+                resume_path_json=state_json,
                 chunk_size=chunk_size,
                 retries=0,
                 max_chunks_before_suspension=1,
             )
             self.assertEqual(rslt, MultiUploadResult.SUSPENDED)
-            rslt = upload_file_multipart(
-                s3_client=s3_client,
-                bucket_name=BUCKET_NAME,
-                file_path=f.name,
-                resumable_info_path=tmpstate,
-                object_name=dst_path,
+            rslt = s3_client.upload_file_multipart(
+                upload_target=upload_target,
+                resume_path_json=state_json,
                 chunk_size=chunk_size,
                 retries=0,
             )
             self.assertEqual(rslt, MultiUploadResult.UPLOADED_RESUME)
             print(f"Uploading file {f.name} to {BUCKET_NAME}")
-            state_str = tmpstate.read_text(encoding="utf-8")
+            state_str = state_json.read_text(encoding="utf-8")
             print("Finished state:\n", state_str)
             print("Upload successful.")
             print(f"Uploading file {f.name} to {BUCKET_NAME}/{dst_path}")
-            rslt = upload_file_multipart(
-                s3_client=s3_client,
-                bucket_name=BUCKET_NAME,
-                file_path=f.name,
-                resumable_info_path=tmpstate,
-                object_name=dst_path,
+            rslt = s3_client.upload_file_multipart(
+                upload_target=upload_target,
+                resume_path_json=state_json,
                 chunk_size=chunk_size,
                 retries=0,
             )

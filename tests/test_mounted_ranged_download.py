@@ -186,7 +186,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
 
             # Create upload target
             target = S3UploadTarget(
-                file_path="mount/world_lending_library_2024_11.tar.zst",
+                src_file=Path("mount/world_lending_library_2024_11.tar.zst"),
                 bucket_name=bucket_name,
                 s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
             )

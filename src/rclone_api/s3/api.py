@@ -36,7 +36,7 @@ class S3Client:
         out = upload_file_multipart(
             s3_client=self.client,
             bucket_name=bucket_name,
-            file_path=upload_target.file_path,
+            file_path=upload_target.src_file,
             object_name=upload_target.s3_key,
             resumable_info_path=resume_path_json,
             chunk_size=chunk_size,

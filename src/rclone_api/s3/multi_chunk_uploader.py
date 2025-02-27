@@ -3,6 +3,7 @@ import os
 import time
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from tempfile import TemporaryFile
 
 from botocore.client import BaseClient  # Correct typing for S3 client
@@ -38,7 +39,7 @@ class S3MultiChunkUploader:
         chunk_size: int = _CHUNK_SIZE,
         metadata_file: str = "upload_progress.json",
     ) -> None:
-        self.file_path: str = target.file_path
+        self.file_path: Path = target.src_file
         self.bucket_name: str = target.bucket_name
         self.s3_key: str = target.s3_key
         self.chunk_size: int = chunk_size
@@ -150,7 +151,7 @@ if __name__ == "__main__":
     )
 
     target = S3UploadTarget(
-        file_path="mount/world_lending_library_2024_11.tar.zst",
+        src_file=Path("mount/world_lending_library_2024_11.tar.zst"),
         bucket_name="TorrentBooks",
         s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
     )

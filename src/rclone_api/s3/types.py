@@ -24,7 +24,7 @@ class S3Credentials:
 class S3UploadTarget:
     """Target information for S3 upload."""
 
-    file_path: str
+    src_file: Path
     bucket_name: str
     s3_key: str
 

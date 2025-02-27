@@ -61,7 +61,7 @@ class UploadInfo:
     s3_client: BaseClient
     bucket_name: str
     object_name: str
-    src_file_path: str
+    src_file_path: Path
     upload_id: str
     retries: int
     chunk_size: int
@@ -87,6 +87,8 @@ class UploadInfo:
             if f.name == "s3_client":
                 json_dict[f.name] = "RUNTIME OBJECT"
             else:
+                if isinstance(value, Path):
+                    value = str(value)
                 json_dict[f.name] = value
         return json_dict
 
@@ -194,13 +196,17 @@ class UploadState:
         finished_count, total = self.count()
 
         # parts.sort(key=lambda x: x.part_number)  # Some backends need this.
-        return {
+        out_json = {
             "upload_info": self.upload_info.to_json(),
             "finished_parts": parts_json,
             "is_done": is_done,
             "finished_count": finished_count,
             "total_parts": total,
         }
+
+        # check that we can sererialize
+        # json.dumps(out_json)
+        return out_json
 
     def to_json_str(self) -> str:
         return json.dumps(self.to_json(), indent=4)
@@ -298,7 +304,7 @@ def file_chunker(
         while not should_stop():
             curr_parth_num = next_part_number()
             if curr_parth_num is None:
-                locked_print(f"File {file_path} is complete")
+                locked_print(f"File {file_path} has completed chunking all parts")
                 break
             assert curr_parth_num is not None
             offset = (curr_parth_num - 1) * chunk_size
@@ -380,14 +386,12 @@ def handle_upload(
 def prepare_upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
-    file_path: str,
+    file_path: Path,
     object_name: str,
     chunk_size: int,
     retries: int,
 ) -> UploadInfo:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
-
-    object_name = object_name or os.path.basename(file_path)
 
     # Initiate multipart upload
     locked_print(
@@ -414,7 +418,7 @@ def prepare_upload_file_multipart(
 def upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
-    file_path: str,
+    file_path: Path,
     object_name: str,
     resumable_info_path: Path | None,
     chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
@@ -422,7 +426,7 @@ def upload_file_multipart(
     max_chunks_before_suspension: int | None = None,
 ) -> MultiUploadResult:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
-    file_size = os.path.getsize(file_path)
+    file_size = os.path.getsize(str(file_path))
     if chunk_size > file_size:
         warnings.warn(
             f"Chunk size {chunk_size} is greater than file size {file_size}, using file size"
