@@ -54,7 +54,7 @@ class FinishedPiece:
 @dataclass
 class UploadState:
     upload_info: UploadInfo
-    finished_parts: list[FinishedPiece]
+    finished_parts: Queue[FinishedPiece | None]
     peristant: Path | None
 
     def save(self) -> None:
@@ -66,9 +66,16 @@ class UploadState:
         return UploadState.from_json(s3_client, path)
 
     def to_json(self) -> dict:
+        # queue -> list
+        parts: list[FinishedPiece] = []
+        while self.finished_parts.qsize() > 0:
+            qpart = self.finished_parts.get()
+            if qpart is not None:
+                parts.append(qpart)
+        parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         return {
             "upload_info": self.upload_info.to_json(),
-            "finished_parts": [p.to_json() for p in self.finished_parts],
+            "finished_parts": [p.to_json() for p in parts],
         }
 
     def to_json_str(self) -> str:
@@ -80,8 +87,11 @@ class UploadState:
         data = json.loads(json_str)
         upload_info = UploadInfo.from_json(s3_client, data["upload_info"])
         finished_parts = [FinishedPiece.from_json(p) for p in data["finished_parts"]]
+        queue: Queue[FinishedPiece | None] = Queue()
+        for part in finished_parts:
+            queue.put(part)
         return UploadState(
-            peristant=json_file, upload_info=upload_info, finished_parts=finished_parts
+            peristant=json_file, upload_info=upload_info, finished_parts=queue
         )
 
 
