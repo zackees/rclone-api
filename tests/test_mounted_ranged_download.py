@@ -43,6 +43,7 @@ from rclone_api.s3.multi_chunk_uploader import (
     S3UploadTarget,
     upload_file,
 )
+from rclone_api.s3.types import S3Provider
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
@@ -172,6 +173,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
             assert access_key_id is not None
             assert secret_access_key is not None
             credentials = S3Credentials(
+                provider=S3Provider.BACKBLAZE,
                 # access_key_id=os.getenv("BUCKET_KEY_PUBLIC"),
                 access_key_id=access_key_id,
                 # secret_access_key=os.getenv("BUCKET_KEY_SECRET"),

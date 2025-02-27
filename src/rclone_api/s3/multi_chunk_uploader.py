@@ -145,6 +145,7 @@ def upload_file(credentials: S3Credentials, target: S3UploadTarget) -> None:
 
 if __name__ == "__main__":
     credentials = S3Credentials(
+        provider=S3Provider.BACKBLAZE,
         access_key_id="YOUR_ACCESS_KEY",
         secret_access_key="YOUR_SECRET_KEY",
         # Optional parameters
