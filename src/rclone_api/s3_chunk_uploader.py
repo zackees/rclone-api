@@ -320,16 +320,26 @@ def upload_file_multipart(
 ) -> None:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
 
-    def get_upload_state() -> UploadState:
-        upload_state: UploadState
-        if resumable_info_path is not None and resumable_info_path.exists():
-            try:
-                upload_state = UploadState.load(s3_client, resumable_info_path)
-                upload_info = upload_state.upload_info
-                return upload_state
-            except Exception as e:
-                print(f"Error loading upload state: {e}, making a new one")
-                pass
+    def get_upload_state() -> UploadState | None:
+        if resumable_info_path is None or not resumable_info_path.exists():
+            return None
+        upload_info = prepare_upload_file_multipart(
+            s3_client=s3_client,
+            bucket_name=bucket_name,
+            file_path=file_path,
+            object_name=object_name,
+            chunk_size=chunk_size,
+            retries=retries,
+        )
+        upload_state = UploadState(
+            upload_info=upload_info,
+            parts=[],
+            peristant=resumable_info_path,
+        )
+        return upload_state
+
+    def make_new_state() -> UploadState:
+        print(f"Creating new upload state for {file_path}")
         upload_info = prepare_upload_file_multipart(
             s3_client=s3_client,
             bucket_name=bucket_name,
@@ -346,7 +356,7 @@ def upload_file_multipart(
         return upload_state
 
     filechunks: Queue[FileChunk | None] = Queue(10)
-    upload_state = get_upload_state()
+    upload_state = get_upload_state() or make_new_state()
     upload_info = upload_state.upload_info
 
     try:
