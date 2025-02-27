@@ -673,13 +673,20 @@ class Rclone:
         src: str,
         dst: str,
         save_state_json: Path,
-        chunk_size: int = 16 * 1024 * 1024,
-        concurrent_chunks: int = 4,
+        chunk_size: int = 16
+        * 1024
+        * 1024,  # This setting will scale the performance of the upload
+        concurrent_chunks: int = 4,  # This setting will scale the performance of the upload
         retries: int = 3,
         max_chunks_before_suspension: int | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         other_args: list[str] = [
+            "--no-modtime",
+            "--vfs-read-wait",
+            "1s",
+            "--vfs-disk-space-total-size",
+            str(2 * chunk_size * concurrent_chunks),  # purge quickly.
             "--vfs-read-chunk-size",
             str(chunk_size),
             "--vfs-read-chunk-size-limit",
@@ -701,6 +708,7 @@ class Rclone:
             other_args=other_args,
         ):
             # raise NotImplementedError("Not implemented yet")
+            from rclone_api.s3.create import S3Credentials
             from rclone_api.util import S3PathInfo, split_s3_path
 
             path_info: S3PathInfo = split_s3_path(dst)
@@ -717,14 +725,6 @@ class Rclone:
             section: Section = sections[remote]
             provider: str = section.provider()
             provider_enum = S3Provider.from_str(provider)
-            # todo - uncomment this when we have more providers
-            # if provider.lower() != "b2":
-            #     raise ValueError(
-            #         f"Remote {remote} is not an b2 s3 remote (the only one support atm), provider is: {provider}"
-            #     )
-
-            # Todo rclone_api.s3.create -> client
-            from rclone_api.s3.create import S3Credentials
 
             s3_creds: S3Credentials = S3Credentials(
                 provider=provider_enum,

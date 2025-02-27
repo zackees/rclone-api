@@ -134,27 +134,8 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         config_text = _generate_rclone_config(PORT)
         _CONFIG_PATH.write_text(config_text, encoding="utf-8")
         print(f"Config file written to: {_CONFIG_PATH}")
-        # src_path = "src:aa_misc_data/aa_misc_data/"
-        # target_file = "world_lending_library_2024_11.tar.zst"
-        # from concurrent.futures import ThreadPoolExecutor
-
-        # OUT_DIR = Path("mount")
-        # other_args = [
-        #     "--vfs-read-chunk-size",
-        #     "16M",
-        #     "--vfs-read-chunk-size-limit",
-        #     "1G",
-        #     "--vfs-read-chunk-streams",
-        #     "64",
-        #     "--no-modtime",
-        #     "--vfs-read-wait",
-        #     "1m",
-        #     "--vfs-fast-fingerprint",
-        # ]
-
         rclone = Rclone(_CONFIG_PATH)
         save_state_json = Path("state.json")
-
         rclone.copy_file_resumable_s3(
             src="src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent",
             dst="dst:rclone-api-unit-test/test_data/test.torrent.testwrite",
@@ -163,46 +144,6 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             save_state_json=save_state_json,
             max_chunks_before_suspension=1,
         )
-
-        # with rclone.scoped_mount(
-        #     src=src_path,
-        #     outdir=OUT_DIR,
-        #     vfs_cache_mode="minimal",
-        #     other_args=other_args,
-        # ):
-        #     print(f"Mounted at: {OUT_DIR}")
-
-        #     credentials = S3Credentials(
-        #         provider=S3Provider.BACKBLAZE,
-        #         access_key_id=ACCESS_KEY_ID,
-        #         secret_access_key=SECRET_ACCESS_KEY,
-        #         endpoint_url=ENDPOINT_URL,
-        #     )
-
-        #     bucket_name = BUCKET_NAME
-        #     assert bucket_name is not None
-
-        #     # Create upload target
-        #     target = S3UploadTarget(
-        #         src_file=Path("mount/world_lending_library_2024_11.tar.zst.torrent"),
-        #         bucket_name=bucket_name,
-        #         # s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent",
-        #         s3_key="test_data/world_lending_library_2024_11.tar.zst.torrent",
-        #     )
-
-        #     config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
-        #         chunk_size=_CHUNK_SIZE,
-        #         retries=0,
-        #         resume_path_json=Path("state.json"),
-        #         max_chunks_before_suspension=1,
-        #     )
-
-        #     s3_client = S3Client(credentials)
-        #     rslt: MultiUploadResult = s3_client.upload_file_multipart(
-        #         upload_target=target, upload_config=config
-        #     )
-        #     print(f"Upload result: {rslt}")
-
         print("Done")
 
 
