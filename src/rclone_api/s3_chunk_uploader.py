@@ -408,6 +408,9 @@ def upload_file_multipart(
 
     def get_upload_state() -> UploadState | None:
         if resumable_info_path is None or not resumable_info_path.exists():
+            print(
+                f"No resumable info found for {file_path}, so creating new upload state"
+            )
             return None
         upload_info = prepare_upload_file_multipart(
             s3_client=s3_client,
@@ -443,6 +446,7 @@ def upload_file_multipart(
 
     filechunks: Queue[FileChunk | None] = Queue(10)
     upload_state = get_upload_state() or make_new_state()
+    assert upload_state.is_done() is False, "Upload is already complete"
     upload_info = upload_state.upload_info
     max_workers = 8
 
