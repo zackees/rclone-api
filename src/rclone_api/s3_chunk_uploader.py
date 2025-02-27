@@ -24,18 +24,18 @@ class UploadInfo:
     retries: int
     chunk_size: int
     file_size: int
-    _num_chunks: int | None = None
+    _total_chunks: int | None = None
 
-    def num_chunks(self) -> int:
+    def total_chunks(self) -> int:
         out = self.file_size // self.chunk_size
         if self.file_size % self.chunk_size:
             return out + 1
         return out
 
     def __post_init__(self):
-        if self._num_chunks is not None:
+        if self._total_chunks is not None:
             return
-        self._num_chunks = self.num_chunks()
+        self._total_chunks = self.total_chunks()
 
     def to_json(self) -> dict:
         json_dict = {}
@@ -102,7 +102,7 @@ class UploadState:
         return self.remaining() == 0
 
     def count(self) -> tuple[int, int]:  # count, num_chunks
-        num_chunks = self.upload_info.num_chunks()
+        num_chunks = self.upload_info.total_chunks()
         count = 0
         for p in self.parts:
             if p is not None:
@@ -259,14 +259,26 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
     done_part_numbers: set[int] = {
         p.part_number for p in upload_state.parts if p is not None
     }
+    num_parts = upload_info.total_chunks()
+
+    def next_part_number() -> int | None:
+        nonlocal part_number
+        while part_number in done_part_numbers:
+            part_number += 1
+        if part_number > num_parts:
+            return None
+        return part_number
+
     try:
         while True:
-            if part_number in done_part_numbers:
-                part_number += 1
-                continue
-            offset = (part_number - 1) * chunk_size
-            if offset >= file_size:
+            curr_parth_num = next_part_number()
+            if curr_parth_num is None:
+                print(f"File {file_path} is complete")
                 break
+            assert curr_parth_num is not None
+            offset = (curr_parth_num - 1) * chunk_size
+
+            assert offset < file_size, f"Offset {offset} is greater than file size"
 
             # Open the file, seek, read the chunk, and close immediately.
             with open(file_path, "rb") as f:
@@ -274,7 +286,7 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
                 data = f.read(chunk_size)
 
             if not data:
-                break
+                warnings.warn(f"Empty data for part {part_number} of {file_path}")
 
             file_chunk = FileChunk(
                 src,
@@ -286,7 +298,6 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
             output.put(file_chunk)
             part_number += 1
     except Exception as e:
-        import warnings
 
         warnings.warn(f"Error reading file: {e}")
     finally:
