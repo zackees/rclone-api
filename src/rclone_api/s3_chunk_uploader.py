@@ -249,7 +249,8 @@ class FileChunk:
         self.close()
 
 
-def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -> None:
+def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> None:
+    upload_info = upload_state.upload_info
     part_number = 1
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
@@ -263,14 +264,14 @@ def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -
                     part_number=part_number,
                     data=data,  # del data on the input will be called. Don't use data after this.
                 )
-                filechunks.put(file_chunk)
+                output.put(file_chunk)
                 part_number += 1
         except Exception as e:
             import warnings
 
             warnings.warn(f"Error reading file: {e}")
         finally:
-            filechunks.put(None)
+            output.put(None)
 
 
 def upload_task(
@@ -414,10 +415,11 @@ def upload_file_multipart(
     upload_state = get_upload_state() or make_new_state()
     upload_info = upload_state.upload_info
 
+    def chunker_task(upload_state=upload_state, output=filechunks) -> None:
+        file_chunker(upload_state=upload_state, output=output)
+
     try:
-        thread_chunker = Thread(
-            target=file_chunker, args=(upload_info, filechunks), daemon=True
-        )
+        thread_chunker = Thread(target=chunker_task, daemon=True)
         thread_chunker.start()
 
         with ThreadPoolExecutor() as executor:
