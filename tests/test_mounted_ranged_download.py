@@ -38,12 +38,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from rclone_api import Process, Rclone
+from rclone_api.s3.api import S3Client
 from rclone_api.s3.multi_chunk_uploader import (
     S3Credentials,
     S3UploadTarget,
-    upload_file,
 )
-from rclone_api.s3.types import S3Provider
+from rclone_api.s3.types import S3MutliPartUploadConfig, S3Provider
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
@@ -191,8 +191,18 @@ class RcloneMountWebdavTester(unittest.TestCase):
                 s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
             )
 
+            config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
+                chunk_size=_CHUNK_SIZE,
+                retries=0,
+                resume_path_json=Path("state.json"),
+                max_chunks_before_suspension=1,
+            )
+
+            s3_client = S3Client(credentials)
+            s3_client.upload_file_multipart(upload_target=target, upload_config=config)
+
             # Call the updated upload_file function with the new parameters
-            upload_file(credentials=credentials, target=target)
+            # upload_file(credentials=credentials, target=target)
 
         finally:
             proc.terminate()
