@@ -98,7 +98,7 @@ class UploadState:
     def is_done(self) -> bool:
         return self.remaining() == 0
 
-    def count(self) -> tuple[int, int]:
+    def count(self) -> tuple[int, int]:  # count, num_chunks
         num_chunks = self.upload_info.num_chunks()
         count = 0
         for p in self.parts:
@@ -145,11 +145,22 @@ class UploadState:
         parts: list[FinishedPiece | None] = list(self.parts)
 
         parts_json = FinishedPiece.to_json_array(parts)
+        is_done = self.is_done()
+        count_non_none: int = 0
+        for p in parts:
+            if p is not None:
+                count_non_none += 1
+
+        # self.count()
+        finished_count, total = self.count()
 
         # parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         return {
             "upload_info": self.upload_info.to_json(),
             "finished_parts": parts_json,
+            "is_done": is_done,
+            "finished_count": finished_count,
+            "total_parts": total,
         }
 
     def to_json_str(self) -> str:
