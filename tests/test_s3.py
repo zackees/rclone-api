@@ -7,8 +7,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api.s3_chunk_uploader import MultiUploadResult, upload_file_multipart
-from rclone_api.s3_create_client import (
+from rclone_api.s3.s3_chunk_uploader import MultiUploadResult, upload_file_multipart
+from rclone_api.s3.s3_create_client import (
     create_backblaze_s3_client,
 )
 

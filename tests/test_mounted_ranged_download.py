@@ -40,7 +40,7 @@ from typing import Generator
 from dotenv import load_dotenv
 
 from rclone_api import Config, Process, Rclone
-from rclone_api.s3_multi_chunk_uploader import (
+from rclone_api.s3.s3_multi_chunk_uploader import (
     S3Credentials,
     S3UploadTarget,
     upload_file,
