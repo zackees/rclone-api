@@ -4,8 +4,17 @@ from pathlib import Path
 
 
 class S3Provider(Enum):
-    BACKBLAZE = "Backblaze"
+    BACKBLAZE = "b2"
     DIGITAL_OCEAN = "DigitalOcean"
+
+    @staticmethod
+    def from_str(value: str) -> "S3Provider":
+        """Convert string to S3Provider."""
+        if value == "b2":
+            return S3Provider.BACKBLAZE
+        if value == "DigitalOcean":
+            return S3Provider.DIGITAL_OCEAN
+        raise ValueError(f"Unknown S3Provider: {value}")
 
 
 @dataclass

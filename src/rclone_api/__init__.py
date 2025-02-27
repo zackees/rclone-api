@@ -1,5 +1,5 @@
 from .completed_process import CompletedProcess
-from .config import Config, Parsed, ParsedSection
+from .config import Config, Parsed, Section
 from .diff import DiffItem, DiffOption, DiffType
 from .dir import Dir
 from .dir_listing import DirListing
@@ -32,6 +32,6 @@ __all__ = [
     "ListingOption",
     "SizeResult",
     "Parsed",
-    "ParsedSection",
+    "Section",
     "MultiUploadResult",
 ]

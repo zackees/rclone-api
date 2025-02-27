@@ -3,15 +3,30 @@ from typing import Dict, List
 
 
 @dataclass
-class ParsedSection:
+class Section:
     name: str
-    options: Dict[str, str] = field(default_factory=dict)
+    data: Dict[str, str] = field(default_factory=dict)
+
+    def add(self, key: str, value: str) -> None:
+        self.data[key] = value
+
+    def provider(self) -> str:
+        return self.data["provider"]
+
+    def access_key_id(self) -> str:
+        return self.data["access_key_id"]
+
+    def secret_access_key(self) -> str:
+        return self.data["secret_access_key"]
+
+    def endpoint(self) -> str | None:
+        return self.data.get("endpoint")
 
 
 @dataclass
 class Parsed:
     # sections: List[ParsedSection]
-    sections: dict[str, dict[str, str]]
+    sections: dict[str, Section]
 
     @staticmethod
     def parse(content: str) -> "Parsed":
@@ -35,8 +50,8 @@ def parse_rclone_config(content: str) -> Parsed:
     Each section in the file starts with a line like [section_name]
     followed by key=value pairs.
     """
-    sections: List[ParsedSection] = []
-    current_section: ParsedSection | None = None
+    sections: List[Section] = []
+    current_section: Section | None = None
 
     lines = content.splitlines()
     for line in lines:
@@ -47,14 +62,14 @@ def parse_rclone_config(content: str) -> Parsed:
         # New section header detected
         if line.startswith("[") and line.endswith("]"):
             section_name = line[1:-1].strip()
-            current_section = ParsedSection(name=section_name)
+            current_section = Section(name=section_name)
             sections.append(current_section)
         elif "=" in line and current_section is not None:
             # Parse key and value, splitting only on the first '=' found
             key, value = line.split("=", 1)
-            current_section.options[key.strip()] = value.strip()
+            current_section.add(key.strip(), value.strip())
 
-    data: dict[str, dict[str, str]] = {}
+    data: dict[str, Section] = {}
     for section in sections:
-        data[section.name] = section.options
+        data[section.name] = section
     return Parsed(sections=data)

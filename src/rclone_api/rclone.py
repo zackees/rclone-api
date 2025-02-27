@@ -6,6 +6,7 @@ import os
 import random
 import subprocess
 import time
+import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
@@ -16,7 +17,7 @@ from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
-from rclone_api.config import Config, Parsed
+from rclone_api.config import Config, Parsed, Section
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
@@ -27,7 +28,7 @@ from rclone_api.group_files import group_files
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
-from rclone_api.s3.types import MultiUploadResult
+from rclone_api.s3.types import MultiUploadResult, S3Provider
 from rclone_api.types import ListingOption, ModTimeStrategy, Order, SizeResult
 from rclone_api.util import (
     get_check,
@@ -711,24 +712,39 @@ class Rclone:
                     max_chunks_before_suspension,
                 )  # shutup the linter
             parsed: Parsed = self.config.parse()
-            sections: dict[str, dict[str, str]] = parsed.sections
+            sections: dict[str, Section] = parsed.sections
             if remote not in sections:
                 raise ValueError(
                     f"Remote {remote} not found in rclone config, remotes are: {sections.keys()}"
                 )
 
-            remote_config: dict[str, str] = sections[remote]
-            if "provider" not in remote_config:
-                raise ValueError(
-                    f"Remote {remote} does not have a provider in the rclone config"
-                )
+            section: Section = sections[remote]
+            provider: str = section.provider()
+            provider_enum = S3Provider.from_str(provider)
+            # todo - uncomment this when we have more providers
+            # if provider.lower() != "b2":
+            #     raise ValueError(
+            #         f"Remote {remote} is not an b2 s3 remote (the only one support atm), provider is: {provider}"
+            #     )
 
-            provider: str = remote_config["provider"]
-            if provider != "BB":
-                raise ValueError(
-                    f"Remote {remote} is not an BB s3 remote (the only one support atm), provider is: {provider}"
-                )
-            print(f"Info: {remote_config}")
+            # Todo rclone_api.s3.create -> client
+            from rclone_api.s3.create import S3Credentials
+
+            s3_creds: S3Credentials = S3Credentials(
+                provider=provider_enum,
+                access_key_id=section.access_key_id(),
+                secret_access_key=section.secret_access_key(),
+                endpoint_url=section.endpoint(),
+            )
+            print(s3_creds)
+            # create_s3_client
+
+            print(f"Info: {section}")
+            from rclone_api.s3.api import S3Client
+
+            client = S3Client(s3_creds)
+            print(f"Client: {client}")
+
             raise NotImplementedError("Not implemented yet")
 
     def copy_dir(
@@ -829,6 +845,10 @@ class Rclone:
         )
         try:
             yield proc
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            warnings.warn(f"Error in scoped_mount: {e}\n\nStack Trace:\n{stack_trace}")
+            raise
         finally:
             if proc.poll() is None:
                 proc.terminate()
