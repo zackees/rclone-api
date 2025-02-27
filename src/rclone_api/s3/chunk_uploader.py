@@ -4,12 +4,13 @@ import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, fields
-from enum import Enum
 from pathlib import Path
 from queue import Queue
 from threading import Lock, Thread
 
 from botocore.client import BaseClient
+
+from rclone_api.s3.types import MultiUploadResult
 
 _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 _SAVE_STATE_LOCK = Lock()
@@ -20,13 +21,6 @@ _PRINT_LOCK = Lock()
 def locked_print(*args, **kwargs):
     with _PRINT_LOCK:
         print(*args, **kwargs)
-
-
-class MultiUploadResult(Enum):
-    UPLOADED_FRESH = 1
-    UPLOADED_RESUME = 2
-    SUSPENDED = 3
-    ALREADY_DONE = 4
 
 
 class FileChunk:

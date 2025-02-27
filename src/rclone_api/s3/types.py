@@ -37,3 +37,10 @@ class S3MutliPartUploadConfig:
     retries: int
     resume_path_json: Path
     max_chunks_before_suspension: int | None = None
+
+
+class MultiUploadResult(Enum):
+    UPLOADED_FRESH = 1
+    UPLOADED_RESUME = 2
+    SUSPENDED = 3
+    ALREADY_DONE = 4

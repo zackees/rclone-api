@@ -37,9 +37,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api import Process, Rclone
+from rclone_api import Rclone
 from rclone_api.s3.api import S3Client
 from rclone_api.s3.types import (
+    MultiUploadResult,
     S3Credentials,
     S3MutliPartUploadConfig,
     S3Provider,
@@ -125,7 +126,7 @@ class RcloneMountWebdavTester(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
-    @unittest.skipIf(True, "Test not enabled")
+    # @unittest.skipIf(True, "Test not enabled")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)
@@ -160,29 +161,30 @@ class RcloneMountWebdavTester(unittest.TestCase):
         ]
 
         rclone = Rclone(_CONFIG_PATH)
-        proc: Process = rclone.mount(
+        with rclone.scoped_mount(
             src=src_path,
             outdir=OUT_DIR,
             vfs_cache_mode="minimal",
             other_args=other_args,
-        )
+        ):
+            print(f"Mounted at: {OUT_DIR}")
 
-        credentials = S3Credentials(
-            provider=S3Provider.BACKBLAZE,
-            access_key_id=ACCESS_KEY_ID,
-            secret_access_key=SECRET_ACCESS_KEY,
-            endpoint_url=ENDPOINT_URL,
-        )
+            credentials = S3Credentials(
+                provider=S3Provider.BACKBLAZE,
+                access_key_id=ACCESS_KEY_ID,
+                secret_access_key=SECRET_ACCESS_KEY,
+                endpoint_url=ENDPOINT_URL,
+            )
 
-        try:
             bucket_name = BUCKET_NAME
             assert bucket_name is not None
 
             # Create upload target
             target = S3UploadTarget(
-                src_file=Path("mount/world_lending_library_2024_11.tar.zst"),
+                src_file=Path("mount/world_lending_library_2024_11.tar.zst.torrent"),
                 bucket_name=bucket_name,
-                s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst",
+                # s3_key="aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent",
+                s3_key="test_data/world_lending_library_2024_11.tar.zst.torrent",
             )
 
             config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
@@ -193,14 +195,10 @@ class RcloneMountWebdavTester(unittest.TestCase):
             )
 
             s3_client = S3Client(credentials)
-            s3_client.upload_file_multipart(upload_target=target, upload_config=config)
-
-            # Call the updated upload_file function with the new parameters
-            # upload_file(credentials=credentials, target=target)
-
-        finally:
-            proc.terminate()
-            proc.wait()
+            rslt: MultiUploadResult = s3_client.upload_file_multipart(
+                upload_target=target, upload_config=config
+            )
+            print(f"Upload result: {rslt}")
 
         print("Done")
 
