@@ -13,6 +13,13 @@ from botocore.client import BaseClient
 
 _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 
+_PRINT_LOCK = Lock()
+
+
+def locked_print(*args, **kwargs):
+    with _PRINT_LOCK:
+        print(*args, **kwargs)
+
 
 @dataclass
 class UploadInfo:
@@ -191,14 +198,14 @@ def clean_old_files(out: Path) -> None:
             diff_secs = now - filemod
             diff_days = diff_secs / (60 * 60 * 24)
             if diff_days > 1:
-                print(f"Removing old file: {f}")
+                locked_print(f"Removing old file: {f}")
                 f.unlink()
 
     for root, dirs, _ in os.walk(out):
         for dir in dirs:
             d = Path(root) / dir
             if not list(d.iterdir()):
-                print(f"Removing empty directory: {d}")
+                locked_print(f"Removing empty directory: {d}")
                 d.rmdir()
 
 
@@ -267,7 +274,7 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
         while True:
             curr_parth_num = next_part_number()
             if curr_parth_num is None:
-                print(f"File {file_path} is complete")
+                locked_print(f"File {file_path} is complete")
                 break
             assert curr_parth_num is not None
             offset = (curr_parth_num - 1) * chunk_size
@@ -305,8 +312,8 @@ def upload_task(
     for retry in range(retries):
         try:
             if retry > 0:
-                print(f"Retrying part {part_number} for {info.src_file_path}")
-            print(
+                locked_print(f"Retrying part {part_number} for {info.src_file_path}")
+            locked_print(
                 f"Uploading part {part_number} for {info.src_file_path} of size {len(chunk)}"
             )
             part = info.s3_client.upload_part(
@@ -322,10 +329,10 @@ def upload_task(
             return out
         except Exception as e:
             if retry == retries - 1:
-                print(f"Error uploading part {part_number}: {e}")
+                locked_print(f"Error uploading part {part_number}: {e}")
                 raise e
             else:
-                print(f"Error uploading part {part_number}: {e}, retrying")
+                locked_print(f"Error uploading part {part_number}: {e}, retrying")
                 continue
     raise Exception("Should not reach here")
 
@@ -359,7 +366,9 @@ def prepare_upload_file_multipart(
     object_name = object_name or os.path.basename(file_path)
 
     # Initiate multipart upload
-    print(f"Creating multipart upload for {file_path} to {bucket_name}/{object_name}")
+    locked_print(
+        f"Creating multipart upload for {file_path} to {bucket_name}/{object_name}"
+    )
     mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
     upload_id = mpu["UploadId"]
 
@@ -402,7 +411,7 @@ def upload_file_multipart(
 
     def get_upload_state() -> UploadState | None:
         if resumable_info_path is None or not resumable_info_path.exists():
-            print(
+            locked_print(
                 f"No resumable info found for {file_path}, so creating new upload state"
             )
             return None
@@ -422,7 +431,7 @@ def upload_file_multipart(
         return upload_state
 
     def make_new_state() -> UploadState:
-        print(f"Creating new upload state for {file_path}")
+        locked_print(f"Creating new upload state for {file_path}")
         upload_info = prepare_upload_file_multipart(
             s3_client=s3_client,
             bucket_name=bucket_name,
@@ -472,19 +481,21 @@ def upload_file_multipart(
         upload_state.add_finished(None)
         thread_chunker.join()
         parts: list[FinishedPiece] = [p for p in upload_state.parts if p is not None]
-        print(f"Upload complete, sorting {len(parts)} parts to complete upload")
+        locked_print(f"Upload complete, sorting {len(parts)} parts to complete upload")
         parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         parts_s3: list[dict] = [
             {"ETag": p.etag, "PartNumber": p.part_number} for p in parts
         ]
-        print(f"Sending multi part completion message for {file_path}")
+        locked_print(f"Sending multi part completion message for {file_path}")
         s3_client.complete_multipart_upload(
             Bucket=bucket_name,
             Key=object_name,
             UploadId=upload_info.upload_id,
             MultipartUpload={"Parts": parts_s3},
         )
-        print(f"Multipart upload completed: {file_path} to {bucket_name}/{object_name}")
+        locked_print(
+            f"Multipart upload completed: {file_path} to {bucket_name}/{object_name}"
+        )
     except Exception:
         if upload_info.upload_id:
             try:
