@@ -52,3 +52,4 @@ disable_error_code = ["import-untyped"]
 
 [project.scripts]
 rclone-api-listfiles = "rclone_api.cmd.list_files:main"
+rclone-api-copylarge-s3 = "rclone_api.cmd.copy_large_s3:main"
