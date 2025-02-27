@@ -20,6 +20,7 @@ class UploadInfo:
     upload_id: str
     retries: int
     chunk_size: int
+    file_size: int
 
     def to_json(self) -> dict:
         json_dict = {}
@@ -34,6 +35,7 @@ class UploadInfo:
 
     @staticmethod
     def from_json(s3_client: BaseClient, json_dict: dict) -> "UploadInfo":
+        json_dict.pop("s3_client")  # Remove the placeholder string
         return UploadInfo(s3_client=s3_client, **json_dict)
 
 
@@ -292,6 +294,8 @@ def prepare_upload_file_multipart(
     mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
     upload_id = mpu["UploadId"]
 
+    file_size = os.path.getsize(file_path)
+
     upload_info: UploadInfo = UploadInfo(
         s3_client=s3_client,
         bucket_name=bucket_name,
@@ -300,6 +304,7 @@ def prepare_upload_file_multipart(
         upload_id=upload_id,
         retries=retries,
         chunk_size=chunk_size,
+        file_size=file_size,
     )
     return upload_info
 
