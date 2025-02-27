@@ -7,7 +7,7 @@ from tempfile import TemporaryFile
 
 from botocore.client import BaseClient  # Correct typing for S3 client
 
-from rclone_api.s3.s3_create_client import create_backblaze_s3_client
+from rclone_api.s3.s3_basic_ops import create_backblaze_s3_client
 
 _CHUNK_SIZE = 1024 * 1024 * 16
 
