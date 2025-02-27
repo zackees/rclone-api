@@ -94,14 +94,23 @@ def clean_old_files(out: Path) -> None:
     # clean up files older than 1 day
 
     now = time.time()
-    for f in out.iterdir():
-        if f.is_file():
+    # Erase all stale files and then purge empty directories.
+    for root, dirs, files in os.walk(out):
+        for name in files:
+            f = Path(root) / name
             filemod = f.stat().st_mtime
             diff_secs = now - filemod
             diff_days = diff_secs / (60 * 60 * 24)
             if diff_days > 1:
                 print(f"Removing old file: {f}")
                 f.unlink()
+
+    for root, dirs, _ in os.walk(out):
+        for dir in dirs:
+            d = Path(root) / dir
+            if not list(d.iterdir()):
+                print(f"Removing empty directory: {d}")
+                d.rmdir()
 
 
 def _get_chunk_tmpdir() -> Path:
@@ -213,6 +222,7 @@ def handle_upload(
         part_number=part_number,
         retries=upload_info.retries,
     )
+    file_chunk.close()
     return part
 
 
