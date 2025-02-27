@@ -12,6 +12,7 @@ from typing import Optional
 from botocore.client import BaseClient
 
 _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
+_SAVE_STATE_LOCK = Lock()
 
 _PRINT_LOCK = Lock()
 
@@ -86,9 +87,6 @@ class FinishedPiece:
             return None
         data = json.loads(json_str)
         return FinishedPiece(**data)
-
-
-_SAVE_STATE_LOCK = Lock()
 
 
 @dataclass
