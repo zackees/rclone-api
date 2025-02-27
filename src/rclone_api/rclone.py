@@ -919,6 +919,7 @@ class Rclone:
                 if outdir.exists():
                     print(f"{outdir} mount still exists, attempting to remove")
                     if not _IS_WINDOWS:
+
                         def exec(cmd: str) -> int:
                             if verbose:
                                 print(f"Executing: {cmd}")
