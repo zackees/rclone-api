@@ -19,9 +19,10 @@ class Order(Enum):
     RANDOM = "random"
 
 
-# class GroupingOption(Enum):
-#     BUCKET = "bucket"
-#     REMOTE = "remote"
+@dataclass
+class S3PathInfo:
+    bucket: str
+    key: str
 
 
 @dataclass

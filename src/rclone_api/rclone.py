@@ -661,6 +661,32 @@ class Rclone:
         except subprocess.CalledProcessError:
             return False
 
+    def copy_file_resumable_s3(
+        self,
+        src: str,
+        dst: str,
+        chunk_size: int = 16 * 1024 * 1024,
+        concurrent_chunks: int = 4,
+    ) -> CompletedProcess:
+        """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
+        other_args: list[str] = [
+            "--vfs-read-chunk-size",
+            str(chunk_size),
+            "--vfs-read-chunk-size-limit",
+            str(chunk_size * concurrent_chunks),
+            "--vfs-read-chunk-streams",
+            str(concurrent_chunks),
+            "--vfs-fast-fingerprint",
+        ]
+        with self.scoped_mount(
+            src,
+            Path("src"),
+            use_links=True,
+            vfs_cache_mode="minimal",
+            other_args=other_args,
+        ):
+            raise NotImplementedError("Not implemented yet")
+
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
     ) -> CompletedProcess:

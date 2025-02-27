@@ -11,6 +11,7 @@ from rclone_api.config import Config
 from rclone_api.dir import Dir
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
+from rclone_api.types import S3PathInfo
 
 # from .rclone import Rclone
 
@@ -142,3 +143,19 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
             if len(dircontents) > 0:
                 return
         time.sleep(1)
+
+
+def split_s3_path(path: str) -> S3PathInfo:
+    if ":" in path:
+        prts = path.split(":", 1)
+        path = prts[1]
+    parts: list[str] = []
+    for part in path.split("/"):
+        part = part.strip()
+        if part:
+            parts.append(part)
+    if len(parts) < 2:
+        raise ValueError(f"Invalid S3 path: {path}")
+    bucket = parts[0]
+    key = "/".join(parts[1:])
+    return S3PathInfo(bucket=bucket, key=key)
