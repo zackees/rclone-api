@@ -11,6 +11,8 @@ from typing import Optional
 
 from botocore.client import BaseClient
 
+_MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
+
 
 @dataclass
 class UploadInfo:
@@ -367,6 +369,11 @@ def upload_file_multipart(
             f"Chunk size {chunk_size} is greater than file size {file_size}, using file size"
         )
         chunk_size = file_size
+
+    if chunk_size < _MIN_UPLOAD_CHUNK_SIZE:
+        raise ValueError(
+            f"Chunk size {chunk_size} is less than minimum upload chunk size {_MIN_UPLOAD_CHUNK_SIZE}"
+        )
 
     def get_upload_state() -> UploadState | None:
         if resumable_info_path is None or not resumable_info_path.exists():
