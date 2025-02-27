@@ -12,33 +12,11 @@ from rclone_api.s3_create_client import (
     create_backblaze_s3_client,
 )
 
-_IS_WINDOWS = os.name == "nt"
-
-_ENABLED = not _IS_WINDOWS
-_CHUNK_SIZE = 1024 * 1024 * 3
-
 load_dotenv()
-
-BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 
 class RcloneS3Tester(unittest.TestCase):
     """Test rclone functionality."""
-
-    def setUp(self) -> None:
-        """Check if all required environment variables are set before running tests."""
-        required_vars = [
-            "BUCKET_NAME",
-            "BUCKET_KEY_SECRET",
-            "BUCKET_KEY_PUBLIC",
-            "BUCKET_URL",
-        ]
-        missing = [var for var in required_vars if not os.getenv(var)]
-        if missing:
-            self.skipTest(
-                f"Missing required environment variables: {', '.join(missing)}"
-            )
-        os.environ["RCLONE_API_VERBOSE"] = "1"
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
     # @unittest.skipIf(True, "Test not enabled")
@@ -61,6 +39,8 @@ class RcloneS3Tester(unittest.TestCase):
             endpoint_url=ENDPOINT_URL,
         )
 
+        dst_path = "test_data/testfile"
+
         chunk_size = 5 * 1024 * 1024
         pattern = bytes(range(256))
         _bytes = bytearray(pattern * (16 * 1024 * 1024 // len(pattern)))
@@ -79,7 +59,7 @@ class RcloneS3Tester(unittest.TestCase):
                 bucket_name=BUCKET_NAME,
                 file_path=f.name,
                 resumable_info_path=tmpstate,
-                object_name="testfile",
+                object_name=dst_path,
                 chunk_size=chunk_size,
                 retries=0,
                 max_chunks_before_suspension=1,
@@ -90,7 +70,7 @@ class RcloneS3Tester(unittest.TestCase):
                 bucket_name=BUCKET_NAME,
                 file_path=f.name,
                 resumable_info_path=tmpstate,
-                object_name="testfile",
+                object_name=dst_path,
                 chunk_size=chunk_size,
                 retries=0,
             )
@@ -99,13 +79,13 @@ class RcloneS3Tester(unittest.TestCase):
             state_str = tmpstate.read_text(encoding="utf-8")
             print("Finished state:\n", state_str)
             print("Upload successful.")
-            print(f"Uploading file {f.name} to {BUCKET_NAME}")
+            print(f"Uploading file {f.name} to {BUCKET_NAME}/{dst_path}")
             rslt = upload_file_multipart(
                 s3_client=s3_client,
                 bucket_name=BUCKET_NAME,
                 file_path=f.name,
                 resumable_info_path=tmpstate,
-                object_name="testfile",
+                object_name=dst_path,
                 chunk_size=chunk_size,
                 retries=0,
             )
