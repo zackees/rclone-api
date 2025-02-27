@@ -10,8 +10,8 @@ class Section:
     def add(self, key: str, value: str) -> None:
         self.data[key] = value
 
-    def provider(self) -> str:
-        return self.data["provider"]
+    def type(self) -> str:
+        return self.data["type"]
 
     def access_key_id(self) -> str:
         return self.data["access_key_id"]

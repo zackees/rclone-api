@@ -725,8 +725,8 @@ class Rclone:
                 )
 
             section: Section = sections[remote]
-            provider: str = section.provider()
-            provider_enum = S3Provider.from_str(provider)
+            type: str = section.type()
+            provider_enum = S3Provider.from_str(type)
 
             s3_creds: S3Credentials = S3Credentials(
                 provider=provider_enum,

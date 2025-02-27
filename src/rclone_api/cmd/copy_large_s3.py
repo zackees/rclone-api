@@ -76,3 +76,24 @@ def main() -> int:
     )
     print(rslt)
     return 0
+
+
+if __name__ == "__main__":
+    import os
+    import sys
+
+    here = Path(__file__).parent
+    project_root = here.parent.parent.parent
+    print(f"project_root: {project_root}")
+    os.chdir(str(project_root))
+    cwd = Path(__file__).parent
+    print(f"cwd: {cwd}")
+    sys.argv.append("--config")
+    sys.argv.append("rclone.conf")
+    sys.argv.append(
+        "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"
+    )
+    sys.argv.append(
+        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"
+    )
+    main()
