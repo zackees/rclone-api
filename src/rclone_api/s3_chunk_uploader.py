@@ -68,6 +68,7 @@ class FinishedPiece:
     @staticmethod
     def to_json_array(parts: list["FinishedPiece | None"]) -> list[dict | None]:
         non_none: list[FinishedPiece] = [p for p in parts if p is not None]
+        non_none.sort(key=lambda x: x.part_number)
         all_nones: list[None] = [None for p in parts if p is None]
         assert len(all_nones) <= 1, "Only one None should be present"
         return [p.to_json() for p in non_none] + all_nones[:1]
