@@ -1,4 +1,5 @@
 import warnings
+from pathlib import Path
 
 from botocore.client import BaseClient
 

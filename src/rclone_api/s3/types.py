@@ -47,6 +47,8 @@ class S3MutliPartUploadConfig:
     retries: int
     resume_path_json: Path
     max_chunks_before_suspension: int | None = None
+    mount_path: Path | None = None  # If set this will be used to mount the src file, otherwise it's one is chosen automatically
+
 
 
 class MultiUploadResult(Enum):

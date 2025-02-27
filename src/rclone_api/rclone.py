@@ -784,7 +784,8 @@ class Rclone:
             )
 
             out: MultiUploadResult = client.upload_file_multipart(
-                upload_target=upload_target, upload_config=upload_config
+                upload_target=upload_target,
+                upload_config=upload_config
             )
             return out
 
