@@ -16,7 +16,7 @@ class UploadInfo:
     s3_client: BaseClient
     bucket_name: str
     object_name: str
-    file_path: str
+    src_file_path: str
     upload_id: str
     retries: int
     chunk_size: int
@@ -207,9 +207,9 @@ class FileChunk:
 
 def file_chunker(upload_info: UploadInfo, filechunks: Queue[FileChunk | None]) -> None:
     part_number = 1
-    file_path = upload_info.file_path
+    file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
-    src = Path(upload_info.file_path)
+    src = Path(upload_info.src_file_path)
     with open(file_path, "rb") as f:
         try:
             while data := f.read(chunk_size):
@@ -236,9 +236,9 @@ def upload_task(
     for retry in range(retries):
         try:
             if retry > 0:
-                print(f"Retrying part {part_number} for {info.file_path}")
+                print(f"Retrying part {part_number} for {info.src_file_path}")
             print(
-                f"Uploading part {part_number} for {info.file_path} of size {len(chunk)}"
+                f"Uploading part {part_number} for {info.src_file_path} of size {len(chunk)}"
             )
             part = info.s3_client.upload_part(
                 Bucket=info.bucket_name,
@@ -300,7 +300,7 @@ def prepare_upload_file_multipart(
         s3_client=s3_client,
         bucket_name=bucket_name,
         object_name=object_name,
-        file_path=file_path,
+        src_file_path=file_path,
         upload_id=upload_id,
         retries=retries,
         chunk_size=chunk_size,
