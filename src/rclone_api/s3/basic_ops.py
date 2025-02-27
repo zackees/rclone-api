@@ -1,4 +1,4 @@
-from typing import Optional
+from pathlib import Path
 
 from botocore.client import BaseClient
 
@@ -19,13 +19,12 @@ def list_bucket_contents(s3_client: BaseClient, bucket_name: str) -> None:
 def upload_file(
     s3_client: BaseClient,
     bucket_name: str,
-    file_path: str,
-    object_name: Optional[str] = None,
+    file_path: Path,
+    object_name: str,
 ) -> Exception | None:
     """Upload a file to the bucket."""
     try:
-        object_name = object_name or file_path.split("/")[-1]
-        s3_client.upload_file(file_path, bucket_name, object_name)
+        s3_client.upload_file(str(file_path), bucket_name, object_name)
         print(f"Uploaded {file_path} to {bucket_name}/{object_name}")
     except Exception as e:
         print(f"Error uploading file: {e}")
