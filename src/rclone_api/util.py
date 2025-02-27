@@ -141,6 +141,8 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
             # how many files?
             dircontents = os.listdir(str(path))
             if len(dircontents) > 0:
+                print(f"Mount point {path}, waiting 5 seconds for files to appear.")
+                time.sleep(5)
                 return
         time.sleep(1)
 

@@ -91,7 +91,7 @@ if __name__ == "__main__":
     sys.argv.append("--config")
     sys.argv.append("rclone.conf")
     sys.argv.append(
-        "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"
+        "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"
     )
     sys.argv.append(
         "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"

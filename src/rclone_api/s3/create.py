@@ -16,9 +16,7 @@ def _create_backblaze_s3_client(creds: S3Credentials) -> BaseClient:
     access_key = creds.access_key_id
     secret_key = creds.secret_access_key
     endpoint_url = creds.endpoint_url
-
-    if region_name is not None:
-        warnings.warn(f"Region name is not used for provider: {creds.provider}")
+    region_name = region_name or "https://s3.us-west-002.backblazeb2.com"
 
     session = boto3.session.Session()  # type: ignore
     return session.client(

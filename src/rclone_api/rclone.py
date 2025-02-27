@@ -726,7 +726,7 @@ class Rclone:
 
             section: Section = sections[remote]
             dst_type = section.type()
-            if dst_type != "s3":
+            if dst_type != "s3" and dst_type != "b2":
                 raise ValueError(
                     f"Remote {remote} is not an S3 remote, it is of type {dst_type}"
                 )
@@ -734,9 +734,13 @@ class Rclone:
             def get_provider_str(section=section) -> str | None:
                 type: str = section.type()
                 provider: str | None = section.provider()
+                if provider is not None:
+                    return provider
+                if type == "b2":
+                    return S3Provider.BACKBLAZE.value
                 if type != "s3":
                     raise ValueError(f"Remote {remote} is not an S3 remote")
-                return provider
+                return S3Provider.S3.value
 
             provider: str = get_provider_str() or S3Provider.S3.value
             provider_enum = S3Provider.from_str(provider)
