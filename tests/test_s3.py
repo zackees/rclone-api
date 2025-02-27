@@ -100,7 +100,14 @@ class RcloneS3Tester(unittest.TestCase):
             filesize = tmpfile.stat().st_size
 
             print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
-            upload_file_multipart(s3_client, BUCKET_NAME, f.name, "testfile", retries=0)
+            upload_file_multipart(
+                s3_client=s3_client,
+                bucket_name=BUCKET_NAME,
+                file_path=f.name,
+                resumable_info_path=None,
+                object_name="testfile",
+                retries=0,
+            )
             err = upload_file(
                 s3_client,
                 BUCKET_NAME,
