@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 
 # context lib
@@ -44,24 +45,7 @@ class RcloneS3Tester(unittest.TestCase):
     # @unittest.skipIf(True, "Test not enabled")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
-        # config = _generate_rclone_config(PORT)
-        # print("AWS CREDENTIALS")
-        # print(f"BUCKET_NAME: {BUCKET_NAME}")
-        # BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
-        # BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
-        # ENDPOINT_URL = "https://s3.us-west-002.backblazeb2.com"
-        # print(f"BUCKET_KEY_PUBLIC: {BUCKET_KEY_PUBLIC}")
-        # print(f"BUCKET_KEY_SECRET: {BUCKET_KEY_SECRET}")
 
-        # B2_BUCKET_NAME=TorrentBooks
-        # B2_ACCESS_KEY_ID=002829ba08b64e7000000002c
-        # B2_SECRET_ACCESS_KEY=K0029aIZv/VJGWqTEt8YWB77WI9lkc8
-        # B2_ENDPOINT_URL=https://s3.us-west-002.backblazeb2.com
-
-        # BUCKET_NAME: str = "TorrentBooks"
-        # ACCESS_KEY_ID: str = "002829ba08b64e7000000002c"
-        # SECRET_ACCESS_KEY: str = "K0029aIZv/VJGWqTEt8YWB77WI9lkc8"
-        # ENDPOINT_URL: str = "https://s3.us-west-002.backblazeb2.com"
 
         BUCKET_NAME: str | None = os.getenv("B2_BUCKET_NAME")
         ACCESS_KEY_ID: str | None = os.getenv("B2_ACCESS_KEY_ID")
@@ -80,7 +64,6 @@ class RcloneS3Tester(unittest.TestCase):
         )
 
         # list_bucket_contents(s3_client, BUCKET_NAME)
-        import tempfile
 
         # numbers_0_255 = bytearray(range(256))
         chunk_size = 5 * 1024 * 1024
