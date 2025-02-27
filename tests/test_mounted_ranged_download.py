@@ -33,13 +33,11 @@ import os
 import unittest
 
 # context lib
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 
 from dotenv import load_dotenv
 
-from rclone_api import Config, Process, Rclone
+from rclone_api import Process, Rclone
 from rclone_api.s3.s3_multi_chunk_uploader import (
     S3Credentials,
     S3UploadTarget,
@@ -107,31 +105,6 @@ vendor = rclone
 
 
 PORT = 8095
-
-
-@contextmanager
-def rclone_served_webdav(
-    src_path: str,
-    config: Config,
-    port: int | None = None,
-) -> Generator[Process, None, None]:
-    rclone = Rclone(config)
-    port = port or PORT
-
-    test_addr = f"localhost:{port}"
-    user = "guest"
-    password = "1234"
-    process = rclone.serve_webdav(
-        src_path,
-        addr=test_addr,
-        user=user,
-        password=password,
-    )
-    try:
-        yield process
-    finally:
-        process.terminate()
-        process.wait()
 
 
 class RcloneMountWebdavTester(unittest.TestCase):
