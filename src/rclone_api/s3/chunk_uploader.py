@@ -295,22 +295,23 @@ def file_chunker(
     chunk_size = upload_info.chunk_size
     src = Path(file_path)
     # Mounted files may take a while to appear, so keep retrying.
-    file_size = _get_file_size(src, timeout=60)
-    part_number = 1
-    done_part_numbers: set[int] = {
-        p.part_number for p in upload_state.parts if p is not None
-    }
-    num_parts = upload_info.total_chunks()
-
-    def next_part_number() -> int | None:
-        nonlocal part_number
-        while part_number in done_part_numbers:
-            part_number += 1
-        if part_number > num_parts:
-            return None
-        return part_number
 
     try:
+        file_size = _get_file_size(src, timeout=60)
+        part_number = 1
+        done_part_numbers: set[int] = {
+            p.part_number for p in upload_state.parts if p is not None
+        }
+        num_parts = upload_info.total_chunks()
+
+        def next_part_number() -> int | None:
+            nonlocal part_number
+            while part_number in done_part_numbers:
+                part_number += 1
+            if part_number > num_parts:
+                return None
+            return part_number
+
         while not should_stop():
             curr_parth_num = next_part_number()
             if curr_parth_num is None:
