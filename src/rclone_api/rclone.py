@@ -681,6 +681,10 @@ class Rclone:
         max_chunks_before_suspension: int | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
+        from rclone_api.s3.api import S3Client
+        from rclone_api.s3.create import S3Credentials
+        from rclone_api.util import S3PathInfo, split_s3_path
+
         other_args: list[str] = [
             "--no-modtime",
             "--vfs-read-wait",
@@ -708,8 +712,6 @@ class Rclone:
             other_args=other_args,
         ):
             # raise NotImplementedError("Not implemented yet")
-            from rclone_api.s3.create import S3Credentials
-            from rclone_api.util import S3PathInfo, split_s3_path
 
             path_info: S3PathInfo = split_s3_path(dst)
             remote = path_info.remote
@@ -732,15 +734,8 @@ class Rclone:
                 secret_access_key=section.secret_access_key(),
                 endpoint_url=section.endpoint(),
             )
-            print(s3_creds)
-            # create_s3_client
-
-            print(f"Info: {section}")
-            from rclone_api.s3.api import S3Client
 
             client = S3Client(s3_creds)
-            print(f"Client: {client}")
-
             config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size,
                 retries=retries,
