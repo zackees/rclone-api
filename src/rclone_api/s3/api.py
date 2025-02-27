@@ -45,28 +45,40 @@ class S3Client:
         upload_target: S3UploadTarget,
         upload_config: S3MutliPartUploadConfig,
     ) -> MultiUploadResult:
-        filesize = upload_target.src_file.stat().st_size
-        if filesize < _MIN_THRESHOLD_FOR_CHUNKING:
-            warnings.warn(
-                f"File size {filesize} is less than the minimum threshold for chunking ({_MIN_THRESHOLD_FOR_CHUNKING}), switching to single threaded upload."
-            )
-            err = self.upload_file(upload_target)
-            if err:
-                raise err
-            return MultiUploadResult.UPLOADED_FRESH
+
         chunk_size = upload_config.chunk_size
         retries = upload_config.retries
         resume_path_json = upload_config.resume_path_json
         max_chunks_before_suspension = upload_config.max_chunks_before_suspension
         bucket_name = upload_target.bucket_name
-        out = upload_file_multipart(
-            s3_client=self.client,
-            bucket_name=bucket_name,
-            file_path=upload_target.src_file,
-            object_name=upload_target.s3_key,
-            resumable_info_path=resume_path_json,
-            chunk_size=chunk_size,
-            retries=retries,
-            max_chunks_before_suspension=max_chunks_before_suspension,
-        )
-        return out
+
+        try:
+            filesize = upload_target.src_file.stat().st_size
+            if filesize < _MIN_THRESHOLD_FOR_CHUNKING:
+                warnings.warn(
+                    f"File size {filesize} is less than the minimum threshold for chunking ({_MIN_THRESHOLD_FOR_CHUNKING}), switching to single threaded upload."
+                )
+                err = self.upload_file(upload_target)
+                if err:
+                    raise err
+                return MultiUploadResult.UPLOADED_FRESH
+
+            out = upload_file_multipart(
+                s3_client=self.client,
+                bucket_name=bucket_name,
+                file_path=upload_target.src_file,
+                object_name=upload_target.s3_key,
+                resumable_info_path=resume_path_json,
+                chunk_size=chunk_size,
+                retries=retries,
+                max_chunks_before_suspension=max_chunks_before_suspension,
+            )
+            return out
+        except Exception:
+            key = upload_target.s3_key
+            access_key_id = self.credentials.access_key_id[:4] + "..."
+            secret = self.credentials.secret_access_key[:4] + "..."
+            warnings.warn(
+                f"Error uploading {key} to {bucket_name} with\n  access_key_id: {access_key_id}\n  secret: {secret}\n"
+            )
+            raise
