@@ -893,6 +893,7 @@ class Rclone:
     ) -> Generator[Process, None, None]:
         """Like mount, but can be used in a context manager."""
         error_happened = False
+        verbose = get_verbose(verbose)
         proc = self.mount(
             src,
             outdir,
@@ -918,19 +919,32 @@ class Rclone:
                 if outdir.exists():
                     print(f"{outdir} mount still exists, attempting to remove")
                     if not _IS_WINDOWS:
-                        # attempt
-                        os.system(f"fusermount -u {outdir}")
-                        os.system(f"umount {outdir}")
+                        def exec(cmd: str) -> int:
+                            if verbose:
+                                print(f"Executing: {cmd}")
+                            rtn = os.system(cmd)
+                            if rtn != 0 and verbose:
+                                print(f"Failed to execute: {cmd}")
+                            return rtn
+
+                        exec(f"fusermount -u {outdir}")
+                        exec(f"umount {outdir}")
                         time.sleep(2)
                         if outdir.exists():
-                            is_empty = not list(outdir.iterdir())
-                            if not is_empty:
-                                warnings.warn(f"Failed to unmount {outdir}")
-                            else:
-                                try:
-                                    outdir.rmdir()
-                                except Exception as e:
-                                    warnings.warn(f"Failed to remove {outdir}: {e}")
+                            is_empty = True
+                            try:
+                                is_empty = not list(outdir.iterdir())
+                                if not is_empty:
+                                    warnings.warn(f"Failed to unmount {outdir}")
+                                else:
+                                    try:
+                                        outdir.rmdir()
+                                    except Exception as e:
+                                        warnings.warn(f"Failed to remove {outdir}: {e}")
+                            except Exception as e:
+                                warnings.warn(
+                                    f"Failed during mount cleanup of {outdir}: because {e}"
+                                )
 
     @deprecated("mount")
     def mount_webdav(

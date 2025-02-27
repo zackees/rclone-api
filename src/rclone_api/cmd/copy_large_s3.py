@@ -16,6 +16,7 @@ class Args:
     read_concurrent_chunks: int
     retries: int
     save_state_json: Path
+    verbose: bool
 
 
 def list_files(rclone: Rclone, path: str):
@@ -29,6 +30,7 @@ def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description="List files in a remote path.")
     parser.add_argument("src", help="File to copy")
     parser.add_argument("dst", help="Destination file")
+    parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
     parser.add_argument(
         "--config", help="Path to rclone config file", type=Path, required=True
     )
@@ -58,6 +60,7 @@ def _parse_args() -> Args:
         read_concurrent_chunks=args.read_concurrent_chunks,
         retries=args.retries,
         save_state_json=args.resumable_json,
+        verbose=args.verbose,
     )
     return out
 
@@ -73,7 +76,7 @@ def main() -> int:
         concurrent_chunks=args.read_concurrent_chunks,
         retries=args.retries,
         save_state_json=args.save_state_json,
-        verbose=True,
+        verbose=args.verbose,
     )
     print(rslt)
     return 0
