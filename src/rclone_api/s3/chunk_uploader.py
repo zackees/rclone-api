@@ -268,6 +268,7 @@ def _get_file_size(file_path: Path, timeout: int = 60) -> int:
     while True:
         expired = time.time() - start > timeout
         try:
+            time.sleep(sleep_time)
             if not_windows:
                 # Force a refresh of the directory cache
                 os.system(f"ls -l {file_path.parent}")
@@ -279,7 +280,6 @@ def _get_file_size(file_path: Path, timeout: int = 60) -> int:
                 raise
         if expired:
             raise TimeoutError(f"File {file_path} not found after {timeout} seconds")
-        time.sleep(sleep_time)
 
 
 def file_chunker(
