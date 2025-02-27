@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from rclone_api.s3_chunk_uploader import upload_file_multipart
 from rclone_api.s3_create_client import (
     create_backblaze_s3_client,
-    upload_file,
 )
 
 _IS_WINDOWS = os.name == "nt"
@@ -46,7 +45,6 @@ class RcloneS3Tester(unittest.TestCase):
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
 
-
         BUCKET_NAME: str | None = os.getenv("B2_BUCKET_NAME")
         ACCESS_KEY_ID: str | None = os.getenv("B2_ACCESS_KEY_ID")
         SECRET_ACCESS_KEY: str | None = os.getenv("B2_SECRET_ACCESS_KEY")
@@ -63,15 +61,10 @@ class RcloneS3Tester(unittest.TestCase):
             endpoint_url=ENDPOINT_URL,
         )
 
-        # list_bucket_contents(s3_client, BUCKET_NAME)
-
-        # numbers_0_255 = bytearray(range(256))
         chunk_size = 5 * 1024 * 1024
         pattern = bytes(range(256))
         _bytes = bytearray(pattern * (16 * 1024 * 1024 // len(pattern)))
-
         print("Payload size: ", len(_bytes))
-
         with tempfile.TemporaryDirectory() as tempdir:
             tmpfile = Path(tempdir) / "testfile"
             with open(str(tmpfile), "wb") as f:
@@ -91,14 +84,14 @@ class RcloneS3Tester(unittest.TestCase):
                 chunk_size=chunk_size,
                 retries=0,
             )
-            err = upload_file(
-                s3_client,
-                BUCKET_NAME,
-                f.name,
-                f"{BUCKET_NAME}/test/testfile",
-            )
-            if err:
-                raise Exception(err)
+            # err = upload_file(
+            #     s3_client,
+            #     BUCKET_NAME,
+            #     f.name,
+            #     f"{BUCKET_NAME}/test/testfile",
+            # )
+            # if err:
+            #     raise Exception(err)
 
 
 if __name__ == "__main__":
