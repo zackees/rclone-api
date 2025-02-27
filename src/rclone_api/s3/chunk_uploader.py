@@ -22,6 +22,40 @@ def locked_print(*args, **kwargs):
         print(*args, **kwargs)
 
 
+class MultiUploadResult(Enum):
+    UPLOADED_FRESH = 1
+    UPLOADED_RESUME = 2
+    SUSPENDED = 3
+    ALREADY_DONE = 4
+
+
+class FileChunk:
+    def __init__(self, src: Path, upload_id: str, part_number: int, data: bytes):
+        assert data is not None, f"{src}: Data must not be None"
+        self.upload_id = upload_id
+        self.src = src
+        self.part_number = part_number
+        name = src.name
+        self.tmpdir = _get_chunk_tmpdir()
+        self.filepart = self.tmpdir / f"{name}_{upload_id}.part_{part_number}.tmp"
+        self.filepart.write_bytes(data)
+        del data  # free up memory
+
+    @property
+    def data(self) -> bytes:
+        assert self.filepart is not None
+        with open(self.filepart, "rb") as f:
+            return f.read()
+        return b""
+
+    def close(self):
+        if self.filepart.exists():
+            self.filepart.unlink()
+
+    def __del__(self):
+        self.close()
+
+
 @dataclass
 class UploadInfo:
     s3_client: BaseClient
@@ -226,33 +260,6 @@ def _get_chunk_tmpdir() -> Path:
         return out
 
 
-class FileChunk:
-    def __init__(self, src: Path, upload_id: str, part_number: int, data: bytes):
-        assert data is not None, f"{src}: Data must not be None"
-        self.upload_id = upload_id
-        self.src = src
-        self.part_number = part_number
-        name = src.name
-        self.tmpdir = _get_chunk_tmpdir()
-        self.filepart = self.tmpdir / f"{name}_{upload_id}.part_{part_number}.tmp"
-        self.filepart.write_bytes(data)
-        del data  # free up memory
-
-    @property
-    def data(self) -> bytes:
-        assert self.filepart is not None
-        with open(self.filepart, "rb") as f:
-            return f.read()
-        return b""
-
-    def close(self):
-        if self.filepart.exists():
-            self.filepart.unlink()
-
-    def __del__(self):
-        self.close()
-
-
 def file_chunker(
     upload_state: UploadState, max_chunks: int | None, output: Queue[FileChunk | None]
 ) -> None:
@@ -404,13 +411,6 @@ def prepare_upload_file_multipart(
     return upload_info
 
 
-class MultiUploadResult(Enum):
-    UPLOADED_FRESH = 1
-    UPLOADED_RESUME = 2
-    SUSPENDED = 3
-    ALREADY_DONE = 4
-
-
 def upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
@@ -473,7 +473,6 @@ def upload_file_multipart(
             f"Resuming upload for {file_path}, {finished} parts already uploaded"
         )
     started_new_upload = finished == 0
-    # assert upload_state.is_done() is False, "Upload is already complete"
     upload_info = upload_state.upload_info
     max_workers = 8
 
