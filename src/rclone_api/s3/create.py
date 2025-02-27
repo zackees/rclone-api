@@ -1,13 +1,8 @@
-from enum import Enum
-
 import boto3
 from botocore.client import BaseClient
 from botocore.config import Config
 
-
-class S3Provider(Enum):
-    BACKBLAZE = "Backblaze"
-    DIGITAL_OCEAN = "DigitalOcean"
+from rclone_api.s3.types import S3Provider
 
 
 # Create a Boto3 session and S3 client, this is back blaze specific.

@@ -1,4 +1,10 @@
 from dataclasses import dataclass
+from enum import Enum
+
+
+class S3Provider(Enum):
+    BACKBLAZE = "Backblaze"
+    DIGITAL_OCEAN = "DigitalOcean"
 
 
 @dataclass
