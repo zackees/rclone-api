@@ -42,6 +42,7 @@ from rclone_api import Rclone
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
 _CONFIG_PATH = _PROJECT_ROOT / "rclone-mounted-ranged-download.conf"
+_IS_WINDOWS = os.name == "nt"
 
 _CHUNK_SIZE = 1024 * 1024 * 16
 
@@ -117,8 +118,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    # @unittest.skipIf(not _ENABLED, "Test not enabled")
-    @unittest.skipIf(True, "Test not enabled")
+    @unittest.skipIf(_IS_WINDOWS, "Test not enabled on Windows")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)
