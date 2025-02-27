@@ -22,6 +22,13 @@ class UploadInfo:
     chunk_size: int
     file_size: int
 
+    @property
+    def num_chunks(self) -> int:
+        out = self.file_size // self.chunk_size
+        if self.file_size % self.chunk_size:
+            return out + 1
+        return out
+
     def to_json(self) -> dict:
         json_dict = {}
         for f in fields(self):
