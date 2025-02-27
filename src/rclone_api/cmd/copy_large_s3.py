@@ -73,6 +73,7 @@ def main() -> int:
         concurrent_chunks=args.read_concurrent_chunks,
         retries=args.retries,
         save_state_json=args.save_state_json,
+        verbose=True,
     )
     print(rslt)
     return 0

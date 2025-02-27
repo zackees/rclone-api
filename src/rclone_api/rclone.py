@@ -678,6 +678,7 @@ class Rclone:
         * 1024,  # This setting will scale the performance of the upload
         concurrent_chunks: int = 4,  # This setting will scale the performance of the upload
         retries: int = 3,
+        verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
         mount_path: Path | None = None,
     ) -> MultiUploadResult:
@@ -710,6 +711,7 @@ class Rclone:
             mount_path,
             use_links=True,
             vfs_cache_mode="minimal",
+            verbose=verbose,
             other_args=other_args,
         ):
             # raise NotImplementedError("Not implemented yet")
@@ -743,7 +745,15 @@ class Rclone:
                     raise ValueError(f"Remote {remote} is not an S3 remote")
                 return S3Provider.S3.value
 
-            provider: str = get_provider_str() or S3Provider.S3.value
+            provider: str
+            if provided_provider_str := get_provider_str():
+                if verbose:
+                    print(f"Using provided provider: {provided_provider_str}")
+                provider = provided_provider_str
+            else:
+                if verbose:
+                    print(f"Using default provider: {S3Provider.S3.value}")
+                provider = S3Provider.S3.value
             provider_enum = S3Provider.from_str(provider)
 
             s3_creds: S3Credentials = S3Credentials(
@@ -820,6 +830,7 @@ class Rclone:
         allow_writes: bool | None = False,
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
+        verbose: bool | None = None,
         other_args: list[str] | None = None,
     ) -> Process:
         """Mount a remote or directory to a local path.
@@ -836,6 +847,7 @@ class Rclone:
         """
         allow_writes = allow_writes or False
         use_links = use_links or True
+        verbose = get_verbose(verbose)
         vfs_cache_mode = vfs_cache_mode or "full"
         if outdir.exists():
             is_empty = not list(outdir.iterdir())
@@ -860,6 +872,8 @@ class Rclone:
         if vfs_cache_mode:
             cmd_list.append("--vfs-cache-mode")
             cmd_list.append(vfs_cache_mode)
+        if verbose:
+            cmd_list.append("-vvvv")
         if other_args:
             cmd_list += other_args
         proc = self._launch_process(cmd_list)
@@ -874,6 +888,7 @@ class Rclone:
         allow_writes: bool | None = None,
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
+        verbose: bool | None = None,
         other_args: list[str] | None = None,
     ) -> Generator[Process, None, None]:
         """Like mount, but can be used in a context manager."""
@@ -884,6 +899,7 @@ class Rclone:
             allow_writes=allow_writes,
             use_links=use_links,
             vfs_cache_mode=vfs_cache_mode,
+            verbose=verbose,
             other_args=other_args,
         )
         try:
