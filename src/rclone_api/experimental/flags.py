@@ -35,13 +35,13 @@ class BaseFlags:
             if is_dataclass(value) and hasattr(value, "to_args"):
                 to_args = getattr(value, "to_args")
                 args.extend(to_args())
+            elif isinstance(value, bool):
+                # Only include the flag if the boolean is True.
+                if value:
+                    args.append(f"--{field.name.replace('_', '-')}")
             else:
-                arg_name = f"--{field.name.replace('_', '-')}"
-                args.append(arg_name)
-                if (
-                    value is not True
-                ):  # For boolean flags, True means the flag is present.
-                    args.append(str(value))
+                args.append(f"--{field.name.replace('_', '-')}")
+                args.append(str(value))
         return args
 
     def merge(self, other: "BaseFlags") -> "BaseFlags":
