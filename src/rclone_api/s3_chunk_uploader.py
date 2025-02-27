@@ -414,6 +414,7 @@ def upload_file_multipart(
     filechunks: Queue[FileChunk | None] = Queue(10)
     upload_state = get_upload_state() or make_new_state()
     upload_info = upload_state.upload_info
+    max_workers = 8
 
     def chunker_task(upload_state=upload_state, output=filechunks) -> None:
         file_chunker(upload_state=upload_state, output=output)
@@ -422,7 +423,7 @@ def upload_file_multipart(
         thread_chunker = Thread(target=chunker_task, daemon=True)
         thread_chunker.start()
 
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             while True:
                 file_chunk: FileChunk | None = filechunks.get()
                 if file_chunk is None:
