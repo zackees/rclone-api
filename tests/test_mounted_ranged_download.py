@@ -131,12 +131,15 @@ class RcloneMountWebdavTester(unittest.TestCase):
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)
-        print("AWS CREDENTIALS")
-        print(f"BUCKET_NAME: {BUCKET_NAME}")
-        BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
-        BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
-        print(f"BUCKET_KEY_PUBLIC: {BUCKET_KEY_PUBLIC}")
-        print(f"BUCKET_KEY_SECRET: {BUCKET_KEY_SECRET}")
+        BUCKET_NAME: str | None = os.getenv("B2_BUCKET_NAME")
+        ACCESS_KEY_ID: str | None = os.getenv("B2_ACCESS_KEY_ID")
+        SECRET_ACCESS_KEY: str | None = os.getenv("B2_SECRET_ACCESS_KEY")
+        ENDPOINT_URL: str | None = os.getenv("B2_ENDPOINT_URL")
+        assert BUCKET_NAME
+        assert ACCESS_KEY_ID
+        assert SECRET_ACCESS_KEY
+        assert ENDPOINT_URL
+        print(f"BUCKET_KEY_SECRET: {SECRET_ACCESS_KEY}")
         config_text = _generate_rclone_config(PORT)
         _CONFIG_PATH.write_text(config_text, encoding="utf-8")
         print(f"Config file written to: {_CONFIG_PATH}")
@@ -166,21 +169,14 @@ class RcloneMountWebdavTester(unittest.TestCase):
             other_args=other_args,
         )
 
-        try:
-            # Create credentials from environment variables
-            access_key_id = os.getenv("BUCKET_KEY_PUBLIC")
-            secret_access_key = os.getenv("BUCKET_KEY_SECRET")
-            assert access_key_id is not None
-            assert secret_access_key is not None
-            credentials = S3Credentials(
-                provider=S3Provider.BACKBLAZE,
-                # access_key_id=os.getenv("BUCKET_KEY_PUBLIC"),
-                access_key_id=access_key_id,
-                # secret_access_key=os.getenv("BUCKET_KEY_SECRET"),
-                secret_access_key=secret_access_key,
-                endpoint_url="https://s3.us-west-002.backblazeb2.com",
-            )
+        credentials = S3Credentials(
+            provider=S3Provider.BACKBLAZE,
+            access_key_id=ACCESS_KEY_ID,
+            secret_access_key=SECRET_ACCESS_KEY,
+            endpoint_url=ENDPOINT_URL,
+        )
 
+        try:
             bucket_name = BUCKET_NAME
             assert bucket_name is not None
 
