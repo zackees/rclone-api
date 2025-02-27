@@ -57,6 +57,13 @@ class UploadState:
     finished_parts: Queue[FinishedPiece | None]
     peristant: Path | None
 
+    def __post_init__(self):
+        if self.peristant is None:
+            upload_id = self.upload_info.upload_id
+            object_name = self.upload_info.object_name
+            parent = _get_chunk_tmpdir()
+            self.peristant = parent / f"{object_name}_{upload_id}.json"
+
     def save(self) -> None:
         assert self.peristant is not None, "No path to save to"
         self.peristant.write_text(self.to_json_str(), encoding="utf-8")
