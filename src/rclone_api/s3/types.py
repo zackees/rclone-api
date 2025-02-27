@@ -30,10 +30,10 @@ class S3UploadTarget:
 
 
 @dataclass
-class S3MultiUploadInput:
+class S3MutliPartUploadConfig:
     """Input for multi-part upload."""
 
-    credentials: S3Credentials
-    upload_target: S3UploadTarget
     chunk_size: int
+    retries: int
     resume_path_json: Path
+    max_chunks_before_suspension: int | None = None

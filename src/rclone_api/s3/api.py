@@ -1,12 +1,11 @@
 import warnings
-from pathlib import Path
 
 from botocore.client import BaseClient
 
 from rclone_api.s3.basic_ops import download_file, list_bucket_contents, upload_file
 from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
 from rclone_api.s3.create import create_s3_client
-from rclone_api.s3.types import S3Credentials, S3UploadTarget
+from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
 
 _MIN_THRESHOLD_FOR_CHUNKING = 5 * 1024 * 1024
 
@@ -36,10 +35,7 @@ class S3Client:
     def upload_file_multipart(
         self,
         upload_target: S3UploadTarget,
-        chunk_size: int,
-        resume_path_json: Path,
-        retries: int,
-        max_chunks_before_suspension: int | None = None,
+        upload_config: S3MutliPartUploadConfig,
     ) -> MultiUploadResult:
         filesize = upload_target.src_file.stat().st_size
         if filesize < _MIN_THRESHOLD_FOR_CHUNKING:
@@ -50,6 +46,10 @@ class S3Client:
             if err:
                 raise err
             return MultiUploadResult.UPLOADED_FRESH
+        chunk_size = upload_config.chunk_size
+        retries = upload_config.retries
+        resume_path_json = upload_config.resume_path_json
+        max_chunks_before_suspension = upload_config.max_chunks_before_suspension
         bucket_name = upload_target.bucket_name
         out = upload_file_multipart(
             s3_client=self.client,

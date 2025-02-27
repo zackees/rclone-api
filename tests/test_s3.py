@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from rclone_api.s3.api import S3Client
 from rclone_api.s3.chunk_uploader import MultiUploadResult
 from rclone_api.s3.create import S3Provider
-from rclone_api.s3.types import S3Credentials, S3UploadTarget
+from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
 
 load_dotenv()
 
@@ -71,20 +71,30 @@ class RcloneS3Tester(unittest.TestCase):
                 s3_key=dst_path,
             )
 
+            # Uploads one chunk then stops.
+            upload_config_partial: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
+                chunk_size=chunk_size,
+                retries=0,
+                resume_path_json=state_json,
+                max_chunks_before_suspension=1,
+            )
+
+            # Finishes the upload.
+            upload_config_all: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
+                chunk_size=chunk_size,
+                retries=0,
+                resume_path_json=state_json,
+                max_chunks_before_suspension=None,
+            )
+
             print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
             rslt: MultiUploadResult = s3_client.upload_file_multipart(
                 upload_target=upload_target,
-                resume_path_json=state_json,
-                chunk_size=chunk_size,
-                retries=0,
-                max_chunks_before_suspension=1,
+                upload_config=upload_config_partial,
             )
             self.assertEqual(rslt, MultiUploadResult.SUSPENDED)
             rslt = s3_client.upload_file_multipart(
-                upload_target=upload_target,
-                resume_path_json=state_json,
-                chunk_size=chunk_size,
-                retries=0,
+                upload_target=upload_target, upload_config=upload_config_all
             )
             self.assertEqual(rslt, MultiUploadResult.UPLOADED_RESUME)
             print(f"Uploading file {f.name} to {BUCKET_NAME}")
@@ -93,10 +103,7 @@ class RcloneS3Tester(unittest.TestCase):
             print("Upload successful.")
             print(f"Uploading file {f.name} to {BUCKET_NAME}/{dst_path}")
             rslt = s3_client.upload_file_multipart(
-                upload_target=upload_target,
-                resume_path_json=state_json,
-                chunk_size=chunk_size,
-                retries=0,
+                upload_target=upload_target, upload_config=upload_config_all
             )
             self.assertEqual(rslt, MultiUploadResult.ALREADY_DONE)
             print("done")
