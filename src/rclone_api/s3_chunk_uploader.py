@@ -21,13 +21,18 @@ class UploadInfo:
     retries: int
     chunk_size: int
     file_size: int
+    _num_chunks: int | None = None
 
-    @property
     def num_chunks(self) -> int:
         out = self.file_size // self.chunk_size
         if self.file_size % self.chunk_size:
             return out + 1
         return out
+
+    def __post_init__(self):
+        if self._num_chunks is not None:
+            return
+        self._num_chunks = self.num_chunks()
 
     def to_json(self) -> dict:
         json_dict = {}
@@ -89,6 +94,24 @@ class UploadState:
     peristant: Path | None
     lock: Lock = Lock()
     parts: list[FinishedPiece | None] = field(default_factory=list)
+
+    def is_done(self) -> bool:
+        return self.remaining() == 0
+
+    def count(self) -> tuple[int, int]:
+        num_chunks = self.upload_info.num_chunks()
+        count = 0
+        for p in self.parts:
+            if p is not None:
+                count += 1
+        return count, num_chunks
+
+    def remaining(self) -> int:
+        count, num_chunks = self.count()
+        assert (
+            count <= num_chunks
+        ), f"Count {count} is greater than num_chunks {num_chunks}"
+        return num_chunks - count
 
     def add_finished(self, part: FinishedPiece | None) -> None:
         with self.lock:
