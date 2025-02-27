@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -360,6 +361,12 @@ def upload_file_multipart(
     retries: int = 20,
 ) -> None:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
+    file_size = os.path.getsize(file_path)
+    if chunk_size > file_size:
+        warnings.warn(
+            f"Chunk size {chunk_size} is greater than file size {file_size}, using file size"
+        )
+        chunk_size = file_size
 
     def get_upload_state() -> UploadState | None:
         if resumable_info_path is None or not resumable_info_path.exists():

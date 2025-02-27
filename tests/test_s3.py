@@ -15,8 +15,7 @@ from rclone_api.s3_create_client import (
 _IS_WINDOWS = os.name == "nt"
 
 _ENABLED = not _IS_WINDOWS
-_CHUNK_SIZE = 1024 * 1024 * 16
-_CHUNK_SIZE *= 10
+_CHUNK_SIZE = 1024 * 1024 * 3
 
 load_dotenv()
 
@@ -84,6 +83,7 @@ class RcloneS3Tester(unittest.TestCase):
         import tempfile
 
         # numbers_0_255 = bytearray(range(256))
+        chunk_size = 5 * 1024 * 1024
         pattern = bytes(range(256))
         _bytes = bytearray(pattern * (16 * 1024 * 1024 // len(pattern)))
 
@@ -105,6 +105,7 @@ class RcloneS3Tester(unittest.TestCase):
                 file_path=f.name,
                 resumable_info_path=None,
                 object_name="testfile",
+                chunk_size=chunk_size,
                 retries=0,
             )
             err = upload_file(
