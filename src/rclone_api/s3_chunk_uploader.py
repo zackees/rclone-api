@@ -4,6 +4,7 @@ import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, fields
+from enum import Enum
 from pathlib import Path
 from queue import Queue
 from threading import Lock, Thread
@@ -79,14 +80,13 @@ class FinishedPiece:
         non_none.sort(key=lambda x: x.part_number)
         all_nones: list[None] = [None for p in parts if p is None]
         assert len(all_nones) <= 1, "Only one None should be present"
-        return [p.to_json() for p in non_none] + all_nones[:1]
+        return [p.to_json() for p in non_none]
 
     @staticmethod
-    def from_json(json_str: str | None) -> "FinishedPiece | None":
-        if json_str is None:
+    def from_json(json: dict | None) -> "FinishedPiece | None":
+        if json is None:
             return None
-        data = json.loads(json_str)
-        return FinishedPiece(**data)
+        return FinishedPiece(**json)
 
 
 @dataclass
@@ -107,6 +107,10 @@ class UploadState:
             if p is not None:
                 count += 1
         return count, num_chunks
+
+    def finished(self) -> int:
+        count, _ = self.count()
+        return count
 
     def remaining(self) -> int:
         count, num_chunks = self.count()
@@ -172,8 +176,10 @@ class UploadState:
     def from_json(s3_client: BaseClient, json_file: Path) -> "UploadState":
         json_str = json_file.read_text(encoding="utf-8")
         data = json.loads(json_str)
-        upload_info = UploadInfo.from_json(s3_client, data["upload_info"])
-        finished_parts = [FinishedPiece.from_json(p) for p in data["finished_parts"]]
+        upload_info_json = data["upload_info"]
+        finished_parts_json = data["finished_parts"]
+        upload_info = UploadInfo.from_json(s3_client, upload_info_json)
+        finished_parts = [FinishedPiece.from_json(p) for p in finished_parts_json]
         return UploadState(
             peristant=json_file, upload_info=upload_info, parts=finished_parts
         )
@@ -248,7 +254,21 @@ class FileChunk:
         self.close()
 
 
-def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> None:
+def file_chunker(
+    upload_state: UploadState, max_chunks: int | None, output: Queue[FileChunk | None]
+) -> None:
+
+    count = 0
+
+    def should_stop() -> bool:
+        nonlocal count
+        if max_chunks is None:
+            return False
+        if count >= max_chunks:
+            return True
+        count += 1
+        return False
+
     upload_info = upload_state.upload_info
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
@@ -269,7 +289,7 @@ def file_chunker(upload_state: UploadState, output: Queue[FileChunk | None]) -> 
         return part_number
 
     try:
-        while True:
+        while not should_stop():
             curr_parth_num = next_part_number()
             if curr_parth_num is None:
                 locked_print(f"File {file_path} is complete")
@@ -385,6 +405,13 @@ def prepare_upload_file_multipart(
     return upload_info
 
 
+class MultiUploadResult(Enum):
+    UPLOADED_FRESH = 1
+    UPLOADED_RESUME = 2
+    SUSPENDED = 3
+    ALREADY_DONE = 4
+
+
 def upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
@@ -393,7 +420,8 @@ def upload_file_multipart(
     object_name: Optional[str] = None,
     chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
     retries: int = 20,
-) -> None:
+    max_chunks_before_suspension: int | None = None,
+) -> MultiUploadResult:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
     file_size = os.path.getsize(file_path)
     if chunk_size > file_size:
@@ -408,24 +436,28 @@ def upload_file_multipart(
         )
 
     def get_upload_state() -> UploadState | None:
-        if resumable_info_path is None or not resumable_info_path.exists():
+        if resumable_info_path is None:
+            locked_print(f"No resumable info path provided for {file_path}")
+            return None
+        if not resumable_info_path.exists():
             locked_print(
-                f"No resumable info found for {file_path}, so creating new upload state"
+                f"Resumable info path {resumable_info_path} does not exist for {file_path}"
             )
             return None
-        upload_info = prepare_upload_file_multipart(
-            s3_client=s3_client,
-            bucket_name=bucket_name,
-            file_path=file_path,
-            object_name=object_name,
-            chunk_size=chunk_size,
-            retries=retries,
-        )
-        upload_state = UploadState(
-            upload_info=upload_info,
-            parts=[],
-            peristant=resumable_info_path,
-        )
+        # upload_info = prepare_upload_file_multipart(
+        #     s3_client=s3_client,
+        #     bucket_name=bucket_name,
+        #     file_path=file_path,
+        #     object_name=object_name,
+        #     chunk_size=chunk_size,
+        #     retries=retries,
+        # )
+        # upload_state = UploadState(
+        #     upload_info=upload_info,
+        #     parts=[],
+        #     peristant=resumable_info_path,
+        # )
+        upload_state = UploadState.load(s3_client=s3_client, path=resumable_info_path)
         return upload_state
 
     def make_new_state() -> UploadState:
@@ -447,12 +479,24 @@ def upload_file_multipart(
 
     filechunks: Queue[FileChunk | None] = Queue(10)
     upload_state = get_upload_state() or make_new_state()
-    assert upload_state.is_done() is False, "Upload is already complete"
+    if upload_state.is_done():
+        return MultiUploadResult.ALREADY_DONE
+    finished = upload_state.finished()
+    if finished > 0:
+        locked_print(
+            f"Resuming upload for {file_path}, {finished} parts already uploaded"
+        )
+    started_new_upload = finished == 0
+    # assert upload_state.is_done() is False, "Upload is already complete"
     upload_info = upload_state.upload_info
     max_workers = 8
 
-    def chunker_task(upload_state=upload_state, output=filechunks) -> None:
-        file_chunker(upload_state=upload_state, output=output)
+    def chunker_task(
+        upload_state=upload_state,
+        output=filechunks,
+        max_chunks=max_chunks_before_suspension,
+    ) -> None:
+        file_chunker(upload_state=upload_state, output=output, max_chunks=max_chunks)
 
     try:
         thread_chunker = Thread(target=chunker_task, daemon=True)
@@ -478,6 +522,9 @@ def upload_file_multipart(
         # upload_state.finished_parts.put(None)  # Signal the end of the queue
         upload_state.add_finished(None)
         thread_chunker.join()
+        if not upload_state.is_done():
+            upload_state.save()
+            return MultiUploadResult.SUSPENDED
         parts: list[FinishedPiece] = [p for p in upload_state.parts if p is not None]
         locked_print(f"Upload complete, sorting {len(parts)} parts to complete upload")
         parts.sort(key=lambda x: x.part_number)  # Some backends need this.
@@ -503,3 +550,6 @@ def upload_file_multipart(
             except Exception:
                 pass
         raise
+    if started_new_upload:
+        return MultiUploadResult.UPLOADED_FRESH
+    return MultiUploadResult.UPLOADED_RESUME

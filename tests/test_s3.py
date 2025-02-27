@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api.s3_chunk_uploader import upload_file_multipart
+from rclone_api.s3_chunk_uploader import MultiUploadResult, upload_file_multipart
 from rclone_api.s3_create_client import (
     create_backblaze_s3_client,
 )
@@ -77,7 +77,20 @@ class RcloneS3Tester(unittest.TestCase):
             tmpstate = Path(tempdir) / "state.json"
 
             print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
-            upload_file_multipart(
+            rslt: MultiUploadResult = upload_file_multipart(
+                s3_client=s3_client,
+                bucket_name=BUCKET_NAME,
+                file_path=f.name,
+                resumable_info_path=tmpstate,
+                object_name="testfile",
+                chunk_size=chunk_size,
+                retries=0,
+                max_chunks_before_suspension=1,
+            )
+
+            self.assertEqual(rslt, MultiUploadResult.SUSPENDED)
+
+            rslt = upload_file_multipart(
                 s3_client=s3_client,
                 bucket_name=BUCKET_NAME,
                 file_path=f.name,
@@ -86,6 +99,7 @@ class RcloneS3Tester(unittest.TestCase):
                 chunk_size=chunk_size,
                 retries=0,
             )
+            self.assertEqual(rslt, MultiUploadResult.UPLOADED_RESUME)
 
             print(f"Uploading file {f.name} to {BUCKET_NAME}")
             state_str = tmpstate.read_text(encoding="utf-8")
@@ -99,6 +113,23 @@ class RcloneS3Tester(unittest.TestCase):
             # if err:
             #     raise Exception(err)
             print("Upload successful.")
+
+            # now the second attempt should just not upload anything.
+            print(f"Uploading file {f.name} to {BUCKET_NAME}")
+
+            # assert that this throws an exceptions
+
+            rslt = upload_file_multipart(
+                s3_client=s3_client,
+                bucket_name=BUCKET_NAME,
+                file_path=f.name,
+                resumable_info_path=tmpstate,
+                object_name="testfile",
+                chunk_size=chunk_size,
+                retries=0,
+            )
+            self.assertEqual(rslt, MultiUploadResult.ALREADY_DONE)
+            print("done")
 
 
 if __name__ == "__main__":
