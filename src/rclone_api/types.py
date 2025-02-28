@@ -58,6 +58,8 @@ _PATTERN_SIZE_SUFFIX = re.compile(r"^(\d+)([A-Za-z]+)$")
 def _from_size_suffix(size: str) -> int:
     # 16MiB
     # parse out number and suffix
+    if size == "0":
+        return 0
     match = _PATTERN_SIZE_SUFFIX.match(size)
     if match is None:
         raise ValueError(f"Invalid size suffix: {size}")
@@ -88,6 +90,8 @@ class SizeSuffix:
             self._size = size
         elif isinstance(size, str):
             self._size = _from_size_suffix(size)
+        elif isinstance(size, float):
+            self._size = int(size)
         else:
             raise ValueError(f"Invalid type for size: {type(size)}")
 
@@ -123,3 +127,10 @@ class SizeSuffix:
     def __sub__(self, other: "int | SizeSuffix") -> "SizeSuffix":
         other_int = SizeSuffix(other)
         return SizeSuffix(self._size - other_int._size)
+
+    def __truediv__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        if other_int._size == 0:
+            raise ZeroDivisionError("Division by zero is undefined")
+        # Use floor division to maintain integer arithmetic.
+        return SizeSuffix(self._size // other_int._size)

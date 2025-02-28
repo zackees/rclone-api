@@ -680,12 +680,9 @@ class Rclone:
         dst: str,
         save_state_json: Path,
         chunk_size: SizeSuffix | None = None,
-        # 16
-        # * 1024
-        # * 1024,  # This setting will scale the performance of the upload
-        concurrent_chunks: (
-            int | None
-        ) = None,  # This setting will scale the performance of the upload
+        vfs_read_chunk_size: SizeSuffix | None = None,
+        vfs_read_chunk_size_limit: SizeSuffix | None = None,
+        vfs_read_chunk_streams: int | None = None,
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
@@ -696,30 +693,20 @@ class Rclone:
         from rclone_api.s3.create import S3Credentials
         from rclone_api.util import S3PathInfo, random_str, split_s3_path
 
-        _tmp: SizeSuffix | str = chunk_size or "16MiB"
-        chunk_size = SizeSuffix(_tmp)
-        assert chunk_size is not None
-        concurrent_chunks = concurrent_chunks or 4
-        size_limit = SizeSuffix(chunk_size * concurrent_chunks)
-
-        other_args: list[str] = [
-            "--no-modtime",
-            "--vfs-read-wait",
-            "1s",
-            "--vfs-disk-space-total-size",
-            size_limit.as_str(),  # purge quickly.
-            "--vfs-read-chunk-size",
-            chunk_size.as_str(),
+        other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
+        vfs_read_chunk_size = vfs_read_chunk_size or SizeSuffix("128M")
+        chunk_size = chunk_size or SizeSuffix("128M")
+        vfs_read_chunk_size_limit = vfs_read_chunk_size_limit or SizeSuffix("0")
+        vfs_read_chunk_streams = vfs_read_chunk_streams or 1
+        other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
+        other_args += [
             "--vfs-read-chunk-size-limit",
-            size_limit.as_str(),
-            "--vfs-read-chunk-streams",
-            str(concurrent_chunks),
-            "--vfs-fast-fingerprint",
+            vfs_read_chunk_size_limit.as_str(),
         ]
+        other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
         mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
-
         parent_path = str(src_path.parent.as_posix())
         with self.scoped_mount(
             parent_path,

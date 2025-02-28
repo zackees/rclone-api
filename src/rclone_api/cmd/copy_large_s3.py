@@ -12,8 +12,8 @@ class Args:
     config_path: Path
     src: str
     dst: str
-    chunk_size_mb: SizeSuffix
-    read_concurrent_chunks: int
+    chunk_size: SizeSuffix
+    threads: int
     retries: int
     save_state_json: Path
     verbose: bool
@@ -38,11 +38,11 @@ def _parse_args() -> Args:
         "--chunk-size",
         help="Chunk size that will be read and uploaded in in SizeSuffix (i.e. 128M = 128 megabytes) form",
         type=str,
-        default="128M",
+        default="512M",
     )
     parser.add_argument(
-        "--read-concurrent-chunks",
-        help="Peformance setting, increaseing this will increase the number of chunks read concurrently",
+        "--threads",
+        help="Number of threads to use per chunk",
         type=int,
         default=16,
     )
@@ -59,8 +59,8 @@ def _parse_args() -> Args:
         config_path=Path(args.config),
         src=args.src,
         dst=args.dst,
-        chunk_size_mb=SizeSuffix(args.chunk_size),
-        read_concurrent_chunks=args.read_concurrent_chunks,
+        chunk_size=SizeSuffix(args.chunk_size),
+        threads=args.threads,
         retries=args.retries,
         save_state_json=args.resume_json,
         verbose=args.verbose,
@@ -72,11 +72,13 @@ def main() -> int:
     """Main entry point."""
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
+    unit_chunk = args.chunk_size / args.threads
     rslt: MultiUploadResult = rclone.copy_file_resumable_s3(
         src=args.src,
         dst=args.dst,
-        chunk_size=args.chunk_size_mb * _1MB,
-        concurrent_chunks=args.read_concurrent_chunks,
+        vfs_read_chunk_size=unit_chunk,
+        vfs_read_chunk_size_limit=args.chunk_size,
+        vfs_read_chunk_streams=args.threads,
         retries=args.retries,
         save_state_json=args.save_state_json,
         verbose=args.verbose,
