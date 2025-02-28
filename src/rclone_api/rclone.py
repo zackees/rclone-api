@@ -915,7 +915,7 @@ class Rclone:
                 proc.terminate()
             proc.wait()
             if not error_happened:
-                from rclone_api.util_mount import clean_mount
+                from rclone_api.mount import clean_mount
 
                 clean_mount(outdir, verbose=verbose)
 
