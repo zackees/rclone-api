@@ -25,6 +25,7 @@ def _create_backblaze_s3_client(creds: S3Credentials, verbose: bool) -> BaseClie
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         endpoint_url=endpoint_url,
+        verify=False,  # Disables SSL certificate verification
         config=Config(
             signature_version="s3v4",
             region_name=region_name,
