@@ -205,6 +205,8 @@ class UploadState:
         return num_chunks - count
 
     def add_finished(self, part: FinishedPiece | None) -> None:
+        if part is None:
+            return
         with self.lock:
             self.parts.append(part)
             self._save_no_lock()

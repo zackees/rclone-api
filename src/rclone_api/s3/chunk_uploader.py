@@ -1,5 +1,6 @@
 import _thread
 import os
+import traceback
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -50,18 +51,24 @@ def upload_task(
 
 def handle_upload(
     upload_info: UploadInfo, file_chunk: FileChunk | None
-) -> FinishedPiece | None:
+) -> FinishedPiece | Exception | None:
     if file_chunk is None:
         return None
     chunk, part_number = file_chunk.data, file_chunk.part_number
-    part: FinishedPiece = upload_task(
-        info=upload_info,
-        chunk=chunk,
-        part_number=part_number,
-        retries=upload_info.retries,
-    )
-    file_chunk.close()
-    return part
+    try:
+        part: FinishedPiece = upload_task(
+            info=upload_info,
+            chunk=chunk,
+            part_number=part_number,
+            retries=upload_info.retries,
+        )
+        file_chunk.close()
+        return part
+    except Exception as e:
+        stacktrace = traceback.format_exc()
+        msg = f"Error uploading part {part_number}: {e}\n{stacktrace}"
+        warnings.warn(msg)
+        return e
 
 
 def prepare_upload_file_multipart(
@@ -227,16 +234,15 @@ def upload_file_multipart(
                     break
 
                 def task(upload_info=upload_info, file_chunk=file_chunk):
-                    try:
-                        return handle_upload(upload_info, file_chunk)
-                    except Exception:
-                        _thread.interrupt_main()
-                        raise
+                    return handle_upload(upload_info, file_chunk)
 
                 fut = executor.submit(task)
 
                 def done_cb(fut=fut):
                     result = fut.result()
+                    if isinstance(result, Exception):
+                        warnings.warn(f"Error uploading part: {result}, skipping")
+                        return
                     # upload_state.finished_parts.put(result)
                     upload_state.add_finished(result)
 
