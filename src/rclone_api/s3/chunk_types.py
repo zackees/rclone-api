@@ -7,6 +7,7 @@ from threading import Lock
 
 from botocore.client import BaseClient
 
+from rclone_api.types import SizeSuffix
 from rclone_api.util import locked_print
 
 _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
@@ -108,16 +109,20 @@ class UploadInfo:
             value = getattr(self, f.name)
             # Convert non-serializable objects (like s3_client) to a string representation.
             if f.name == "s3_client":
-                json_dict[f.name] = "RUNTIME OBJECT"
+                continue
             else:
                 if isinstance(value, Path):
                     value = str(value)
                 json_dict[f.name] = value
+
         return json_dict
 
     @staticmethod
     def from_json(s3_client: BaseClient, json_dict: dict) -> "UploadInfo":
-        json_dict.pop("s3_client")  # Remove the placeholder string
+        # json_dict.pop("s3_client")  # Remove the placeholder string
+        if "s3_client" in json_dict:
+            json_dict.pop("s3_client")
+
         return UploadInfo(s3_client=s3_client, **json_dict)
 
 
@@ -224,6 +229,12 @@ class UploadState:
 
         # self.count()
         finished_count, total = self.count()
+        total_finished: SizeSuffix = SizeSuffix(
+            finished_count * self.upload_info.chunk_size
+        )
+        total_remaining: SizeSuffix = SizeSuffix(
+            self.remaining() * self.upload_info.chunk_size
+        )
 
         # parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         out_json = {
@@ -232,6 +243,10 @@ class UploadState:
             "is_done": is_done,
             "finished_count": finished_count,
             "total_parts": total,
+            "total_size": SizeSuffix(self.upload_info.file_size).as_str(),
+            "total_finished": total_finished.as_str(),
+            "total_remaining": total_remaining.as_str(),
+            "completed": f"{(finished_count / total) * 100:.2f}%",
         }
 
         # check that we can sererialize
