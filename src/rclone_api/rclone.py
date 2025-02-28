@@ -25,7 +25,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import group_files
-from rclone_api.mount import Mount, clean_mount, prepare_mount, wait_for_mount
+from rclone_api.mount import Mount, clean_mount, prepare_mount
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -909,63 +909,6 @@ class Rclone:
 
                 clean_mount(mount, verbose=verbose)
 
-    @deprecated("mount")
-    def mount_webdav(
-        self,
-        url: str,
-        outdir: Path,
-        vfs_cache_mode: str | None = None,
-        vfs_disk_space_total_size: str | None = "10G",
-        other_args: list[str] | None = None,
-    ) -> Process:
-        """Mount a remote or directory to a local path.
-
-        Args:
-            src: Remote or directory to mount
-            outdir: Local path to mount to
-
-        Returns:
-            CompletedProcess from the mount command execution
-
-        Raises:
-            subprocess.CalledProcessError: If the mount operation fails
-        """
-        other_args = other_args or []
-        if vfs_cache_mode is None:
-            if "--vfs-cache-mode" in other_args:
-                pass
-            else:
-                vfs_cache_mode = "full"
-        elif "--vfs-cache-mode" in other_args:
-            warnings.warn(
-                f"vfs_cache_mode is set to {vfs_cache_mode} but --vfs-cache-mode is already in other_args"
-            )
-            idx = other_args.index("--vfs-cache-mode")
-            other_args.pop(idx)
-            other_args.pop(idx)  # also the next value which will be the cache mode.
-
-        if outdir.exists():
-            is_empty = not list(outdir.iterdir())
-            if not is_empty:
-                raise ValueError(
-                    f"Mount directory already exists and is not empty: {outdir}"
-                )
-            outdir.rmdir()
-
-        src_str = url
-        cmd_list: list[str] = ["mount", src_str, str(outdir)]
-        if vfs_cache_mode:
-            cmd_list.append("--vfs-cache-mode")
-            cmd_list.append(vfs_cache_mode)
-        if other_args:
-            cmd_list += other_args
-        if vfs_disk_space_total_size is not None:
-            cmd_list.append("--vfs-cache-max-size")
-            cmd_list.append(vfs_disk_space_total_size)
-        proc = self._launch_process(cmd_list)
-        wait_for_mount(outdir, proc)
-        return proc
-
     # Settings optimized for s3.
     def mount_s3(
         self,
@@ -973,11 +916,8 @@ class Rclone:
         outdir: Path,
         allow_writes=False,
         vfs_cache_mode="full",
-        # dir-cache-time
         dir_cache_time: str | None = "1h",
         attribute_timeout: str | None = "1h",
-        # --vfs-cache-max-size
-        # vfs-cache-max-size
         vfs_disk_space_total_size: str | None = "100M",
         transfers: int | None = 128,
         modtime_strategy: (
