@@ -680,9 +680,7 @@ class Rclone:
         dst: str,
         save_state_json: Path,
         chunk_size: SizeSuffix | None = None,
-        vfs_read_chunk_size: SizeSuffix | None = None,
-        vfs_read_chunk_size_limit: SizeSuffix | None = None,
-        vfs_read_chunk_streams: int | None = None,
+        threads: int = 16,
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
@@ -694,10 +692,14 @@ class Rclone:
         from rclone_api.util import S3PathInfo, random_str, split_s3_path
 
         other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
-        vfs_read_chunk_size = vfs_read_chunk_size or SizeSuffix("128M")
         chunk_size = chunk_size or SizeSuffix("128M")
-        vfs_read_chunk_size_limit = vfs_read_chunk_size_limit or SizeSuffix("0")
-        vfs_read_chunk_streams = vfs_read_chunk_streams or 1
+        unit_chunk_size = chunk_size / threads
+        vfs_read_chunk_size = unit_chunk_size
+        vfs_read_chunk_size_limit = chunk_size
+        vfs_read_chunk_streams = threads
+        assert (
+            chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
+        ), f"chunk_size {chunk_size} must be a multiple of vfs_read_chunk_size {vfs_read_chunk_size}"
         other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
         other_args += [
             "--vfs-read-chunk-size-limit",

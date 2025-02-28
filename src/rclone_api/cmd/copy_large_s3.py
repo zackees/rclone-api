@@ -72,13 +72,15 @@ def main() -> int:
     """Main entry point."""
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
-    unit_chunk = args.chunk_size / args.threads
+    # unit_chunk = args.chunk_size / args.threads
     rslt: MultiUploadResult = rclone.copy_file_resumable_s3(
         src=args.src,
         dst=args.dst,
-        vfs_read_chunk_size=unit_chunk,
-        vfs_read_chunk_size_limit=args.chunk_size,
-        vfs_read_chunk_streams=args.threads,
+        chunk_size=args.chunk_size,
+        threads=args.threads,
+        # vfs_read_chunk_size=unit_chunk,
+        # vfs_read_chunk_size_limit=args.chunk_size,
+        # vfs_read_chunk_streams=args.threads,
         retries=args.retries,
         save_state_json=args.save_state_json,
         verbose=args.verbose,
