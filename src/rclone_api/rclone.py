@@ -691,7 +691,7 @@ class Rclone:
         from rclone_api.util import S3PathInfo, random_str, split_s3_path
 
         other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
-        chunk_size = chunk_size or SizeSuffix("128M")
+        chunk_size = chunk_size or SizeSuffix("64M")
         unit_chunk_size = chunk_size / read_threads
         vfs_read_chunk_size = unit_chunk_size
         vfs_read_chunk_size_limit = chunk_size
@@ -726,8 +726,6 @@ class Rclone:
             verbose=False,
             other_args=other_args,
         ):
-            # raise NotImplementedError("Not implemented yet")
-
             path_info: S3PathInfo = split_s3_path(dst)
             remote = path_info.remote
             bucket_name = path_info.bucket
