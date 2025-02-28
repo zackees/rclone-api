@@ -94,7 +94,6 @@ def file_chunker(
             )
             done_part_numbers.add(part_number)
             output.put(file_chunk)
-            part_number += 1
     except Exception as e:
 
         warnings.warn(f"Error reading file: {e}")
