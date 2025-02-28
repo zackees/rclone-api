@@ -109,8 +109,6 @@ class UploadInfo:
         hasher = hashlib.sha256()
         # first is file size
         hasher.update(str(self.file_size).encode("utf-8"))
-        # second is the file path
-        hasher.update(str(self.src_file_path).encode("utf-8"))
         # next is chunk size
         hasher.update(str(self.chunk_size).encode("utf-8"))
         # next is the number of parts
