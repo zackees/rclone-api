@@ -25,6 +25,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import group_files
+from rclone_api.mount import Mount, clean_mount, prepare_mount
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -849,7 +850,6 @@ class Rclone:
         Raises:
             subprocess.CalledProcessError: If the mount operation fails
         """
-        from rclone_api.mount import clean_mount, prepare_mount
 
         allow_writes = allow_writes or False
         use_links = use_links or True
@@ -884,7 +884,7 @@ class Rclone:
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
         other_args: list[str] | None = None,
-    ) -> Generator[Process, None, None]:
+    ) -> Generator[Mount, None, None]:
         """Like mount, but can be used in a context manager."""
         error_happened = False
         verbose = get_verbose(verbose)
@@ -897,8 +897,9 @@ class Rclone:
             verbose=verbose,
             other_args=other_args,
         )
+        mount = Mount(mount_path=outdir, process=proc)
         try:
-            yield proc
+            yield mount
         except Exception as e:
             error_happened = True
             stack_trace = traceback.format_exc()
@@ -911,7 +912,7 @@ class Rclone:
             if not error_happened:
                 from rclone_api.mount import clean_mount
 
-                clean_mount(outdir, verbose=verbose)
+                clean_mount(mount, verbose=verbose)
 
     @deprecated("mount")
     def mount_webdav(

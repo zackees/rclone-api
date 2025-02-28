@@ -2,9 +2,20 @@ import platform
 import subprocess
 import time
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 
+from rclone_api.process import Process
+
 _SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
+
+
+@dataclass
+class Mount:
+    """Mount information."""
+
+    mount_path: Path
+    process: Process | None
 
 
 def run_command(cmd: str, verbose: bool) -> int:
@@ -36,7 +47,7 @@ def prepare_mount(outdir: Path, verbose: bool) -> None:
         outdir.mkdir(parents=True, exist_ok=True)
 
 
-def clean_mount(mount_path: Path, verbose: bool = False) -> None:
+def clean_mount(mount: Mount | Path, verbose: bool = False) -> None:
     """
     Clean up a mount path across Linux, macOS, and Windows.
 
@@ -46,6 +57,7 @@ def clean_mount(mount_path: Path, verbose: bool = False) -> None:
     while on Windows it attempts to remove the mount point via 'mountvol /D'.
     """
     # Check if the mount path exists; if an OSError occurs, assume it exists.
+    mount_path = mount.mount_path if isinstance(mount, Mount) else mount
     try:
         mount_exists = mount_path.exists()
     except OSError as e:
