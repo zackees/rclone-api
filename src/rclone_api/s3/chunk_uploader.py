@@ -271,14 +271,10 @@ def _get_chunk_tmpdir() -> Path:
 def _get_file_size(file_path: Path, timeout: int = 60) -> int:
     sleep_time = timeout / 60 if timeout > 0 else 1
     start = time.time()
-    not_windows = os.name != "nt"
     while True:
         expired = time.time() - start > timeout
         try:
             time.sleep(sleep_time)
-            if not_windows:
-                # Force a refresh of the directory cache
-                os.system(f"ls -l {file_path.parent}")
             if file_path.exists():
                 return file_path.stat().st_size
         except FileNotFoundError as e:
