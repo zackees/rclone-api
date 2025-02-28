@@ -915,50 +915,9 @@ class Rclone:
                 proc.terminate()
             proc.wait()
             if not error_happened:
-                outdir_exists: bool = False
-                try:
-                    outdir_exists = outdir.exists()
-                except OSError as e:
-                    warnings.warn(f"Error in scoped_mount: {e}")
-                    outdir_exists = True
-                time.sleep(2)
-                if outdir_exists:
-                    print(f"{outdir} mount still exists, attempting to remove")
-                    if not _IS_WINDOWS:
+                from rclone_api.util_mount import clean_mount
 
-                        def exec(cmd: str) -> int:
-                            if verbose:
-                                print(f"Executing: {cmd}")
-                            rtn = os.system(cmd)
-                            if rtn != 0 and verbose:
-                                print(f"Failed to execute: {cmd}")
-                            return rtn
-
-                        exec(f"fusermount -u {outdir}")
-                        exec(f"umount {outdir}")
-                        time.sleep(2)
-
-                        try:
-                            outdir_exists = outdir.exists()
-                        except OSError as e:
-                            warnings.warn(f"Error in scoped_mount: {e}")
-                            outdir_exists = True
-
-                        if outdir_exists:
-                            is_empty = True
-                            try:
-                                is_empty = not list(outdir.iterdir())
-                                if not is_empty:
-                                    warnings.warn(f"Failed to unmount {outdir}")
-                                else:
-                                    try:
-                                        outdir.rmdir()
-                                    except Exception as e:
-                                        warnings.warn(f"Failed to remove {outdir}: {e}")
-                            except Exception as e:
-                                warnings.warn(
-                                    f"Failed during mount cleanup of {outdir}: because {e}"
-                                )
+                clean_mount(outdir, verbose=verbose)
 
     @deprecated("mount")
     def mount_webdav(
