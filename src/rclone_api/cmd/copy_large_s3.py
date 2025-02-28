@@ -2,7 +2,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from rclone_api import MultiUploadResult, Rclone
+from rclone_api import MultiUploadResult, Rclone, SizeSuffix
 
 _1MB = 1024 * 1024
 
@@ -12,7 +12,7 @@ class Args:
     config_path: Path
     src: str
     dst: str
-    chunk_size_mb: int
+    chunk_size_mb: SizeSuffix
     read_concurrent_chunks: int
     retries: int
     save_state_json: Path
@@ -56,7 +56,7 @@ def _parse_args() -> Args:
         config_path=Path(args.config),
         src=args.src,
         dst=args.dst,
-        chunk_size_mb=args.chunk_size_mb,
+        chunk_size_mb=SizeSuffix(args.chunk_size_mb * _1MB),
         read_concurrent_chunks=args.read_concurrent_chunks,
         retries=args.retries,
         save_state_json=args.resumable_json,

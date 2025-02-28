@@ -10,7 +10,7 @@ from .rclone import Rclone, rclone_verbose
 from .remote import Remote
 from .rpath import RPath
 from .s3.types import MultiUploadResult
-from .types import ListingOption, Order, SizeResult
+from .types import ListingOption, Order, SizeResult, SizeSuffix
 
 __all__ = [
     "Rclone",
@@ -34,4 +34,5 @@ __all__ = [
     "Parsed",
     "Section",
     "MultiUploadResult",
+    "SizeSuffix",
 ]

@@ -23,6 +23,19 @@ def run_command(cmd: str, verbose: bool) -> int:
         return -1
 
 
+def prepare_mount(outdir: Path, verbose: bool) -> None:
+    if _SYSTEM == "Windows":
+        # Windows -> Must create parent directories only if they don't exist
+        if verbose:
+            print(f"Creating parent directories for {outdir}")
+        outdir.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Linux -> Must create parent directories and the directory itself
+        if verbose:
+            print(f"Creating directories for {outdir}")
+        outdir.mkdir(parents=True, exist_ok=True)
+
+
 def clean_mount(mount_path: Path, verbose: bool = False) -> None:
     """
     Clean up a mount path across Linux, macOS, and Windows.

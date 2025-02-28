@@ -34,7 +34,13 @@ from rclone_api.s3.types import (
     S3Provider,
     S3UploadTarget,
 )
-from rclone_api.types import ListingOption, ModTimeStrategy, Order, SizeResult
+from rclone_api.types import (
+    ListingOption,
+    ModTimeStrategy,
+    Order,
+    SizeResult,
+    SizeSuffix,
+)
 from rclone_api.util import (
     get_check,
     get_rclone_exe,
@@ -673,10 +679,13 @@ class Rclone:
         src: str,
         dst: str,
         save_state_json: Path,
-        chunk_size: int = 16
-        * 1024
-        * 1024,  # This setting will scale the performance of the upload
-        concurrent_chunks: int = 4,  # This setting will scale the performance of the upload
+        chunk_size: SizeSuffix | None = None,
+        # 16
+        # * 1024
+        # * 1024,  # This setting will scale the performance of the upload
+        concurrent_chunks: (
+            int | None
+        ) = None,  # This setting will scale the performance of the upload
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
@@ -687,16 +696,22 @@ class Rclone:
         from rclone_api.s3.create import S3Credentials
         from rclone_api.util import S3PathInfo, random_str, split_s3_path
 
+        _tmp: SizeSuffix | str = chunk_size or "16MiB"
+        chunk_size = SizeSuffix(_tmp)
+        assert chunk_size is not None
+        concurrent_chunks = concurrent_chunks or 4
+        size_limit = SizeSuffix(chunk_size * concurrent_chunks)
+
         other_args: list[str] = [
             "--no-modtime",
             "--vfs-read-wait",
             "1s",
             "--vfs-disk-space-total-size",
-            str(2 * chunk_size * concurrent_chunks),  # purge quickly.
+            size_limit.as_str(),  # purge quickly.
             "--vfs-read-chunk-size",
-            str(chunk_size),
+            chunk_size.as_str(),
             "--vfs-read-chunk-size-limit",
-            str(chunk_size * concurrent_chunks),
+            size_limit.as_str(),
             "--vfs-read-chunk-streams",
             str(concurrent_chunks),
             "--vfs-fast-fingerprint",
@@ -765,7 +780,7 @@ class Rclone:
 
             client = S3Client(s3_creds)
             config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
-                chunk_size=chunk_size,
+                chunk_size=chunk_size.as_int(),
                 retries=retries,
                 resume_path_json=save_state_json,
                 max_chunks_before_suspension=max_chunks_before_suspension,
@@ -788,7 +803,7 @@ class Rclone:
             )
 
             upload_config = S3MutliPartUploadConfig(
-                chunk_size=chunk_size,
+                chunk_size=chunk_size.as_int(),
                 retries=retries,
                 resume_path_json=save_state_json,
                 max_chunks_before_suspension=max_chunks_before_suspension,
@@ -845,24 +860,14 @@ class Rclone:
         Raises:
             subprocess.CalledProcessError: If the mount operation fails
         """
+        from rclone_api.mount import clean_mount, prepare_mount
+
         allow_writes = allow_writes or False
         use_links = use_links or True
         verbose = get_verbose(verbose)
         vfs_cache_mode = vfs_cache_mode or "full"
-        if outdir.exists():
-            is_empty = not list(outdir.iterdir())
-            if not is_empty:
-                raise ValueError(
-                    f"Mount directory already exists and is not empty: {outdir}"
-                )
-            outdir.rmdir()
-
-        if _IS_WINDOWS:
-            # Windows -> Must create parent directories only if they don't exist
-            outdir.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            # Linux -> Must create parent directories and the directory itself
-            outdir.mkdir(parents=True, exist_ok=True)
+        clean_mount(outdir, verbose=verbose)
+        prepare_mount(outdir, verbose=verbose)
         src_str = convert_to_str(src)
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         if not allow_writes:

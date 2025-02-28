@@ -37,7 +37,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api import Rclone
+from rclone_api import Rclone, SizeSuffix
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
@@ -139,7 +139,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         rclone.copy_file_resumable_s3(
             src="src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent",
             dst="dst:rclone-api-unit-test/test_data/test.torrent.testwrite",
-            chunk_size=16 * 1024 * 1024,
+            chunk_size=SizeSuffix("16MB"),
             retries=0,
             save_state_json=save_state_json,
             max_chunks_before_suspension=1,
