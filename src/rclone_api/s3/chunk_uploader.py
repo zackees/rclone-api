@@ -115,6 +115,7 @@ def upload_file_multipart(
     object_name: str,
     resumable_info_path: Path | None,
     chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
+    upload_threads: int = 16,
     retries: int = 20,
     max_chunks_before_suspension: int | None = None,
     abort_transfer_on_failure: bool = False,
@@ -197,7 +198,6 @@ def upload_file_multipart(
         )
     started_new_upload = finished == 0
     upload_info = upload_state.upload_info
-    max_workers = 8
 
     chunker_errors: Queue[Exception] = Queue()
 
@@ -220,7 +220,7 @@ def upload_file_multipart(
         thread_chunker = Thread(target=chunker_task, daemon=True)
         thread_chunker.start()
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=upload_threads) as executor:
             while True:
                 file_chunk: FileChunk | None = filechunks.get()
                 if file_chunk is None:

@@ -74,6 +74,7 @@ class RcloneS3Tester(unittest.TestCase):
             # Uploads one chunk then stops.
             upload_config_partial: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size,
+                max_write_threads=16,
                 retries=0,
                 resume_path_json=state_json,
                 max_chunks_before_suspension=1,
@@ -82,6 +83,7 @@ class RcloneS3Tester(unittest.TestCase):
             # Finishes the upload.
             upload_config_all: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size,
+                max_write_threads=16,
                 retries=0,
                 resume_path_json=state_json,
                 max_chunks_before_suspension=None,

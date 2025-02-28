@@ -678,7 +678,8 @@ class Rclone:
         dst: str,
         save_state_json: Path,
         chunk_size: SizeSuffix | None = None,
-        threads: int = 16,
+        read_threads: int = 16,
+        write_threads: int = 16,
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
@@ -691,10 +692,10 @@ class Rclone:
 
         other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
         chunk_size = chunk_size or SizeSuffix("128M")
-        unit_chunk_size = chunk_size / threads
+        unit_chunk_size = chunk_size / read_threads
         vfs_read_chunk_size = unit_chunk_size
         vfs_read_chunk_size_limit = chunk_size
-        vfs_read_chunk_streams = threads
+        vfs_read_chunk_streams = read_threads
         vfs_disk_space_total_size = chunk_size
         assert (
             chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
@@ -773,6 +774,7 @@ class Rclone:
             client = S3Client(s3_creds)
             config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size.as_int(),
+                max_write_threads=write_threads,
                 retries=retries,
                 resume_path_json=save_state_json,
                 max_chunks_before_suspension=max_chunks_before_suspension,
@@ -797,6 +799,7 @@ class Rclone:
             upload_config = S3MutliPartUploadConfig(
                 chunk_size=chunk_size.as_int(),
                 retries=retries,
+                max_write_threads=write_threads,
                 resume_path_json=save_state_json,
                 max_chunks_before_suspension=max_chunks_before_suspension,
             )

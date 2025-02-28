@@ -46,6 +46,7 @@ class S3MutliPartUploadConfig:
     chunk_size: int
     retries: int
     resume_path_json: Path
+    max_write_threads: int
     max_chunks_before_suspension: int | None = None
     mount_path: Path | None = (
         None  # If set this will be used to mount the src file, otherwise it's one is chosen automatically

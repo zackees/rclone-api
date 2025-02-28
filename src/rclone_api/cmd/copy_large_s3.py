@@ -14,6 +14,7 @@ class Args:
     dst: str
     chunk_size: SizeSuffix
     threads: int
+    write_threads: int
     retries: int
     save_state_json: Path
     verbose: bool
@@ -38,11 +39,17 @@ def _parse_args() -> Args:
         "--chunk-size",
         help="Chunk size that will be read and uploaded in in SizeSuffix (i.e. 128M = 128 megabytes) form",
         type=str,
-        default="1G",
+        default="512MB",
     )
     parser.add_argument(
         "--threads",
         help="Number of threads to use per chunk",
+        type=int,
+        default=64,
+    )
+    parser.add_argument(
+        "--write-threads",
+        help="Max number of chunks to upload in parallel to the destination",
         type=int,
         default=64,
     )
@@ -61,6 +68,7 @@ def _parse_args() -> Args:
         dst=args.dst,
         chunk_size=SizeSuffix(args.chunk_size),
         threads=args.threads,
+        write_threads=args.write_threads,
         retries=args.retries,
         save_state_json=args.resume_json,
         verbose=args.verbose,
@@ -77,7 +85,8 @@ def main() -> int:
         src=args.src,
         dst=args.dst,
         chunk_size=args.chunk_size,
-        threads=args.threads,
+        read_threads=args.threads,
+        write_threads=args.write_threads,
         # vfs_read_chunk_size=unit_chunk,
         # vfs_read_chunk_size_limit=args.chunk_size,
         # vfs_read_chunk_streams=args.threads,
