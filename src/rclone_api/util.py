@@ -5,6 +5,7 @@ import time
 import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Lock
 from typing import Any
 
 from rclone_api.config import Config
@@ -14,6 +15,13 @@ from rclone_api.rpath import RPath
 from rclone_api.types import S3PathInfo
 
 # from .rclone import Rclone
+
+_PRINT_LOCK = Lock()
+
+
+def locked_print(*args, **kwargs):
+    with _PRINT_LOCK:
+        print(*args, **kwargs)
 
 
 def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:
