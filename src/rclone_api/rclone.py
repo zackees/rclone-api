@@ -711,6 +711,7 @@ class Rclone:
             vfs_disk_space_total_size.as_str(),
         ]
         other_args += ["--read-only"]
+        other_args += ["--direct-io"]
         mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
