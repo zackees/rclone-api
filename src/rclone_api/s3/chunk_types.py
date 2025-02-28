@@ -221,9 +221,7 @@ class UploadState:
 
     def save(self) -> None:
         with _SAVE_STATE_LOCK:
-
             self._check_fingerprint_no_lock()
-
             self._save_no_lock()
 
     def _check_fingerprint_no_lock(self) -> None:
@@ -243,7 +241,7 @@ class UploadState:
                 curr_fingerprint = self.fingerprint()
                 if curr_fingerprint != last_upload_state.fingerprint():
                     raise ValueError(
-                        f"Cannot save state, fingerprint changed from {curr_fingerprint} to {self.upload_info.fingerprint()}"
+                        f"Cannot save state, fingerprint changed from {curr_fingerprint} to {last_upload_state.fingerprint()}"
                     )
 
     def _save_no_lock(self) -> None:
