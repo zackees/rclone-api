@@ -710,6 +710,7 @@ class Rclone:
             "--vfs-disk-space-total-size",
             vfs_disk_space_total_size.as_str(),
         ]
+        other_args += ["--read-only"]
         mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
@@ -876,8 +877,8 @@ class Rclone:
         if other_args:
             cmd_list += other_args
         proc = self._launch_process(cmd_list)
-
-        mount: Mount = Mount(mount_path=outdir, process=proc)
+        mount_read_only = "--read-only" in cmd_list  # hint to allow fast teardown
+        mount: Mount = Mount(mount_path=outdir, process=proc, read_only=mount_read_only)
         return mount
 
     @contextmanager

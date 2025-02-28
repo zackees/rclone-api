@@ -267,13 +267,15 @@ class UploadState:
             if p is not None:
                 count_non_none += 1
 
-        # self.count()
+        file_size_bytes = self.upload_info.file_size
         finished_count, total = self.count()
-        total_finished: SizeSuffix = SizeSuffix(
-            finished_count * self.upload_info.chunk_size
-        )
+
+        total_finished_size_bytes = finished_count * self.upload_info.chunk_size
+        if finished_count == total:
+            total_finished_size_bytes = file_size_bytes
+        total_finished: SizeSuffix = SizeSuffix(total_finished_size_bytes)
         total_remaining: SizeSuffix = SizeSuffix(
-            self.remaining() * self.upload_info.chunk_size
+            file_size_bytes - total_finished_size_bytes
         )
 
         # parts.sort(key=lambda x: x.part_number)  # Some backends need this.

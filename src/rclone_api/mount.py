@@ -18,6 +18,7 @@ class Mount:
 
     mount_path: Path
     process: Process
+    read_only: bool
     _closed: bool = False
 
     def __post_init__(self):
