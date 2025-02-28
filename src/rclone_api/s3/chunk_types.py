@@ -184,6 +184,9 @@ class UploadState:
     def is_done(self) -> bool:
         return self.remaining() == 0
 
+    def fingerprint(self) -> str:
+        return self.upload_info.fingerprint()
+
     def count(self) -> tuple[int, int]:  # count, num_chunks
         num_chunks = self.upload_info.total_chunks()
         count = 0
@@ -218,7 +221,30 @@ class UploadState:
 
     def save(self) -> None:
         with _SAVE_STATE_LOCK:
+
+            self._check_fingerprint_no_lock()
+
             self._save_no_lock()
+
+    def _check_fingerprint_no_lock(self) -> None:
+        if self.peristant is None:
+            raise ValueError("No path to save to")
+        s3_client = self.upload_info.s3_client
+        path = self.peristant
+        last_upload_state: UploadState | None = None
+        if path.exists():
+            try:
+                last_upload_state = UploadState.from_json(s3_client, path)
+            except Exception as e:
+                locked_print(f"Error loading state: {e}")
+                last_upload_state = None
+            # now check that the fingerprint is the same
+            if last_upload_state is not None:
+                curr_fingerprint = self.fingerprint()
+                if curr_fingerprint != last_upload_state.fingerprint():
+                    raise ValueError(
+                        f"Cannot save state, fingerprint changed from {curr_fingerprint} to {self.upload_info.fingerprint()}"
+                    )
 
     def _save_no_lock(self) -> None:
         assert self.peristant is not None, "No path to save to"
