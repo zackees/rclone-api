@@ -37,7 +37,7 @@ class SizeResult:
 
 
 def _to_size_suffix(size: int) -> str:
-    def _convert(size: int | float) -> tuple[float, str]:
+    def _convert(size: int) -> tuple[float, str]:
         val: float
         unit: str
         if size < 1024:
@@ -63,20 +63,18 @@ def _to_size_suffix(size: int) -> str:
 
         return val, unit
 
-    def _fmt(_val: float, _unit: str) -> str:
+    def _fmt(_val: float | int, _unit: str) -> str:
         # If the float is an integer, drop the decimal, otherwise format with one decimal.
-
-        # return f"{int(_val) if _val.is_integer() else f'{_val:.1f}'}{_unit}" break this up
-        first_str: str
-        if _val.is_integer():
-            first_str = str(int(_val))
+        val_str: str = str(_val)
+        if not val_str.endswith(".0"):
+            first_str: str = f"{_val:.1f}"
         else:
-            first_str = f"{_val:.1f}"
+            first_str = str(int(_val))
         return first_str + _unit
 
     val, unit = _convert(size)
-    # Now round trip the value to round floating point issues.
     out = _fmt(val, unit)
+    # Now round trip the value to fix floating point issues via rounding.
     int_val = _from_size_suffix(out)
     val, unit = _convert(int_val)
     out = _fmt(val, unit)

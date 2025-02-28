@@ -9,9 +9,9 @@ from rclone_api.s3.basic_ops import (
     list_bucket_contents,
     upload_file,
 )
-from rclone_api.s3.chunk_uploader import MultiUploadResult, upload_file_multipart
 from rclone_api.s3.create import create_s3_client
 from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
+from rclone_api.s3.upload_file_multipart import MultiUploadResult, upload_file_multipart
 
 _MIN_THRESHOLD_FOR_CHUNKING = 5 * 1024 * 1024
 
