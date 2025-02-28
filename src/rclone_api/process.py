@@ -1,5 +1,9 @@
+import atexit
 import os
 import subprocess
+import threading
+import time
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,44 +12,10 @@ from typing import Any
 from rclone_api.config import Config
 from rclone_api.util import get_verbose
 
-# def rclone_launch_process(
-#     cmd: list[str],
-#     rclone_conf: Path | Config,
-#     rclone_exe: Path,
-#     verbose: bool | None = None,
-# ) -> subprocess.Popen:
-#     tempdir: TemporaryDirectory | None = None
-#     verbose = _get_verbose(verbose)
-#     assert verbose is not None
-
-#     try:
-#         if isinstance(rclone_conf, Config):
-#             tempdir = TemporaryDirectory()
-#             tmpfile = Path(tempdir.name) / "rclone.conf"
-#             tmpfile.write_text(rclone_conf.text, encoding="utf-8")
-#             rclone_conf = tmpfile
-#         cmd = (
-#             [str(rclone_exe.resolve())] + ["--config", str(rclone_conf.resolve())] + cmd
-#         )
-#         if verbose:
-#             cmd_str = subprocess.list2cmdline(cmd)
-#             print(f"Running: {cmd_str}")
-#         cp = subprocess.Popen(
-#             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False
-#         )
-#         return cp
-#     finally:
-#         if tempdir:
-#             try:
-#                 tempdir.cleanup()
-#             except Exception as e:
-#                 print(f"Error cleaning up tempdir: {e}")
-
 
 def _get_verbose(verbose: bool | None) -> bool:
     if verbose is not None:
         return verbose
-    # get it from the environment
     return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
 
 
@@ -93,12 +63,58 @@ class Process:
 
         self.process = subprocess.Popen(self.cmd, **kwargs)  # type: ignore
 
+        # Register an atexit callback using a weak reference to avoid
+        # keeping the Process instance alive solely due to the callback.
+        self_ref = weakref.ref(self)
+
+        def exit_cleanup():
+            obj = self_ref()
+            if obj is not None:
+                obj._atexit_terminate()
+
+        atexit.register(exit_cleanup)
+
     def cleanup(self) -> None:
         if self.tempdir and self.needs_cleanup:
             try:
                 self.tempdir.cleanup()
             except Exception as e:
                 print(f"Error cleaning up tempdir: {e}")
+
+    def _atexit_terminate(self) -> None:
+        """
+        Registered via atexit, this method attempts to gracefully terminate the process.
+        If the process does not exit within a short timeout, it is aggressively killed.
+        """
+        if self.process.poll() is None:  # Process is still running
+
+            def terminate_sequence():
+                try:
+                    # Try to terminate gracefully.
+                    self.process.terminate()
+                except Exception as e:
+                    print(f"Error calling terminate on process {self.process.pid}: {e}")
+                # Allow time for graceful shutdown.
+                timeout = 2  # seconds
+                start = time.time()
+                while self.process.poll() is None and (time.time() - start) < timeout:
+                    time.sleep(0.1)
+                # If still running, kill aggressively.
+                if self.process.poll() is None:
+                    try:
+                        self.process.kill()
+                    except Exception as e:
+                        print(f"Error calling kill on process {self.process.pid}: {e}")
+                # Optionally wait briefly for termination.
+                try:
+                    self.process.wait(timeout=1)
+                except Exception:
+                    pass
+
+            # Run the termination sequence in a separate daemon thread.
+            t = threading.Thread(target=terminate_sequence, daemon=True)
+            t.start()
+            t.join(timeout=3)
 
     @property
     def pid(self) -> int:
