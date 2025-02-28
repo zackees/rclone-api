@@ -37,41 +37,70 @@ class SizeResult:
 
 
 def _to_size_suffix(size: int) -> str:
-    if size < 1024:
-        return f"{size}B"
-    elif size < 1024**2:
-        val = size / 1024
-        unit = "K"
-    elif size < 1024**3:
-        val = size / (1024**2)
-        unit = "M"
-    elif size < 1024**4:
-        val = size / (1024**3)
-        unit = "G"
-    elif size < 1024**5:
-        val = size / (1024**4)
-        unit = "T"
-    elif size < 1024**6:
-        val = size / (1024**5)
-        unit = "P"
-    else:
-        raise ValueError(f"Invalid size: {size}")
+    def _convert(size: int | float) -> tuple[float, str]:
+        val: float
+        unit: str
+        if size < 1024:
+            val = size
+            unit = "B"
+        elif size < 1024**2:
+            val = size / 1024
+            unit = "K"
+        elif size < 1024**3:
+            val = size / (1024**2)
+            unit = "M"
+        elif size < 1024**4:
+            val = size / (1024**3)
+            unit = "G"
+        elif size < 1024**5:
+            val = size / (1024**4)
+            unit = "T"
+        elif size < 1024**6:
+            val = size / (1024**5)
+            unit = "P"
+        else:
+            raise ValueError(f"Invalid size: {size}")
 
-    # If the float is an integer, drop the decimal, otherwise format with one decimal.
-    return f"{int(val) if val.is_integer() else f'{val:.1f}'}{unit}"
+        return val, unit
+
+    def _fmt(_val: float, _unit: str) -> str:
+        # If the float is an integer, drop the decimal, otherwise format with one decimal.
+
+        # return f"{int(_val) if _val.is_integer() else f'{_val:.1f}'}{_unit}" break this up
+        first_str: str
+        if _val.is_integer():
+            first_str = str(int(_val))
+        else:
+            first_str = f"{_val:.1f}"
+        return first_str + _unit
+
+    val, unit = _convert(size)
+    # Now round trip the value to round floating point issues.
+    out = _fmt(val, unit)
+    int_val = _from_size_suffix(out)
+    val, unit = _convert(int_val)
+    out = _fmt(val, unit)
+    return out
 
 
 # Update regex to allow decimals (e.g., 16.5MB)
 _PATTERN_SIZE_SUFFIX = re.compile(r"^(\d+(?:\.\d+)?)([A-Za-z]+)$")
 
 
+def _parse_elements(value: str) -> tuple[str, str] | None:
+    match = _PATTERN_SIZE_SUFFIX.match(value)
+    if match is None:
+        return None
+    return match.group(1), match.group(2)
+
+
 def _from_size_suffix(size: str) -> int:
     if size == "0":
         return 0
-    match = _PATTERN_SIZE_SUFFIX.match(size)
-    if match is None:
+    pair = _parse_elements(size)
+    if pair is None:
         raise ValueError(f"Invalid size suffix: {size}")
-    num_str, suffix = match.group(1), match.group(2)
+    num_str, suffix = pair
     n = float(num_str)
     # Determine the unit from the first letter (e.g., "M" from "MB")
     unit = suffix[0].upper()
