@@ -1,54 +1,102 @@
-import os
+import platform
+import subprocess
 import time
 import warnings
 from pathlib import Path
 
-_IS_WINDOWS = os.name == "nt"
+_SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
 
 
-def clean_mount(mount_path: Path, verbose: bool) -> None:
-    """Clean up a mount path."""
-    mount_path_exists: bool = False
+def run_command(cmd: str, verbose: bool) -> int:
+    """Run a shell command and print its output if verbose is True."""
+    if verbose:
+        print(f"Executing: {cmd}")
     try:
-        mount_path_exists = mount_path.exists()
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, check=False
+        )
+        if result.returncode != 0 and verbose:
+            print(f"Command failed: {cmd}\nStdErr: {result.stderr.strip()}")
+        return result.returncode
+    except Exception as e:
+        warnings.warn(f"Error running command '{cmd}': {e}")
+        return -1
+
+
+def clean_mount(mount_path: Path, verbose: bool = False) -> None:
+    """
+    Clean up a mount path across Linux, macOS, and Windows.
+
+    The function attempts to unmount the mount at mount_path, then, if the
+    directory is empty, removes it. On Linux it uses 'fusermount -u' (for FUSE mounts)
+    and 'umount'. On macOS it uses 'umount' (and optionally 'diskutil unmount'),
+    while on Windows it attempts to remove the mount point via 'mountvol /D'.
+    """
+    # Check if the mount path exists; if an OSError occurs, assume it exists.
+    try:
+        mount_exists = mount_path.exists()
     except OSError as e:
-        warnings.warn(f"Error in scoped_mount: {e}")
-        mount_path_exists = True
+        warnings.warn(f"Error checking {mount_path}: {e}")
+        mount_exists = True
+
+    # Give the system a moment (if unmount is in progress, etc.)
     time.sleep(2)
-    if mount_path_exists:
-        print(f"{mount_path} mount still exists, attempting to remove")
-        if not _IS_WINDOWS:
 
-            def exec(cmd: str) -> int:
+    if not mount_exists:
+        if verbose:
+            print(f"{mount_path} does not exist; nothing to clean up.")
+        return
+
+    if verbose:
+        print(f"{mount_path} still exists, attempting to unmount and remove.")
+
+    # Platform-specific unmount procedures
+    if _SYSTEM == "Linux":
+        # Try FUSE unmount first (if applicable), then the regular umount.
+        run_command(f"fusermount -u {mount_path}", verbose)
+        run_command(f"umount {mount_path}", verbose)
+    elif _SYSTEM == "Darwin":
+        # On macOS, use umount; optionally try diskutil for stubborn mounts.
+        run_command(f"umount {mount_path}", verbose)
+        # Optionally: uncomment the next line if diskutil unmount is preferred.
+        # run_command(f"diskutil unmount {mount_path}", verbose)
+    elif _SYSTEM == "Windows":
+        # On Windows, remove the mount point using mountvol.
+        run_command(f"mountvol {mount_path} /D", verbose)
+        # If that does not work, try to remove the directory directly.
+        try:
+            mount_path.rmdir()
+            if verbose:
+                print(f"Successfully removed mount directory {mount_path}")
+        except Exception as e:
+            warnings.warn(f"Failed to remove mount {mount_path}: {e}")
+    else:
+        warnings.warn(f"Unsupported platform: {_SYSTEM}")
+
+    # Allow some time for the unmount commands to take effect.
+    time.sleep(2)
+
+    # Re-check if the mount path still exists.
+    try:
+        still_exists = mount_path.exists()
+    except OSError as e:
+        warnings.warn(f"Error re-checking {mount_path}: {e}")
+        still_exists = True
+
+    if still_exists:
+        if verbose:
+            print(f"{mount_path} still exists after unmount attempt.")
+        # Attempt to remove the directory if it is empty.
+        try:
+            # Only remove if the directory is empty.
+            if not any(mount_path.iterdir()):
+                mount_path.rmdir()
                 if verbose:
-                    print(f"Executing: {cmd}")
-                rtn = os.system(cmd)
-                if rtn != 0 and verbose:
-                    print(f"Failed to execute: {cmd}")
-                return rtn
-
-            exec(f"fusermount -u {mount_path}")
-            exec(f"umount {mount_path}")
-            time.sleep(2)
-
-            try:
-                mount_path_exists = mount_path.exists()
-            except OSError as e:
-                warnings.warn(f"Error in scoped_mount: {e}")
-                mount_path_exists = True
-
-            if mount_path_exists:
-                is_empty = True
-                try:
-                    is_empty = not list(mount_path.iterdir())
-                    if not is_empty:
-                        warnings.warn(f"Failed to unmount {mount_path}")
-                    else:
-                        try:
-                            mount_path.rmdir()
-                        except Exception as e:
-                            warnings.warn(f"Failed to remove {mount_path}: {e}")
-                except Exception as e:
-                    warnings.warn(
-                        f"Failed during mount cleanup of {mount_path}: because {e}"
-                    )
+                    print(f"Removed empty mount directory {mount_path}")
+            else:
+                warnings.warn(f"{mount_path} is not empty; cannot remove.")
+        except Exception as e:
+            warnings.warn(f"Failed during cleanup of {mount_path}: {e}")
+    else:
+        if verbose:
+            print(f"{mount_path} successfully cleaned up.")
