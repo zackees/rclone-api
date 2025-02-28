@@ -39,13 +39,13 @@ def _parse_args() -> Args:
         "--chunk-size",
         help="Chunk size that will be read and uploaded in in SizeSuffix (i.e. 128M = 128 megabytes) form",
         type=str,
-        default="512MB",
+        default="256MB",
     )
     parser.add_argument(
         "--threads",
         help="Number of threads to use per chunk",
         type=int,
-        default=64,
+        default=32,
     )
     parser.add_argument(
         "--write-threads",
