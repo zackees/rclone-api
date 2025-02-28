@@ -32,7 +32,7 @@ def _create_backblaze_s3_client(creds: S3Credentials, verbose: bool) -> BaseClie
             # Note that BackBlase has a boko3 bug where it doesn't support the new
             # checksum header, the following line was an attempt of fix it on the newest
             # version of boto3, but it didn't work.
-            # s3={"payload_signing_enabled": False},  # Disable checksum header
+            s3={"payload_signing_enabled": False},  # Disable checksum header
         ),
     )
 
