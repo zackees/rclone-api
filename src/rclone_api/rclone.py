@@ -712,6 +712,8 @@ class Rclone:
         ]
         other_args += ["--read-only"]
         other_args += ["--direct-io"]
+        # --vfs-cache-max-size
+        other_args += ["--vfs-cache-max-size", vfs_disk_space_total_size.as_str()]
         mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
