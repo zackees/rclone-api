@@ -723,7 +723,7 @@ class Rclone:
             mount_path,
             use_links=True,
             vfs_cache_mode="minimal",
-            verbose=verbose,
+            verbose=False,
             other_args=other_args,
         ):
             # raise NotImplementedError("Not implemented yet")
