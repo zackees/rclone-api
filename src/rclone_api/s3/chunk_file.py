@@ -36,6 +36,14 @@ def file_chunker(
         if count >= max_chunks:
             return True
         count += 1
+        if count > 10 and count % 10 == 0:
+            # recheck that the file size has not changed
+            file_size = _get_file_size(upload_state.upload_info.src_file_path)
+            if file_size != upload_state.upload_info.file_size:
+                locked_print(
+                    f"File size changed, cannot resume, expected {upload_state.upload_info.file_size}, got {file_size}"
+                )
+                raise ValueError("File size changed, cannot resume")
         return False
 
     upload_info = upload_state.upload_info

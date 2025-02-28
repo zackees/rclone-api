@@ -914,9 +914,15 @@ class Rclone:
             if proc.poll() is None:
                 proc.terminate()
             proc.wait()
-            if not error_happened and outdir.exists():
+            if not error_happened:
+                outdir_exists: bool = False
+                try:
+                    outdir_exists = outdir.exists()
+                except OSError as e:
+                    warnings.warn(f"Error in scoped_mount: {e}")
+                    outdir_exists = True
                 time.sleep(2)
-                if outdir.exists():
+                if outdir_exists:
                     print(f"{outdir} mount still exists, attempting to remove")
                     if not _IS_WINDOWS:
 
@@ -931,7 +937,14 @@ class Rclone:
                         exec(f"fusermount -u {outdir}")
                         exec(f"umount {outdir}")
                         time.sleep(2)
-                        if outdir.exists():
+
+                        try:
+                            outdir_exists = outdir.exists()
+                        except OSError as e:
+                            warnings.warn(f"Error in scoped_mount: {e}")
+                            outdir_exists = True
+
+                        if outdir_exists:
                             is_empty = True
                             try:
                                 is_empty = not list(outdir.iterdir())
