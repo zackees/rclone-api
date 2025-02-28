@@ -52,33 +52,33 @@ def _to_size_suffix(size: int) -> str:
     raise ValueError(f"Invalid size: {size}")
 
 
-_PATTERN_SIZE_SUFFIX = re.compile(r"^(\d+)([A-Za-z]+)$")
+# Update regex to allow decimals (e.g., 16.5MB)
+_PATTERN_SIZE_SUFFIX = re.compile(r"^(\d+(?:\.\d+)?)([A-Za-z]+)$")
 
 
 def _from_size_suffix(size: str) -> int:
-    # 16MiB
-    # parse out number and suffix
     if size == "0":
         return 0
     match = _PATTERN_SIZE_SUFFIX.match(size)
     if match is None:
         raise ValueError(f"Invalid size suffix: {size}")
-    size = match.group(1)
-    suffix = match.group(2)[0:1].upper()
-    n = int(size)
-    if suffix == "B":
-        return n
-    if suffix == "K":
-        return n * 1024
-    if suffix == "M":
-        return n * 1024 * 1024
-    if suffix == "G":
-        return n * 1024 * 1024 * 1024
-    if suffix == "T":
-        return n * 1024 * 1024 * 1024 * 1024
-    if suffix == "P":
-        return n * 1024 * 1024 * 1024 * 1024 * 1024
-    raise ValueError(f"Invalid size suffix: {size}")
+    num_str, suffix = match.group(1), match.group(2)
+    n = float(num_str)
+    # Determine the unit from the first letter (e.g., "M" from "MB")
+    unit = suffix[0].upper()
+    if unit == "B":
+        return int(n)
+    if unit == "K":
+        return int(n * 1024)
+    if unit == "M":
+        return int(n * 1024 * 1024)
+    if unit == "G":
+        return int(n * 1024 * 1024 * 1024)
+    if unit == "T":
+        return int(n * 1024**4)
+    if unit == "P":
+        return int(n * 1024**5)
+    raise ValueError(f"Invalid size suffix: {suffix}")
 
 
 class SizeSuffix:
