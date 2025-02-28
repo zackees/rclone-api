@@ -816,55 +816,35 @@ class Rclone:
         src: str,
         offset: int,
         length: int,
+        transfers: int = 16,
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
         from rclone_api.util import random_str
-
         tmp_mnt = Path("tmp_mnt") / random_str(12)
         src_parent_path = Path(src).parent.as_posix()
         src_file = Path(src).name
-
-        # other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
-        # chunk_size = chunk_size or SizeSuffix("64M")
-        # unit_chunk_size = chunk_size / read_threads
-        # vfs_read_chunk_size = unit_chunk_size
-        # vfs_read_chunk_size_limit = chunk_size
-        # vfs_read_chunk_streams = read_threads
-        # vfs_disk_space_total_size = chunk_size
-        # assert (
-        #     chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
-        # ), f"chunk_size {chunk_size} must be a multiple of vfs_read_chunk_size {vfs_read_chunk_size}"
-        # other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
-        # other_args += [
-        #     "--vfs-read-chunk-size-limit",
-        #     vfs_read_chunk_size_limit.as_str(),
-        # ]
-        # other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
-        # other_args += [
-        #     "--vfs-disk-space-total-size",
-        #     vfs_disk_space_total_size.as_str(),
-        # ]
-        # other_args += ["--read-only"]
-        # other_args += ["--direct-io"]
-        # # --vfs-cache-max-size
-        # other_args += ["--vfs-cache-max-size", vfs_disk_space_total_size.as_str()]
-        # mount_path = mount_path or Path("tmp_mnts") / random_str(12)
-        # src_path = Path(src)
-        # name = src_path.name
-        # parent_path = str(src_path.parent.as_posix())
-        # with self.scoped_mount(
-        #     parent_path,
-        #     mount_path,
-        #     use_links=True,
-        #     vfs_cache_mode="minimal",
-        #     verbose=False,
-        #     other_args=other_args,
-        # ):
+        other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
+        unit_chunk_size = length
+        vfs_read_chunk_size = unit_chunk_size
+        vfs_read_chunk_size_limit = length
+        vfs_read_chunk_streams = transfers
+        vfs_disk_space_total_size = length
+        other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
+        other_args += ["--vfs-read-chunk-size-limit", str(vfs_read_chunk_size_limit)]
+        other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
+        other_args += ["--vfs-disk-space-total-size", str(vfs_disk_space_total_size)]
+        other_args += ["--read-only"]
+        other_args += ["--direct-io"]
 
         try:
             # use scoped mount to do the read, then write the bytes to the destination
             with self.scoped_mount(
-                src_parent_path, tmp_mnt, use_links=True, verbose=False
+                src_parent_path,
+                tmp_mnt,
+                use_links=True,
+                verbose=False,
+                vfs_cache_mode="minimal",
+                other_args=other_args,
             ):
                 src_file_mnt = tmp_mnt / src_file
                 with open(src_file_mnt, "rb") as f:
