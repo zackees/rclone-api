@@ -13,7 +13,7 @@ class Args:
     src: str
     dst: str
     chunk_size: SizeSuffix
-    threads: int
+    read_threads: int
     write_threads: int
     retries: int
     save_state_json: Path
@@ -37,19 +37,19 @@ def _parse_args() -> Args:
     )
     parser.add_argument(
         "--chunk-size",
-        help="Chunk size that will be read and uploaded in in SizeSuffix (i.e. 128M = 128 megabytes) form",
+        help="Chunk size that will be read and uploaded in SizeSuffix form, too low or too high will cause issues",
         type=str,
-        default="64MB",
+        default="64MB",  # if this is too low or too high an s3 service
     )
     parser.add_argument(
-        "--threads",
-        help="Number of threads to use per chunk",
+        "--read-threads",
+        help="Number of concurrent read threads per chunk, only one chunk will be read at a time",
         type=int,
-        default=8,
+        default=32,
     )
     parser.add_argument(
         "--write-threads",
-        help="Max number of chunks to upload in parallel to the destination",
+        help="Max number of chunks to upload in parallel to the destination, each chunk is uploaded in a separate thread",
         type=int,
         default=64,
     )
@@ -67,7 +67,7 @@ def _parse_args() -> Args:
         src=args.src,
         dst=args.dst,
         chunk_size=SizeSuffix(args.chunk_size),
-        threads=args.threads,
+        read_threads=args.read_threads,
         write_threads=args.write_threads,
         retries=args.retries,
         save_state_json=args.resume_json,
@@ -85,11 +85,8 @@ def main() -> int:
         src=args.src,
         dst=args.dst,
         chunk_size=args.chunk_size,
-        read_threads=args.threads,
+        read_threads=args.read_threads,
         write_threads=args.write_threads,
-        # vfs_read_chunk_size=unit_chunk,
-        # vfs_read_chunk_size_limit=args.chunk_size,
-        # vfs_read_chunk_streams=args.threads,
         retries=args.retries,
         save_state_json=args.save_state_json,
         verbose=args.verbose,
