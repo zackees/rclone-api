@@ -62,7 +62,7 @@ def _parse_args() -> Args:
         chunk_size_mb=SizeSuffix(args.chunk_size),
         read_concurrent_chunks=args.read_concurrent_chunks,
         retries=args.retries,
-        save_state_json=args.resumable_json,
+        save_state_json=args.resume_json,
         verbose=args.verbose,
     )
     return out
