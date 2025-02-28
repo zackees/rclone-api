@@ -817,6 +817,9 @@ class Rclone:
         offset: int,
         length: int,
         transfers: int = 16,
+        outfile: (
+            Path | None
+        ) = None,  # If supplied then bytes are written to this file and success returns bytes(0)
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
         from rclone_api.util import random_str
@@ -851,7 +854,13 @@ class Rclone:
                 with open(src_file_mnt, "rb") as f:
                     f.seek(offset)
                     data = f.read(length)
-                    return data
+                    if outfile is None:
+                        return data
+                    with open(outfile, "wb") as out:
+                        out.write(data)
+                        del data
+                    return bytes(0)
+
         except Exception as e:
             return e
 

@@ -3,7 +3,9 @@ Unit test file.
 """
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -69,6 +71,26 @@ class RcloneCopyBytesTester(unittest.TestCase):
         self.assertEqual(
             len(bytes_or_err), 1024 * 1024
         )  # , f"Length: {len(bytes_or_err)}"
+
+    def test_copy_bytes_to_temp_file(self) -> None:
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir) / "tmp.mp4"
+            rclone = Rclone(_generate_rclone_config())
+            bytes_or_err: bytes | Exception = rclone.copy_bytes(
+                src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
+                offset=0,
+                length=1024 * 1024,
+                outfile=tmp,
+            )
+            if isinstance(bytes_or_err, Exception):
+                print(bytes_or_err)
+                self.fail(f"Error: {bytes_or_err}")
+            assert isinstance(bytes_or_err, bytes)
+            self.assertEqual(len(bytes_or_err), 0)
+            self.assertTrue(tmp.exists())
+            tmp_size = tmp.stat().st_size
+            self.assertEqual(tmp_size, 1024 * 1024)
 
 
 if __name__ == "__main__":
