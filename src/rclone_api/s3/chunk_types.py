@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import time
@@ -102,6 +103,19 @@ class UploadInfo:
         if self._total_chunks is not None:
             return
         self._total_chunks = self.total_chunks()
+
+    def fingerprint(self) -> str:
+        # hash the attributes that are used to identify the upload
+        hasher = hashlib.sha256()
+        # first is file size
+        hasher.update(str(self.file_size).encode("utf-8"))
+        # second is the file path
+        hasher.update(str(self.src_file_path).encode("utf-8"))
+        # next is chunk size
+        hasher.update(str(self.chunk_size).encode("utf-8"))
+        # next is the number of parts
+        hasher.update(str(self._total_chunks).encode("utf-8"))
+        return hasher.hexdigest()
 
     def to_json(self) -> dict:
         json_dict = {}

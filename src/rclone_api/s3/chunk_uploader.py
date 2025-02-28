@@ -162,7 +162,25 @@ def upload_file_multipart(
         return upload_state
 
     filechunks: Queue[FileChunk | None] = Queue(10)
-    upload_state = get_upload_state() or make_new_state()
+    new_state = make_new_state()
+    loaded_state = get_upload_state()
+
+    if loaded_state is None:
+        upload_state = new_state
+    else:
+        # if the file size has changed, we cannot resume
+        if (
+            loaded_state.upload_info.fingerprint()
+            != new_state.upload_info.fingerprint()
+        ):
+            locked_print(
+                f"Cannot resume upload: file size changed, starting over for {file_path}"
+            )
+            _abort_previous_upload(loaded_state)
+            upload_state = new_state
+        else:
+            upload_state = loaded_state
+
     try:
         upload_state.update_source_file(file_path)
     except ValueError as e:
