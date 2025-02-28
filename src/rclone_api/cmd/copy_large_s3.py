@@ -42,9 +42,9 @@ def _parse_args() -> Args:
     )
     parser.add_argument(
         "--read-concurrent-chunks",
-        help="Maximum number of chunks to read in a look ahead cache",
+        help="Peformance setting, increaseing this will increase the number of chunks read concurrently",
         type=int,
-        default=1,
+        default=16,
     )
     parser.add_argument("--retries", help="Number of retries", type=int, default=3)
     parser.add_argument(

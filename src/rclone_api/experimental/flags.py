@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from rclone_api.experimental.flags_base import BaseFlags, merge_flags
+from rclone_api.types import SizeSuffix
 
 
 @dataclass
@@ -20,7 +21,7 @@ class CopyFlags(BaseFlags):
     links: bool | None = None
     max_backlog: int | None = None
     max_duration: str | None = None
-    max_transfer: str | None = None
+    max_transfer: SizeSuffix | None = None
     metadata: bool | None = None
     modify_window: str | None = None
     multi_thread_chunk_size: str | None = None
@@ -76,6 +77,12 @@ def unit_test() -> None:
     print("B:", merged_c_d)
     merged_d_c = copy_flags_d.merge(copy_flags_c)
     print("C:", merged_d_c)
+
+    # now do the one with the SizeSuffix type
+    copy_flags_e = CopyFlags(max_transfer=SizeSuffix("128M"))
+    copy_flags_f = CopyFlags(max_transfer=SizeSuffix("256M"))
+    merged_e_f = copy_flags_e.merge(copy_flags_f)
+    print("D:", merged_e_f)
 
 
 if __name__ == "__main__":
