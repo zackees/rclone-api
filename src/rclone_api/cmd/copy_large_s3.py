@@ -35,17 +35,20 @@ def _parse_args() -> Args:
         "--config", help="Path to rclone config file", type=Path, required=True
     )
     parser.add_argument(
-        "--chunk-size-mb", help="Chunk size in MB", type=int, default=256
+        "--chunk-size",
+        help="Chunk size that will be read and uploaded in in SizeSuffix (i.e. 128M = 128 megabytes) form",
+        type=str,
+        default="128M",
     )
     parser.add_argument(
         "--read-concurrent-chunks",
-        help="Maximum number of chunks to read",
+        help="Maximum number of chunks to read in a look ahead cache",
         type=int,
-        default=4,
+        default=1,
     )
     parser.add_argument("--retries", help="Number of retries", type=int, default=3)
     parser.add_argument(
-        "--resumable-json",
+        "--resume-json",
         help="Path to resumable JSON file",
         type=Path,
         default="resume.json",
@@ -56,7 +59,7 @@ def _parse_args() -> Args:
         config_path=Path(args.config),
         src=args.src,
         dst=args.dst,
-        chunk_size_mb=SizeSuffix(args.chunk_size_mb * _1MB),
+        chunk_size_mb=SizeSuffix(args.chunk_size),
         read_concurrent_chunks=args.read_concurrent_chunks,
         retries=args.retries,
         save_state_json=args.resumable_json,
