@@ -820,6 +820,7 @@ class Rclone:
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
         from rclone_api.util import random_str
+
         tmp_mnt = Path("tmp_mnt") / random_str(12)
         src_parent_path = Path(src).parent.as_posix()
         src_file = Path(src).name
