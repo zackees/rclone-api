@@ -39,17 +39,26 @@ class SizeResult:
 def _to_size_suffix(size: int) -> str:
     if size < 1024:
         return f"{size}B"
-    if size < 1024 * 1024:
-        return f"{size // 1024}K"
-    if size < 1024 * 1024 * 1024:
-        return f"{size // (1024 * 1024)}M"
-    if size < 1024 * 1024 * 1024 * 1024:
-        return f"{size // (1024 * 1024 * 1024)}G"
-    if size < 1024 * 1024 * 1024 * 1024 * 1024:
-        return f"{size // (1024 * 1024 * 1024 * 1024)}T"
-    if size < 1024 * 1024 * 1024 * 1024 * 1024 * 1024:
-        return f"{size // (1024 * 1024 * 1024 * 1024 * 1024)}P"
-    raise ValueError(f"Invalid size: {size}")
+    elif size < 1024**2:
+        val = size / 1024
+        unit = "K"
+    elif size < 1024**3:
+        val = size / (1024**2)
+        unit = "M"
+    elif size < 1024**4:
+        val = size / (1024**3)
+        unit = "G"
+    elif size < 1024**5:
+        val = size / (1024**4)
+        unit = "T"
+    elif size < 1024**6:
+        val = size / (1024**5)
+        unit = "P"
+    else:
+        raise ValueError(f"Invalid size: {size}")
+
+    # If the float is an integer, drop the decimal, otherwise format with one decimal.
+    return f"{int(val) if val.is_integer() else f'{val:.1f}'}{unit}"
 
 
 # Update regex to allow decimals (e.g., 16.5MB)
