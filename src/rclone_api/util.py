@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import time
 import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -133,26 +132,6 @@ def rclone_execute(
                 tempdir.cleanup()
             except Exception as e:
                 print(f"Error cleaning up tempdir: {e}")
-
-
-def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
-    from rclone_api.process import Process
-
-    assert isinstance(mount_process, Process)
-    expire_time = time.time() + timeout
-    while time.time() < expire_time:
-        rtn = mount_process.poll()
-        if rtn is not None:
-            cmd_str = subprocess.list2cmdline(mount_process.cmd)
-            raise subprocess.CalledProcessError(rtn, cmd_str)
-        if path.exists():
-            # how many files?
-            dircontents = os.listdir(str(path))
-            if len(dircontents) > 0:
-                print(f"Mount point {path}, waiting 5 seconds for files to appear.")
-                time.sleep(5)
-                return
-        time.sleep(1)
 
 
 def split_s3_path(path: str) -> S3PathInfo:

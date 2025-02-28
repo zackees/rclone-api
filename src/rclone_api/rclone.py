@@ -25,7 +25,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import group_files
-from rclone_api.mount import Mount, clean_mount, prepare_mount
+from rclone_api.mount import Mount, clean_mount, prepare_mount, wait_for_mount
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -47,11 +47,8 @@ from rclone_api.util import (
     get_rclone_exe,
     get_verbose,
     to_path,
-    wait_for_mount,
 )
 from rclone_api.walk import walk
-
-_IS_WINDOWS = os.name == "nt"
 
 
 def rclone_verbose(verbose: bool | None) -> bool:
@@ -837,7 +834,7 @@ class Rclone:
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
         other_args: list[str] | None = None,
-    ) -> Process:
+    ) -> Mount:
         """Mount a remote or directory to a local path.
 
         Args:
@@ -871,8 +868,9 @@ class Rclone:
         if other_args:
             cmd_list += other_args
         proc = self._launch_process(cmd_list)
-        wait_for_mount(outdir, proc)
-        return proc
+
+        mount: Mount = Mount(mount_path=outdir, process=proc)
+        return mount
 
     @contextmanager
     def scoped_mount(
@@ -888,7 +886,7 @@ class Rclone:
         """Like mount, but can be used in a context manager."""
         error_happened = False
         verbose = get_verbose(verbose)
-        proc = self.mount(
+        mount: Mount = self.mount(
             src,
             outdir,
             allow_writes=allow_writes,
@@ -897,7 +895,6 @@ class Rclone:
             verbose=verbose,
             other_args=other_args,
         )
-        mount = Mount(mount_path=outdir, process=proc)
         try:
             yield mount
         except Exception as e:
@@ -906,9 +903,7 @@ class Rclone:
             warnings.warn(f"Error in scoped_mount: {e}\n\nStack Trace:\n{stack_trace}")
             raise
         finally:
-            if proc.poll() is None:
-                proc.terminate()
-            proc.wait()
+
             if not error_happened:
                 from rclone_api.mount import clean_mount
 
@@ -994,7 +989,7 @@ class Rclone:
         # vfs-refresh
         vfs_refresh: bool = True,
         other_args: list[str] | None = None,
-    ) -> Process:
+    ) -> Mount:
         """Mount a remote or directory to a local path.
 
         Args:

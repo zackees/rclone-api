@@ -100,6 +100,10 @@ class Process:
             except Exception as e:
                 print(f"Error cleaning up tempdir: {e}")
 
+    @property
+    def pid(self) -> int:
+        return self.process.pid
+
     def __del__(self) -> None:
         self.cleanup()
 

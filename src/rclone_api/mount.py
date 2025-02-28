@@ -1,9 +1,11 @@
+import os
 import platform
 import subprocess
 import time
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from rclone_api.process import Process
 
@@ -15,7 +17,12 @@ class Mount:
     """Mount information."""
 
     mount_path: Path
-    process: Process | None
+    process: Process
+
+    def __post_init__(self):
+        assert isinstance(self.mount_path, Path)
+        assert self.process is not None
+        wait_for_mount(self.mount_path, self.process)
 
 
 def run_command(cmd: str, verbose: bool) -> int:
@@ -47,6 +54,26 @@ def prepare_mount(outdir: Path, verbose: bool) -> None:
         outdir.mkdir(parents=True, exist_ok=True)
 
 
+def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
+    from rclone_api.process import Process
+
+    assert isinstance(mount_process, Process)
+    expire_time = time.time() + timeout
+    while time.time() < expire_time:
+        rtn = mount_process.poll()
+        if rtn is not None:
+            cmd_str = subprocess.list2cmdline(mount_process.cmd)
+            raise subprocess.CalledProcessError(rtn, cmd_str)
+        if path.exists():
+            # how many files?
+            dircontents = os.listdir(str(path))
+            if len(dircontents) > 0:
+                print(f"Mount point {path}, waiting 5 seconds for files to appear.")
+                time.sleep(5)
+                return
+        time.sleep(1)
+
+
 def clean_mount(mount: Mount | Path, verbose: bool = False) -> None:
     """
     Clean up a mount path across Linux, macOS, and Windows.
@@ -56,6 +83,12 @@ def clean_mount(mount: Mount | Path, verbose: bool = False) -> None:
     and 'umount'. On macOS it uses 'umount' (and optionally 'diskutil unmount'),
     while on Windows it attempts to remove the mount point via 'mountvol /D'.
     """
+    proc = mount.process if isinstance(mount, Mount) else None
+    if proc is not None and proc.poll() is None:
+        if verbose:
+            print(f"Terminating mount process {proc.pid}")
+        proc.kill()
+
     # Check if the mount path exists; if an OSError occurs, assume it exists.
     mount_path = mount.mount_path if isinstance(mount, Mount) else mount
     try:
