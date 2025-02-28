@@ -695,6 +695,7 @@ class Rclone:
         vfs_read_chunk_size = unit_chunk_size
         vfs_read_chunk_size_limit = chunk_size
         vfs_read_chunk_streams = threads
+        vfs_disk_space_total_size = chunk_size
         assert (
             chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
         ), f"chunk_size {chunk_size} must be a multiple of vfs_read_chunk_size {vfs_read_chunk_size}"
@@ -704,6 +705,10 @@ class Rclone:
             vfs_read_chunk_size_limit.as_str(),
         ]
         other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
+        other_args += [
+            "--vfs-disk-space-total-size",
+            vfs_disk_space_total_size.as_str(),
+        ]
         mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
@@ -903,11 +908,8 @@ class Rclone:
             warnings.warn(f"Error in scoped_mount: {e}\n\nStack Trace:\n{stack_trace}")
             raise
         finally:
-
             if not error_happened:
-                from rclone_api.mount import clean_mount
-
-                clean_mount(mount, verbose=verbose)
+                mount.close()
 
     # Settings optimized for s3.
     def mount_s3(

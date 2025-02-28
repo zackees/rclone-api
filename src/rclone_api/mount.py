@@ -18,11 +18,22 @@ class Mount:
 
     mount_path: Path
     process: Process
+    _closed: bool = False
 
     def __post_init__(self):
         assert isinstance(self.mount_path, Path)
         assert self.process is not None
         wait_for_mount(self.mount_path, self.process)
+
+    def close(self, wait=True) -> None:
+        """Clean up the mount."""
+        if self._closed:
+            return
+        self._closed = True
+        clean_mount(self, verbose=False)
+
+    def __del__(self):
+        self.close(wait=False)
 
 
 def run_command(cmd: str, verbose: bool) -> int:
@@ -74,7 +85,7 @@ def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
         time.sleep(1)
 
 
-def clean_mount(mount: Mount | Path, verbose: bool = False) -> None:
+def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     """
     Clean up a mount path across Linux, macOS, and Windows.
 
@@ -98,7 +109,8 @@ def clean_mount(mount: Mount | Path, verbose: bool = False) -> None:
         mount_exists = True
 
     # Give the system a moment (if unmount is in progress, etc.)
-    time.sleep(2)
+    if wait:
+        time.sleep(2)
 
     if not mount_exists:
         if verbose:
@@ -132,7 +144,8 @@ def clean_mount(mount: Mount | Path, verbose: bool = False) -> None:
         warnings.warn(f"Unsupported platform: {_SYSTEM}")
 
     # Allow some time for the unmount commands to take effect.
-    time.sleep(2)
+    if wait:
+        time.sleep(2)
 
     # Re-check if the mount path still exists.
     try:
