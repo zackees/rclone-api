@@ -4,6 +4,7 @@ Unit test file.
 
 import os
 import time
+from pathlib import Path
 
 import psutil
 from dotenv import load_dotenv
@@ -51,6 +52,8 @@ port = {SRC_SFTP_PORT}
 pass = {SRC_SFTP_PASS}
 
 """
+    print("Config text:")
+    print(config_text)
     # _CONFIG_PATH.write_text(config_text, encoding="utf-8")
     # print(f"Config file written to: {_CONFIG_PATH}")
     return Config(config_text)
@@ -73,6 +76,7 @@ def _init() -> None:
 def test_profile_copy_bytes() -> None:
     print("Running test_profile_copy_bytes")
     rclone = Rclone(_generate_rclone_config())
+
     sizes = [
         1024 * 1024 * 1,
         1024 * 1024 * 2,
@@ -91,6 +95,7 @@ def test_profile_copy_bytes() -> None:
 
     for size in sizes:
         for transfers in transfer_list:
+            mount_log = Path("logs") / "mount" / f"mount_{size}_{transfers}.log"
             print("\n\n")
             print("#" * 80)
             print(
@@ -105,12 +110,14 @@ def test_profile_copy_bytes() -> None:
                 length=size,
                 direct_io=True,
                 transfers=transfers,
+                mount_log=mount_log,
             )
             diff = time.time() - start
             net_io_end = psutil.net_io_counters()
             if isinstance(bytes_or_err, Exception):
                 print(bytes_or_err)
-                assert False, f"Error: {bytes_or_err}"
+                stack_trace = bytes_or_err.__traceback__
+                assert False, f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}"
             assert isinstance(bytes_or_err, bytes)
             # self.assertEqual(len(bytes_or_err), size)
             assert len(bytes_or_err) == size, f"Length: {len(bytes_or_err)} != {size}"
