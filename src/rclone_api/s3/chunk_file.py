@@ -88,9 +88,17 @@ def file_chunker(
             assert offset < file_size, f"Offset {offset} is greater than file size"
 
             # Open the file, seek, read the chunk, and close immediately.
-            with open(file_path, "rb") as f:
-                f.seek(offset)
-                data = f.read(chunk_size)
+            # with open(file_path, "rb") as f:
+            #     f.seek(offset)
+            #     data = f.read(chunk_size)
+
+            data = chunk_fetcher(offset, chunk_size).result()
+
+            if isinstance(data, Exception):
+                warnings.warn(
+                    f"Error reading file: {data}, skipping part {part_number}"
+                )
+                continue
 
             if not data:
                 warnings.warn(f"Empty data for part {part_number} of {file_path}")
