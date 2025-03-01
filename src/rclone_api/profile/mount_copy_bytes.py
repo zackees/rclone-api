@@ -108,7 +108,8 @@ def _run_profile(
     offset: SizeSuffix,
     size: SizeSuffix,
     log_dir: Path,
-    direct_io: bool = True,
+    num: int,
+    direct_io: bool,
 ) -> None:
 
     mount_log = log_dir / f"mount_{SizeSuffix(size)}_threads_{transfers}.log"
@@ -137,9 +138,9 @@ def _run_profile(
     assert len(bytes_or_err) == size.as_int(), f"Length: {len(bytes_or_err)} != {size}"
 
     # print io stats
-    bytes_sent = net_io_end.bytes_sent - net_io_start.bytes_sent
-    bytes_recv = net_io_end.bytes_recv - net_io_start.bytes_recv
-    packets_sent = net_io_end.packets_sent - net_io_start.packets_sent
+    bytes_sent = (net_io_end.bytes_sent - net_io_start.bytes_sent) // num
+    bytes_recv = (net_io_end.bytes_recv - net_io_start.bytes_recv) // num
+    packets_sent = (net_io_end.packets_sent - net_io_start.packets_sent) // num
     efficiency = size.as_int() / (bytes_recv)
     efficiency_100 = efficiency * 100
     efficiency_str = f"{efficiency_100:.2f}"
@@ -164,6 +165,7 @@ def test_profile_copy_bytes(
     transfer_list: list[int] | None,
     mount_root_path: Path,
     size: SizeSuffix | None,
+    num: int,
 ) -> None:
 
     if size:
@@ -197,6 +199,7 @@ def test_profile_copy_bytes(
                 size=SizeSuffix(sz),
                 direct_io=args.direct_io,
                 log_dir=mount_root_path,
+                num=num,
             )
     print("done")
 
@@ -244,6 +247,7 @@ def main() -> None:
             mount_root_path=mount_root_path,
             transfer_list=transfer_list,
             size=args.size,
+            num=args.num,
         )
 
     with ThreadPoolExecutor(max_workers=parallel_workers) as _:
