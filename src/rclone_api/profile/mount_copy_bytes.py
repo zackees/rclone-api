@@ -6,6 +6,7 @@ import argparse
 import os
 import shutil
 import time
+from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import psutil
 from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone, SizeSuffix
+from rclone_api.mount import MultiMountFileChunker
 
 os.environ["RCLONE_API_VERBOSE"] = "1"
 
@@ -116,32 +118,59 @@ def _run_profile(
     print("#" * 80)
     print(f"# Started test download of {SizeSuffix(size)} with {transfers} transfers")
     print("#" * 80)
-    net_io_start = psutil.net_io_counters()
-    start = time.time()
-    chunk_size = size // transfers
-    bytes_or_err: bytes | Exception = rclone.copy_bytes(
+
+    chunk_size = size
+
+    filechunker: MultiMountFileChunker = rclone.get_multi_mount_file_chunker(
         src=src_file,
-        offset=offset.as_int(),
-        length=size.as_int(),
         chunk_size=chunk_size,
+        threads=transfers,
         direct_io=direct_io,
-        max_threads=transfers,
         mount_log=mount_log,
     )
+    bytes_count = 0
+    for i in range(num):
+        bytes_or_err = filechunker.fetch(offset.as_int(), size.as_int()).result()
+        if isinstance(bytes_or_err, Exception):
+            assert False, f"Error: {bytes_or_err}"
+        bytes_count += len(bytes_or_err)
+
+    start = time.time()
+    net_io_start = psutil.net_io_counters()
+
+    # bytes_or_err: bytes | Exception = rclone.copy_bytes(
+    #     src=src_file,
+    #     offset=offset.as_int(),
+    #     length=size.as_int(),
+    #     chunk_size=chunk_size,
+    #     direct_io=direct_io,
+    #     max_threads=transfers,
+    #     mount_log=mount_log,
+    # )
+
+    # bytes_or_err = filechunker.fetch(
+    #     (offset + SizeSuffix("1G")).as_int(), size.as_int()
+    # )
+
+    offset = SizeSuffix("1G")
+
+    futures: list[Future[bytes | Exception]] = []
+    for i in range(num):
+        offset = SizeSuffix(i * chunk_size.as_int()) + offset
+        future = filechunker.fetch(offset.as_int(), size.as_int())
+        futures.append(future)
+
+    for future in futures:
+        bytes_or_err = future.result()
+        if isinstance(bytes_or_err, Exception):
+            assert False, f"Error: {bytes_or_err}"
+
     diff = time.time() - start
     net_io_end = psutil.net_io_counters()
-    if isinstance(bytes_or_err, Exception):
-        print(bytes_or_err)
-        stack_trace = bytes_or_err.__traceback__
-        print(f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}")
-        assert False, f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}"
-    assert isinstance(bytes_or_err, bytes)
     # self.assertEqual(len(bytes_or_err), size)
-    assert len(bytes_or_err) == size.as_int(), f"Length: {len(bytes_or_err)} != {size}"
+    assert bytes_count == size.as_int(), f"Length: {bytes_count} != {size}"
 
     # print io stats
-    # disabling num for now
-    num = 1
     bytes_sent = (net_io_end.bytes_sent - net_io_start.bytes_sent) // num
     bytes_recv = (net_io_end.bytes_recv - net_io_start.bytes_recv) // num
     packets_sent = (net_io_end.packets_sent - net_io_start.packets_sent) // num

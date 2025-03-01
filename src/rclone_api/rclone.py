@@ -966,6 +966,7 @@ class Rclone:
             chunk_size=chunk_size,
             mounts=mounts,
             executor=executor,
+            verbose=mount_log is not None,
         )
         return filechunker
 
@@ -992,8 +993,10 @@ class Rclone:
             direct_io=direct_io,
         )
         try:
-            data = filechunker.fetch(offset, length)
+            fut = filechunker.fetch(offset, length)
+            data = fut.result()
             if isinstance(data, Exception):
+                warnings.warn(f"Error copying bytes: {data}")
                 raise data
             if outfile is None:
                 return data
@@ -1002,6 +1005,7 @@ class Rclone:
                 del data
             return bytes(0)
         except Exception as e:
+            warnings.warn(f"Error copying bytes: {e}")
             return e
         finally:
             try:

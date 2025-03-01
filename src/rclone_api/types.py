@@ -178,3 +178,39 @@ class SizeSuffix:
             raise ZeroDivisionError("Division by zero is undefined")
         # Use floor division to maintain integer arithmetic.
         return SizeSuffix(self._size // other_int._size)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SizeSuffix):
+            return False
+        return self._size == other._size
+
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, SizeSuffix):
+            return True
+        return self._size != other._size
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, SizeSuffix):
+            return False
+        return self._size < other._size
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, SizeSuffix):
+            return False
+        return self._size <= other._size
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, SizeSuffix):
+            return False
+        return self._size > other._size
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, SizeSuffix):
+            return False
+        return self._size >= other._size
+
+    def __hash__(self) -> int:
+        return hash(self._size)
+
+    def __int__(self) -> int:
+        return self._size

@@ -294,7 +294,10 @@ class MultiMountFileChunker:
         chunk_size: SizeSuffix,
         mounts: list[Mount],
         executor: ThreadPoolExecutor,
+        verbose: bool | None,
     ) -> None:
+        from rclone_api.util import get_verbose
+
         self.filename = filename
         self.chunk_size = chunk_size
         self.executor = executor
@@ -302,6 +305,7 @@ class MultiMountFileChunker:
         self.mounts_availabe: list[Mount] = mounts
         self.semaphore = Semaphore(len(mounts))
         self.lock = Lock()
+        self.verbose = get_verbose(verbose)
 
     def close(self) -> None:
         self.executor.shutdown(wait=False, cancel_futures=True)
@@ -309,12 +313,22 @@ class MultiMountFileChunker:
             for mount in self.mounts_processing:
                 executor.submit(lambda: mount.close())
 
-    def fetch(self, offset: int, size: int) -> bytes | Exception:
+    def fetch(self, offset: int, size: int) -> Future[bytes | Exception]:
+        if self.verbose:
+            print(f"Fetching data range: offset={offset}, size={size}")
         try:
-            assert offset % self.chunk_size.as_int() == 0
-            assert size <= self.chunk_size.as_int()
-            assert size > 0
-            assert offset >= 0
+            try:
+                assert (
+                    offset % self.chunk_size.as_int() == 0
+                ), f"Invalid offset: {offset}"
+                assert size > 0, f"Invalid size: {size}"
+                assert offset >= 0, f"Invalid offset: {offset}"
+            except AssertionError as e:
+                warnings.warn(f"Invalid chunk request: {e}")
+                # return ValueError(e)
+                # return self.executor.submit(lambda: Exception(e))
+                err = Exception(e)
+                return self.executor.submit(lambda: err)
 
             chunks: list[tuple[int, int]] = []
             start = offset
@@ -333,7 +347,13 @@ class MultiMountFileChunker:
 
                 path = mount.mount_path / self.filename
 
-                def task() -> bytes | Exception:
+                def task(
+                    offset=start, size=chunk_size, path=path, mount=mount
+                ) -> bytes | Exception:
+                    if self.verbose:
+                        print(
+                            f"Fetching chunk: offset={offset}, size={size}, path={path}"
+                        )
                     try:
                         with path.open("rb") as f:
                             f.seek(offset)
@@ -341,9 +361,13 @@ class MultiMountFileChunker:
                     except KeyboardInterrupt as e:
                         import _thread
 
+                        warnings.warn(f"Error fetching file chunk: {e}")
+
                         _thread.interrupt_main()
                         return Exception(e)
                     except Exception as e:
+                        stack_trace = e.__traceback__
+                        warnings.warn(f"Error fetching file chunk: {e}\n{stack_trace}")
                         return e
                     finally:
                         with self.lock:
@@ -354,14 +378,19 @@ class MultiMountFileChunker:
                 fut = self.executor.submit(task)
                 futures.append(fut)
 
-            out: bytes = b""
-            for fut in futures:
-                chunk: bytes | Exception = fut.result()
-                if isinstance(chunk, Exception):
-                    return chunk
-                else:
-                    out += chunk
-                    del chunk
-            return out
+            def combine(futs: list[Future[bytes | Exception]]) -> bytes | Exception:
+                finished_list: list[bytes | Exception] = [f.result() for f in futs]
+                bytes_list = [f for f in finished_list if isinstance(f, bytes)]
+                if len(bytes_list) != len(finished_list):
+                    exceptions = [f for f in finished_list if isinstance(f, Exception)]
+                    return Exception(f"Error fetching file chunk: {exceptions}")
+                return b"".join(bytes_list)
+
+            if len(futures) == 1:
+                return futures[0]
+            fut = self.executor.submit(combine, futures)
+            return fut
         except Exception as e:
-            return e
+            warnings.warn(f"Error fetching file chunk: {e}")
+            err = Exception(e)
+            return self.executor.submit(lambda: err)
