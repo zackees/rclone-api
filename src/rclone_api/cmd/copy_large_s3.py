@@ -45,13 +45,13 @@ def _parse_args() -> Args:
         "--read-threads",
         help="Number of concurrent read threads per chunk, only one chunk will be read at a time",
         type=int,
-        default=1,
+        default=16,
     )
     parser.add_argument(
         "--write-threads",
         help="Max number of chunks to upload in parallel to the destination, each chunk is uploaded in a separate thread",
         type=int,
-        default=4,
+        default=16,
     )
     parser.add_argument("--retries", help="Number of retries", type=int, default=3)
     parser.add_argument(

@@ -171,7 +171,9 @@ def upload_file_multipart(
         )
         return upload_state
 
-    filechunks: Queue[FileChunk | None] = Queue(upload_threads)
+    work_que_max = upload_threads // 2 + 2
+
+    filechunks: Queue[FileChunk | None] = Queue(work_que_max)
     new_state = make_new_state()
     loaded_state = get_upload_state()
 
