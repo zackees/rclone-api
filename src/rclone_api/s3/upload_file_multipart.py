@@ -56,6 +56,7 @@ def handle_upload(
 ) -> FinishedPiece | Exception | None:
     if file_chunk is None:
         return None
+    print(f"Handling upload for {file_chunk.part_number}, size {len(file_chunk.data)}")
     chunk, part_number = file_chunk.data, file_chunk.part_number
     try:
         part: FinishedPiece = upload_task(
