@@ -951,8 +951,10 @@ class Rclone:
                         mount = fut.result()
                         mounts.append(mount)
                     except Exception as er:
+                        warnings.warn(f"Error mounting: {er}")
                         mount_errors.append(er)
                 if mount_errors:
+                    warnings.warn(f"Error mounting: {mount_errors}")
                     raise Exception(mount_errors)
             except Exception:
                 for mount in mounts:
