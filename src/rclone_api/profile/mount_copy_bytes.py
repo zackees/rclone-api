@@ -6,7 +6,7 @@ import argparse
 import os
 import shutil
 import time
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +21,8 @@ os.environ["RCLONE_API_VERBOSE"] = "1"
 @dataclass
 class Args:
     direct_io: bool
+    num: int
+    size: SizeSuffix | None
 
 
 @dataclass
@@ -155,19 +157,29 @@ def _run_profile(
     print(f"Time: {diff:.1f} seconds")
 
 
-def test_profile_copy_bytes(args: Args, rclone: Rclone, offset: SizeSuffix, transfer_list: list[int] | None, mount_root_path: Path) -> None:
+def test_profile_copy_bytes(
+    args: Args,
+    rclone: Rclone,
+    offset: SizeSuffix,
+    transfer_list: list[int] | None,
+    mount_root_path: Path,
+    size: SizeSuffix | None,
+) -> None:
 
-    sizes = [
-        1024 * 1024 * 1,
-        1024 * 1024 * 2,
-        1024 * 1024 * 4,
-        1024 * 1024 * 8,
-        # 1024 * 1024 * 16,
-        # 1024 * 1024 * 32,
-        # 1024 * 1024 * 64,
-        # 1024 * 1024 * 128,
-        # 1024 * 1024 * 256,
-    ]
+    if size:
+        sizes = [size.as_int()]
+    else:
+        sizes = [
+            # 1024 * 1024 * 1,
+            # 1024 * 1024 * 2,
+            # 1024 * 1024 * 4,
+            # 1024 * 1024 * 8,
+            1024 * 1024 * 16,
+            # 1024 * 1024 * 32,
+            1024 * 1024 * 64,
+            1024 * 1024 * 128,
+            # 1024 * 1024 * 256,
+        ]
     # transfer_list = [1, 2, 4, 8, 16]
     transfer_list = transfer_list or [1, 2, 4]
 
@@ -175,16 +187,14 @@ def test_profile_copy_bytes(args: Args, rclone: Rclone, offset: SizeSuffix, tran
     # sftp mount
     src_file = "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
 
-
-
-    for size in sizes:
+    for sz in sizes:
         for transfers in transfer_list:
             _run_profile(
                 rclone=rclone,
                 src_file=src_file,
                 transfers=transfers,
                 offset=offset,
-                size=SizeSuffix(size),
+                size=SizeSuffix(sz),
                 direct_io=args.direct_io,
                 log_dir=mount_root_path,
             )
@@ -194,8 +204,12 @@ def test_profile_copy_bytes(args: Args, rclone: Rclone, offset: SizeSuffix, tran
 def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description="Profile copy_bytes")
     parser.add_argument("--direct-io", help="Use direct IO", action="store_true")
+    parser.add_argument("-n", "--num", help="Number of workers", type=int, default=1)
+    parser.add_argument(
+        "--size", help="Size of the file to download", type=SizeSuffix, default=None
+    )
     args = parser.parse_args()
-    return Args(direct_io=args.direct_io)
+    return Args(direct_io=args.direct_io, num=args.num, size=args.size)
 
 
 def main() -> None:
@@ -214,13 +228,25 @@ def main() -> None:
 
     args = _parse_args()
     transfer_list = [1]
-    parallel_workers = 4
+    parallel_workers = args.num
 
-    def task(offset: SizeSuffix, args=args, rclone=rclone, transfer_list=transfer_list, mount_root_path=mount_root_path):
-        return test_profile_copy_bytes(args, rclone, offset, transfer_list, mount_root_path)
-    
+    def task(
+        offset: SizeSuffix,
+        args=args,
+        rclone=rclone,
+        transfer_list=transfer_list,
+        mount_root_path=mount_root_path,
+    ):
+        return test_profile_copy_bytes(
+            args=args,
+            rclone=rclone,
+            offset=offset,
+            mount_root_path=mount_root_path,
+            transfer_list=transfer_list,
+            size=args.size,
+        )
 
-    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+    with ThreadPoolExecutor(max_workers=parallel_workers) as _:
         tasks: list[Future] = []
         for i in range(parallel_workers):
             offset = SizeSuffix(i * 1024 * 1024 * 256)
@@ -229,4 +255,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import sys
+
+    sys.argv.append("--size")
+    sys.argv.append("16MB")
     main()
