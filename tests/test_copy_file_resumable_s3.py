@@ -42,7 +42,6 @@ from rclone_api import Rclone, SizeSuffix
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
 _CONFIG_PATH = _PROJECT_ROOT / "rclone-mounted-ranged-download.conf"
-_IS_WINDOWS = os.name == "nt"
 
 _CHUNK_SIZE = 1024 * 1024 * 16
 

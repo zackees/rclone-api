@@ -111,7 +111,9 @@ def file_chunker(
 
                 if isinstance(data, Exception):
                     err: Exception = data
-                    warnings.warn(f"Error reading file: {err}, skipping part {part_number}")
+                    warnings.warn(
+                        f"Error reading file: {err}, skipping part {part_number}"
+                    )
                     return
 
                 if not data:
