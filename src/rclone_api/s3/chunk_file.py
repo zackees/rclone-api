@@ -92,25 +92,45 @@ def file_chunker(
             #     f.seek(offset)
             #     data = f.read(chunk_size)
 
-            data = chunk_fetcher(offset, chunk_size).result()
+            # data = chunk_fetcher(offset, chunk_size).result()
 
-            if isinstance(data, Exception):
-                warnings.warn(
-                    f"Error reading file: {data}, skipping part {part_number}"
+            assert curr_parth_num is not None
+            cpn: int = curr_parth_num
+
+            def on_complete(
+                fut: Future[bytes | Exception],
+                part_number: int = cpn,
+                file_path: Path = file_path,
+            ) -> None:
+                data: bytes | Exception = fut.result()
+                if isinstance(data, Exception):
+                    warnings.warn(
+                        f"Error reading file: {data}, skipping part {part_number}"
+                    )
+                    return
+
+                if isinstance(data, Exception):
+                    err: Exception = data
+                    warnings.warn(f"Error reading file: {err}, skipping part {part_number}")
+                    return
+
+                if not data:
+                    warnings.warn(f"Empty data for part {part_number} of {file_path}")
+
+                file_chunk = FileChunk(
+                    src,
+                    upload_id=upload_info.upload_id,
+                    part_number=part_number,
+                    data=data,  # After this, data should not be reused.
                 )
-                continue
+                done_part_numbers.add(part_number)
+                output.put(file_chunk)
 
-            if not data:
-                warnings.warn(f"Empty data for part {part_number} of {file_path}")
-
-            file_chunk = FileChunk(
-                src,
-                upload_id=upload_info.upload_id,
-                part_number=part_number,
-                data=data,  # After this, data should not be reused.
-            )
-            done_part_numbers.add(part_number)
-            output.put(file_chunk)
+            fut = chunk_fetcher(curr_parth_num, chunk_size)
+            fut.add_done_callback(on_complete)
+            # wait until the output queue can accept the next chunk
+            while output.full():
+                time.sleep(0.1)
     except Exception as e:
 
         warnings.warn(f"Error reading file: {e}")
