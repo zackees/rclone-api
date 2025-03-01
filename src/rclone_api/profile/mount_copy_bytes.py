@@ -14,13 +14,12 @@ from rclone_api import Config, Rclone, SizeSuffix
 
 load_dotenv()
 
-BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
-
 
 @dataclass
 class Credentials:
     BUCKET_KEY_SECRET: str
     BUCKET_KEY_PUBLIC: str
+    BUCKET_NAME: str
     SRC_SFTP_HOST: str
     SRC_SFTP_USER: str
     SRC_SFTP_PORT: str
@@ -43,6 +42,7 @@ def _generate_rclone_config() -> tuple[Config, Credentials]:
     # Load additional environment variables
     BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
     BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
+    BUCKET_NAME = os.getenv("BUCKET_NAME")
     SRC_SFTP_HOST = os.getenv("SRC_SFTP_HOST")
     SRC_SFTP_USER = os.getenv("SRC_SFTP_USER")
     SRC_SFTP_PORT = os.getenv("SRC_SFTP_PORT")
@@ -75,6 +75,7 @@ pass = {SRC_SFTP_PASS}
     creds = Credentials(
         BUCKET_KEY_SECRET=str(BUCKET_KEY_SECRET),
         BUCKET_KEY_PUBLIC=str(BUCKET_KEY_PUBLIC),
+        BUCKET_NAME=str(BUCKET_NAME),
         SRC_SFTP_HOST=str(SRC_SFTP_HOST),
         SRC_SFTP_USER=str(SRC_SFTP_USER),
         SRC_SFTP_PORT=str(SRC_SFTP_PORT),
