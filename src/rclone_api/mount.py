@@ -4,6 +4,7 @@ import platform
 import shutil
 import subprocess
 import time
+import traceback
 import warnings
 import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -366,8 +367,10 @@ class MultiMountFileChunker:
                         _thread.interrupt_main()
                         return Exception(e)
                     except Exception as e:
-                        stack_trace = e.__traceback__
-                        warnings.warn(f"Error fetching file chunk: {e}\n{stack_trace}")
+                        stack_trace = traceback.format_exc()
+                        warnings.warn(
+                            f"Error fetching file chunk at offset{offset} + {size}: {e}\n{stack_trace}"
+                        )
                         return e
                     finally:
                         with self.lock:
