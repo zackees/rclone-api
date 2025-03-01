@@ -74,6 +74,10 @@ class FileChunk:
         return b""
 
     def close(self):
+        import traceback
+
+        stacktrace = traceback.format_stack()
+        locked_print(f"Closing file chunk: {self.filepart}\n{stacktrace}")
         if self.filepart.exists():
             self.filepart.unlink()
 
