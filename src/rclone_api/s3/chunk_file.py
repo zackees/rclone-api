@@ -105,15 +105,11 @@ def file_chunker(
                     )
                     return
 
-                if isinstance(data, Exception):
-                    err: Exception = data
-                    warnings.warn(
-                        f"Error reading file: {err}, skipping part {part_number}"
-                    )
-                    return
-
-                if not data:
+                if not data or len(data) == 0:
                     warnings.warn(f"Empty data for part {part_number} of {file_path}")
+                    raise ValueError(
+                        f"Empty data for part {part_number} of {file_path}"
+                    )
 
                 file_chunk = FileChunk(
                     src,
