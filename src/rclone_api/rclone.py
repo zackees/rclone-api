@@ -938,6 +938,7 @@ class Rclone:
                             log=mount_log,
                             other_args=other_args,
                         )
+
                     futures.append(executor.submit(task))
                 mount_errors: list[Exception] = []
                 for fut in futures:
