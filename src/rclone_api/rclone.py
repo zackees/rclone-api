@@ -924,8 +924,13 @@ class Rclone:
                     clean_mount(tmp_mnts, verbose=verbose)
                     prepare_mount(tmp_mnts, verbose=verbose)
                     src_parent_path = Path(src).parent.as_posix()
+                    cache_dir = Path("cache") / random_str(12)
 
-                    def task(src_parent_path=src_parent_path, tmp_mnts=tmp_mnts):
+                    def task(
+                        src_parent_path=src_parent_path,
+                        tmp_mnts=tmp_mnts,
+                        cache_dir=cache_dir,
+                    ):
                         return self.mount(
                             src=src_parent_path,
                             outdir=tmp_mnts,
@@ -933,7 +938,7 @@ class Rclone:
                             use_links=True,
                             vfs_cache_mode="minimal",
                             verbose=False,
-                            cache_dir=Path("cache") / random_str(12),
+                            cache_dir=cache_dir,
                             cache_dir_delete_on_exit=True,
                             log=mount_log,
                             other_args=other_args,
