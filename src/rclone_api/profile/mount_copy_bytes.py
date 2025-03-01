@@ -2,6 +2,7 @@
 Unit test file.
 """
 
+import argparse
 import os
 import shutil
 import time
@@ -12,6 +13,11 @@ import psutil
 from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone, SizeSuffix
+
+
+@dataclass
+class Args:
+    direct_io: bool
 
 
 @dataclass
@@ -105,7 +111,12 @@ def _init() -> None:
 
 
 def _run_profile(
-    rclone: Rclone, src_file: str, transfers: int, size: int, log_dir: Path
+    rclone: Rclone,
+    src_file: str,
+    transfers: int,
+    size: int,
+    log_dir: Path,
+    direct_io: bool = True,
 ) -> None:
 
     mount_log = log_dir / f"mount_{SizeSuffix(size)}_threads_{transfers}.log"
@@ -119,7 +130,7 @@ def _run_profile(
         src=src_file,
         offset=0,
         length=size,
-        direct_io=True,
+        direct_io=direct_io,
         transfers=transfers,
         mount_log=mount_log,
     )
@@ -154,7 +165,7 @@ def _run_profile(
     print(f"Time: {diff:.1f} seconds")
 
 
-def test_profile_copy_bytes() -> None:
+def test_profile_copy_bytes(args: Args) -> None:
     print("Running test_profile_copy_bytes")
     config, creds = _generate_rclone_config()
     print("Config:")
@@ -179,7 +190,7 @@ def test_profile_copy_bytes() -> None:
     # sftp mount
     src_file = "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
 
-    mount_root_path = Path("logs") / "mount"
+    mount_root_path = Path("rclone_logs") / "mount"
     if mount_root_path.exists():
         shutil.rmtree(mount_root_path)
 
@@ -190,15 +201,24 @@ def test_profile_copy_bytes() -> None:
                 src_file=src_file,
                 transfers=transfers,
                 size=size,
+                direct_io=args.direct_io,
                 log_dir=mount_root_path,
             )
     print("done")
 
 
+def _parse_args() -> Args:
+    parser = argparse.ArgumentParser(description="Profile copy_bytes")
+    parser.add_argument("--direct-io", help="Use direct IO", action="store_true")
+    args = parser.parse_args()
+    return Args(direct_io=args.direct_io)
+
+
 def main() -> None:
     """Main entry point."""
     _init()
-    test_profile_copy_bytes()
+    args = _parse_args()
+    test_profile_copy_bytes(args)
 
 
 if __name__ == "__main__":
