@@ -1,5 +1,4 @@
 import atexit
-import os
 import subprocess
 import threading
 import time
@@ -13,12 +12,6 @@ from rclone_api.config import Config
 from rclone_api.util import get_verbose
 
 
-def _get_verbose(verbose: bool | None) -> bool:
-    if verbose is not None:
-        return verbose
-    return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
-
-
 @dataclass
 class ProcessArgs:
     cmd: list[str]
@@ -27,12 +20,14 @@ class ProcessArgs:
     cmd_list: list[str]
     verbose: bool | None = None
     capture_stdout: bool | None = None
+    log: Path | None = None
 
 
 class Process:
     def __init__(self, args: ProcessArgs) -> None:
         assert args.rclone_exe.exists()
         self.args = args
+        self.log = args.log
         self.tempdir: TemporaryDirectory | None = None
         verbose = get_verbose(args.verbose)
         if isinstance(args.rclone_conf, Config):
@@ -52,6 +47,9 @@ class Process:
             + ["--config", str(rclone_conf.resolve())]
             + args.cmd
         )
+        if self.args.log:
+            self.args.log.parent.mkdir(parents=True, exist_ok=True)
+            self.cmd += ["--log-file", str(self.args.log)]
         if verbose:
             cmd_str = subprocess.list2cmdline(self.cmd)
             print(f"Running: {cmd_str}")

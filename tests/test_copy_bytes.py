@@ -76,12 +76,14 @@ class RcloneCopyBytesTester(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir) / "tmp.mp4"
+            log = Path(tmpdir) / "log.txt"
             rclone = Rclone(_generate_rclone_config())
             bytes_or_err: bytes | Exception = rclone.copy_bytes(
                 src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
                 offset=0,
                 length=1024 * 1024,
                 outfile=tmp,
+                mount_log=log,
             )
             if isinstance(bytes_or_err, Exception):
                 print(bytes_or_err)
@@ -91,6 +93,9 @@ class RcloneCopyBytesTester(unittest.TestCase):
             self.assertTrue(tmp.exists())
             tmp_size = tmp.stat().st_size
             self.assertEqual(tmp_size, 1024 * 1024)
+            print(f"Log file: {log}:")
+            print(log.read_text())
+            print("done")
 
 
 if __name__ == "__main__":

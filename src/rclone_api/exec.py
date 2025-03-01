@@ -23,7 +23,9 @@ class RcloneExec:
             cmd, self.rclone_config, self.rclone_exe, check=check, capture=capture
         )
 
-    def launch_process(self, cmd: list[str], capture: bool | None) -> Process:
+    def launch_process(
+        self, cmd: list[str], capture: bool | None, log: Path | None
+    ) -> Process:
         """Launch rclone process."""
 
         args: ProcessArgs = ProcessArgs(
@@ -32,6 +34,7 @@ class RcloneExec:
             rclone_exe=self.rclone_exe,
             cmd_list=cmd,
             capture_stdout=capture,
+            log=log,
         )
         process = Process(args)
         return process

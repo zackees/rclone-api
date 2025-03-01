@@ -80,8 +80,10 @@ class Rclone:
     ) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd, check=check, capture=capture)
 
-    def _launch_process(self, cmd: list[str], capture: bool | None = None) -> Process:
-        return self._exec.launch_process(cmd, capture=capture)
+    def _launch_process(
+        self, cmd: list[str], capture: bool | None = None, log: Path | None = None
+    ) -> Process:
+        return self._exec.launch_process(cmd, capture=capture, log=log)
 
     def webgui(self, other_args: list[str] | None = None) -> Process:
         """Launch the Rclone web GUI."""
@@ -684,6 +686,7 @@ class Rclone:
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
         mount_path: Path | None = None,
+        mount_log: Path | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         from rclone_api.s3.api import S3Client
@@ -724,6 +727,7 @@ class Rclone:
             use_links=True,
             vfs_cache_mode="minimal",
             verbose=False,
+            log=mount_log,
             other_args=other_args,
         ):
             path_info: S3PathInfo = split_s3_path(dst)
@@ -817,9 +821,9 @@ class Rclone:
         offset: int,
         length: int,
         transfers: int = 16,
-        outfile: (
-            Path | None
-        ) = None,  # If supplied then bytes are written to this file and success returns bytes(0)
+        # If supplied then bytes are written to this file and success returns bytes(0)
+        outfile: Path | None = None,
+        mount_log: Path | None = None,
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
         from rclone_api.util import random_str
@@ -828,8 +832,7 @@ class Rclone:
         src_parent_path = Path(src).parent.as_posix()
         src_file = Path(src).name
         other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
-        unit_chunk_size = length
-        vfs_read_chunk_size = unit_chunk_size
+        vfs_read_chunk_size = length // transfers
         vfs_read_chunk_size_limit = length
         vfs_read_chunk_streams = transfers
         vfs_disk_space_total_size = length
@@ -846,9 +849,10 @@ class Rclone:
                 src_parent_path,
                 tmp_mnt,
                 use_links=True,
-                verbose=False,
+                verbose=mount_log is not None,
                 vfs_cache_mode="minimal",
                 other_args=other_args,
+                log=mount_log,
             ):
                 src_file_mnt = tmp_mnt / src_file
                 with open(src_file_mnt, "rb") as f:
@@ -896,6 +900,7 @@ class Rclone:
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
+        log: Path | None = None,
         other_args: list[str] | None = None,
     ) -> Mount:
         """Mount a remote or directory to a local path.
@@ -930,7 +935,7 @@ class Rclone:
             cmd_list.append("-vvvv")
         if other_args:
             cmd_list += other_args
-        proc = self._launch_process(cmd_list)
+        proc = self._launch_process(cmd_list, log=log)
         mount_read_only = "--read-only" in cmd_list  # hint to allow fast teardown
         mount: Mount = Mount(mount_path=outdir, process=proc, read_only=mount_read_only)
         return mount
@@ -944,6 +949,7 @@ class Rclone:
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
+        log: Path | None = None,
         other_args: list[str] | None = None,
     ) -> Generator[Mount, None, None]:
         """Like mount, but can be used in a context manager."""
@@ -956,6 +962,7 @@ class Rclone:
             use_links=use_links,
             vfs_cache_mode=vfs_cache_mode,
             verbose=verbose,
+            log=log,
             other_args=other_args,
         )
         try:
