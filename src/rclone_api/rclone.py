@@ -843,7 +843,8 @@ class Rclone:
         # --max-read-ahead SizeSuffix
         max_read_ahead = SizeSuffix(vfs_read_chunk_size.as_int())
 
-        other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
+        # other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
+        other_args += ["--vfs-read-chunk-size", str(0)]
         other_args += ["--vfs-read-chunk-size-limit", str(vfs_read_chunk_size_limit)]
         other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
         other_args += ["--vfs-disk-space-total-size", str(vfs_disk_space_total_size)]

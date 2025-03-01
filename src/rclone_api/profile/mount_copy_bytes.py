@@ -6,6 +6,7 @@ import argparse
 import os
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +14,8 @@ import psutil
 from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone, SizeSuffix
+
+os.environ["RCLONE_API_VERBOSE"] = "1"
 
 
 @dataclass
@@ -96,25 +99,12 @@ pass = {SRC_SFTP_PASS}
     return Config(config_text), creds
 
 
-def _init() -> None:
-    """Check if all required environment variables are set before running tests."""
-    required_vars = [
-        "BUCKET_NAME",
-        "BUCKET_KEY_SECRET",
-        "BUCKET_KEY_PUBLIC",
-        "BUCKET_URL",
-    ]
-    missing = [var for var in required_vars if not os.getenv(var)]
-    if missing:
-        print(f"Missing required environment variables: {', '.join(missing)}")
-    os.environ["RCLONE_API_VERBOSE"] = "1"
-
-
 def _run_profile(
     rclone: Rclone,
     src_file: str,
     transfers: int,
-    size: int,
+    offset: SizeSuffix,
+    size: SizeSuffix,
     log_dir: Path,
     direct_io: bool = True,
 ) -> None:
@@ -128,8 +118,8 @@ def _run_profile(
     start = time.time()
     bytes_or_err: bytes | Exception = rclone.copy_bytes(
         src=src_file,
-        offset=0,
-        length=size,
+        offset=offset.as_int(),
+        length=size.as_int(),
         direct_io=direct_io,
         transfers=transfers,
         mount_log=mount_log,
@@ -142,13 +132,13 @@ def _run_profile(
         assert False, f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}"
     assert isinstance(bytes_or_err, bytes)
     # self.assertEqual(len(bytes_or_err), size)
-    assert len(bytes_or_err) == size, f"Length: {len(bytes_or_err)} != {size}"
+    assert len(bytes_or_err) == size.as_int(), f"Length: {len(bytes_or_err)} != {size}"
 
     # print io stats
     bytes_sent = net_io_end.bytes_sent - net_io_start.bytes_sent
     bytes_recv = net_io_end.bytes_recv - net_io_start.bytes_recv
     packets_sent = net_io_end.packets_sent - net_io_start.packets_sent
-    efficiency = size / (bytes_recv)
+    efficiency = size.as_int() / (bytes_recv)
     efficiency_100 = efficiency * 100
     efficiency_str = f"{efficiency_100:.2f}"
 
@@ -165,36 +155,27 @@ def _run_profile(
     print(f"Time: {diff:.1f} seconds")
 
 
-def test_profile_copy_bytes(args: Args) -> None:
-    print("Running test_profile_copy_bytes")
-    config, creds = _generate_rclone_config()
-    print("Config:")
-    print(config)
-    print("Credentials:")
-    print(creds)
-    rclone = Rclone(config)
+def test_profile_copy_bytes(args: Args, rclone: Rclone, offset: SizeSuffix, transfer_list: list[int] | None, mount_root_path: Path) -> None:
 
     sizes = [
-        # 1024 * 1024 * 1,
-        # 1024 * 1024 * 2,
-        # 1024 * 1024 * 4,
-        # 1024 * 1024 * 8,
+        1024 * 1024 * 1,
+        1024 * 1024 * 2,
+        1024 * 1024 * 4,
+        1024 * 1024 * 8,
         # 1024 * 1024 * 16,
         # 1024 * 1024 * 32,
         # 1024 * 1024 * 64,
-        1024 * 1024 * 128,
-        1024 * 1024 * 256,
+        # 1024 * 1024 * 128,
+        # 1024 * 1024 * 256,
     ]
     # transfer_list = [1, 2, 4, 8, 16]
-    transfer_list = [1, 2, 4]
+    transfer_list = transfer_list or [1, 2, 4]
 
     # src_file = "dst:rclone-api-unit-test/zachs_video/internaly_ai_alignment.mp4"
     # sftp mount
     src_file = "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
 
-    mount_root_path = Path("rclone_logs") / "mount"
-    if mount_root_path.exists():
-        shutil.rmtree(mount_root_path)
+
 
     for size in sizes:
         for transfers in transfer_list:
@@ -202,7 +183,8 @@ def test_profile_copy_bytes(args: Args) -> None:
                 rclone=rclone,
                 src_file=src_file,
                 transfers=transfers,
-                size=size,
+                offset=offset,
+                size=SizeSuffix(size),
                 direct_io=args.direct_io,
                 log_dir=mount_root_path,
             )
@@ -218,9 +200,32 @@ def _parse_args() -> Args:
 
 def main() -> None:
     """Main entry point."""
-    _init()
+    print("Running test_profile_copy_bytes")
+    config, creds = _generate_rclone_config()
+    print("Config:")
+    print(config)
+    print("Credentials:")
+    print(creds)
+    rclone = Rclone(config)
+
+    mount_root_path = Path("rclone_logs") / "mount"
+    if mount_root_path.exists():
+        shutil.rmtree(mount_root_path)
+
     args = _parse_args()
-    test_profile_copy_bytes(args)
+    transfer_list = [1]
+    parallel_workers = 4
+
+    def task(offset: SizeSuffix, args=args, rclone=rclone, transfer_list=transfer_list, mount_root_path=mount_root_path):
+        return test_profile_copy_bytes(args, rclone, offset, transfer_list, mount_root_path)
+    
+
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        tasks: list[Future] = []
+        for i in range(parallel_workers):
+            offset = SizeSuffix(i * 1024 * 1024 * 256)
+            future = ThreadPoolExecutor().submit(lambda: task(offset=offset))
+            tasks.append(future)
 
 
 if __name__ == "__main__":
