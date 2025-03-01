@@ -254,7 +254,7 @@ def main() -> None:
             num=args.num,
         )
 
-    task(SizeSuffix(0))
+    task(offset=SizeSuffix(0))
 
     # with ThreadPoolExecutor(max_workers=parallel_workers) as _:
     #     tasks: list[Future] = []

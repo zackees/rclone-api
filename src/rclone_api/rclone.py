@@ -1002,7 +1002,10 @@ class Rclone:
         except Exception as e:
             return e
         finally:
-            filechunker.close()
+            try:
+                filechunker.close()
+            except Exception as e:
+                warnings.warn(f"Error closing filechunker: {e}")
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
