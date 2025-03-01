@@ -36,9 +36,6 @@ def file_chunker(
 ) -> None:
     count = 0
 
-    if False:
-        print(chunk_fetcher)
-
     def should_stop() -> bool:
         nonlocal count
 
@@ -128,7 +125,8 @@ def file_chunker(
                 done_part_numbers.add(part_number)
                 output.put(file_chunk)
 
-            fut = chunk_fetcher(curr_parth_num, chunk_size)
+            offset = (curr_parth_num - 1) * chunk_size
+            fut = chunk_fetcher(offset, chunk_size)
             fut.add_done_callback(on_complete)
             # wait until the output queue can accept the next chunk
             while output.full():

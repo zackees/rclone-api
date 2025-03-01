@@ -18,7 +18,7 @@ class RcloneS3Tester(unittest.TestCase):
     """Test rclone functionality."""
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
-    @unittest.skipIf(True, "Test not enabled")
+    # @unittest.skipIf(True, "Test not enabled")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
 
@@ -67,14 +67,13 @@ class RcloneS3Tester(unittest.TestCase):
             state_json = Path(tempdir) / "state.json"
 
             def simple_fetcher(
-                chunk_id: int, chunk_size: int
+                offset: int, chunk_size: int
             ) -> Future[bytes | Exception]:
                 with ThreadPoolExecutor() as executor:
 
                     def task() -> bytes | Exception:
                         with open(str(tmpfile), "rb") as f:
-                            idx = (chunk_id - 1) * chunk_size
-                            f.seek(idx * chunk_size)
+                            f.seek(offset)
                             return f.read(chunk_size)
 
                     fut = executor.submit(task)
