@@ -680,7 +680,7 @@ class Rclone:
         dst: str,
         save_state_json: Path,
         chunk_size: SizeSuffix | None = None,
-        read_threads: int = 16,
+        read_threads: int = 8,
         write_threads: int = 16,
         retries: int = 3,
         verbose: bool | None = None,
@@ -720,102 +720,93 @@ class Rclone:
         mount_path = mount_path or Path("tmp_mnts") / random_str(12)
         src_path = Path(src)
         name = src_path.name
-        parent_path = str(src_path.parent.as_posix())
-        with self.scoped_mount(
-            parent_path,
-            mount_path,
-            use_links=True,
-            vfs_cache_mode="minimal",
-            verbose=False,
-            log=mount_log,
-            other_args=other_args,
-        ):
-            path_info: S3PathInfo = split_s3_path(dst)
-            remote = path_info.remote
-            bucket_name = path_info.bucket
-            s3_key = path_info.key
-            parsed: Parsed = self.config.parse()
-            sections: dict[str, Section] = parsed.sections
-            if remote not in sections:
-                raise ValueError(
-                    f"Remote {remote} not found in rclone config, remotes are: {sections.keys()}"
-                )
 
-            section: Section = sections[remote]
-            dst_type = section.type()
-            if dst_type != "s3" and dst_type != "b2":
-                raise ValueError(
-                    f"Remote {remote} is not an S3 remote, it is of type {dst_type}"
-                )
-
-            def get_provider_str(section=section) -> str | None:
-                type: str = section.type()
-                provider: str | None = section.provider()
-                if provider is not None:
-                    return provider
-                if type == "b2":
-                    return S3Provider.BACKBLAZE.value
-                if type != "s3":
-                    raise ValueError(f"Remote {remote} is not an S3 remote")
-                return S3Provider.S3.value
-
-            provider: str
-            if provided_provider_str := get_provider_str():
-                if verbose:
-                    print(f"Using provided provider: {provided_provider_str}")
-                provider = provided_provider_str
-            else:
-                if verbose:
-                    print(f"Using default provider: {S3Provider.S3.value}")
-                provider = S3Provider.S3.value
-            provider_enum = S3Provider.from_str(provider)
-
-            s3_creds: S3Credentials = S3Credentials(
-                provider=provider_enum,
-                access_key_id=section.access_key_id(),
-                secret_access_key=section.secret_access_key(),
-                endpoint_url=section.endpoint(),
+        path_info: S3PathInfo = split_s3_path(dst)
+        remote = path_info.remote
+        bucket_name = path_info.bucket
+        s3_key = path_info.key
+        parsed: Parsed = self.config.parse()
+        sections: dict[str, Section] = parsed.sections
+        if remote not in sections:
+            raise ValueError(
+                f"Remote {remote} not found in rclone config, remotes are: {sections.keys()}"
             )
 
-            chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
-                src=src_path.as_posix(),
-                chunk_size=chunk_size,
-                threads=read_threads,
-                mount_log=mount_log,
-                direct_io=True,
+        section: Section = sections[remote]
+        dst_type = section.type()
+        if dst_type != "s3" and dst_type != "b2":
+            raise ValueError(
+                f"Remote {remote} is not an S3 remote, it is of type {dst_type}"
             )
 
-            client = S3Client(s3_creds)
-            upload_config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
-                chunk_size=chunk_size.as_int(),
-                chunk_fetcher=chunk_fetcher.fetch,
-                max_write_threads=write_threads,
-                retries=retries,
-                resume_path_json=save_state_json,
-                max_chunks_before_suspension=max_chunks_before_suspension,
+        def get_provider_str(section=section) -> str | None:
+            type: str = section.type()
+            provider: str | None = section.provider()
+            if provider is not None:
+                return provider
+            if type == "b2":
+                return S3Provider.BACKBLAZE.value
+            if type != "s3":
+                raise ValueError(f"Remote {remote} is not an S3 remote")
+            return S3Provider.S3.value
+
+        provider: str
+        if provided_provider_str := get_provider_str():
+            if verbose:
+                print(f"Using provided provider: {provided_provider_str}")
+            provider = provided_provider_str
+        else:
+            if verbose:
+                print(f"Using default provider: {S3Provider.S3.value}")
+            provider = S3Provider.S3.value
+        provider_enum = S3Provider.from_str(provider)
+
+        s3_creds: S3Credentials = S3Credentials(
+            provider=provider_enum,
+            access_key_id=section.access_key_id(),
+            secret_access_key=section.secret_access_key(),
+            endpoint_url=section.endpoint(),
+        )
+
+        chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
+            src=src_path.as_posix(),
+            chunk_size=chunk_size,
+            threads=read_threads,
+            mount_log=mount_log,
+            direct_io=True,
+        )
+
+        client = S3Client(s3_creds)
+        upload_config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
+            chunk_size=chunk_size.as_int(),
+            chunk_fetcher=chunk_fetcher.fetch,
+            max_write_threads=write_threads,
+            retries=retries,
+            resume_path_json=save_state_json,
+            max_chunks_before_suspension=max_chunks_before_suspension,
+        )
+
+        src_file = mount_path / name
+
+        print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
+        print(f"Source: {src_path}")
+        print(f"bucket_name: {bucket_name}")
+        print(f"upload_config: {upload_config}")
+
+        upload_target = S3UploadTarget(
+            bucket_name=bucket_name,
+            src_file=src_file,
+            s3_key=s3_key,
+        )
+
+        try:
+            out: MultiUploadResult = client.upload_file_multipart(
+                upload_target=upload_target,
+                upload_config=upload_config,
             )
-
-            src_file = mount_path / name
-
-            print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
-            print(f"Source: {src_path}")
-            print(f"bucket_name: {bucket_name}")
-            print(f"upload_config: {upload_config}")
-
-            upload_target = S3UploadTarget(
-                bucket_name=bucket_name,
-                src_file=src_file,
-                s3_key=s3_key,
-            )
-
-            try:
-                out: MultiUploadResult = client.upload_file_multipart(
-                    upload_target=upload_target,
-                    upload_config=upload_config,
-                )
-                return out
-            finally:
-                chunk_fetcher.close()
+            return out
+        finally:
+            chunk_fetcher.close()
 
     def _copy_bytes(
         self,

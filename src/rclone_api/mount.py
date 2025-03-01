@@ -115,7 +115,7 @@ def prepare_mount(outdir: Path, verbose: bool) -> None:
 def wait_for_mount(
     path: Path,
     mount_process: Any,
-    timeout: int = 10,
+    timeout: int = 20,
     post_mount_delay: int = 5,
     poll_interval: float = 1.0,
     check_mount_flag: bool = False,

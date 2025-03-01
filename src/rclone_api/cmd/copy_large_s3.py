@@ -45,7 +45,7 @@ def _parse_args() -> Args:
         "--read-threads",
         help="Number of concurrent read threads per chunk, only one chunk will be read at a time",
         type=int,
-        default=16,
+        default=8,
     )
     parser.add_argument(
         "--write-threads",
