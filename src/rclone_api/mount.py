@@ -1,3 +1,4 @@
+import os
 import platform
 import shutil
 import subprocess
@@ -76,25 +77,83 @@ def prepare_mount(outdir: Path, verbose: bool) -> None:
         outdir.mkdir(parents=True, exist_ok=True)
 
 
-def wait_for_mount(path: Path, mount_process: Any, timeout: int = 10) -> None:
-    from rclone_api.process import Process
+def wait_for_mount(
+    path: Path,
+    mount_process: Any,
+    timeout: int = 10,
+    post_mount_delay: int = 5,
+    poll_interval: float = 1.0,
+    check_mount_flag: bool = False,
+) -> None:
+    """
+    Wait for a mount point to become available by checking if the directory exists,
+    optionally verifying that it is a mount point, and confirming that it contains files.
+    This function periodically polls for the mount status, ensures the mount process
+    is still running, and applies an extra delay after detecting content for stabilization.
 
-    assert isinstance(mount_process, Process)
+    Args:
+        path (Path): The mount point directory to check.
+        mount_process (Any): A Process instance handling the mount (must be an instance of Process).
+        timeout (int): Maximum time in seconds to wait for the mount to become available.
+        post_mount_delay (int): Additional seconds to wait after detecting files.
+        poll_interval (float): Seconds between each poll iteration.
+        check_mount_flag (bool): If True, verifies that the path is recognized as a mount point.
+
+    Raises:
+        subprocess.CalledProcessError: If the mount_process exits unexpectedly.
+        TimeoutError: If the mount is not available within the timeout period.
+        TypeError: If mount_process is not an instance of Process.
+    """
+
+    if not isinstance(mount_process, Process):
+        raise TypeError("mount_process must be an instance of Process")
+
     expire_time = time.time() + timeout
+    last_error = None
+
     while time.time() < expire_time:
+        # Check if the mount process has terminated unexpectedly.
         rtn = mount_process.poll()
         if rtn is not None:
             cmd_str = subprocess.list2cmdline(mount_process.cmd)
+            print(f"Mount process terminated unexpectedly: {cmd_str}")
             raise subprocess.CalledProcessError(rtn, cmd_str)
+
+        # Check if the mount path exists.
         if path.exists():
-            return
-            # how many files?
-            # dircontents = os.listdir(str(path))
-            # if len(dircontents) > 0:
-            #     print(f"Mount point {path}, waiting 5 seconds for files to appear.")
-            #     time.sleep(5)
-            #     return
-        time.sleep(1)
+            # Optionally check if path is a mount point.
+            if check_mount_flag:
+                try:
+                    if not os.path.ismount(str(path)):
+                        print(
+                            f"{path} exists but is not recognized as a mount point yet."
+                        )
+                        time.sleep(poll_interval)
+                        continue
+                except Exception as e:
+                    print(f"Could not verify mount point status for {path}: {e}")
+
+            try:
+                # Check for at least one entry in the directory.
+                if any(path.iterdir()):
+                    print(
+                        f"Mount point {path} appears available with files. Waiting {post_mount_delay} seconds for stabilization."
+                    )
+                    time.sleep(post_mount_delay)
+                    return
+                else:
+                    print(f"Mount point {path} is empty. Waiting for files to appear.")
+            except Exception as e:
+                last_error = e
+                print(f"Error accessing {path}: {e}")
+        else:
+            print(f"Mount point {path} does not exist yet.")
+
+        time.sleep(poll_interval)
+
+    raise TimeoutError(
+        f"Mount point {path} did not become available within {timeout} seconds. Last error: {last_error}"
+    )
 
 
 def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
