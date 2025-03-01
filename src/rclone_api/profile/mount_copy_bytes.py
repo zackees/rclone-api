@@ -133,6 +133,7 @@ def _run_profile(
     if isinstance(bytes_or_err, Exception):
         print(bytes_or_err)
         stack_trace = bytes_or_err.__traceback__
+        print(f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}")
         assert False, f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}"
     assert isinstance(bytes_or_err, bytes)
     # self.assertEqual(len(bytes_or_err), size)
