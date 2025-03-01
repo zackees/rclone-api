@@ -7,10 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import psutil
 from dotenv import load_dotenv
 
-from rclone_api import Config, Rclone, SizeSuffix
+from rclone_api import Config, Rclone
 
 load_dotenv()
 
@@ -24,6 +23,10 @@ def _generate_rclone_config() -> Config:
     # Load additional environment variables
     BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
     BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
+    SRC_SFTP_HOST = os.getenv("SRC_SFTP_HOST")
+    SRC_SFTP_USER = os.getenv("SRC_SFTP_USER")
+    SRC_SFTP_PORT = os.getenv("SRC_SFTP_PORT")
+    SRC_SFTP_PASS = os.getenv("SRC_SFTP_PASS")
     # BUCKET_URL = os.getenv("BUCKET_URL")
     BUCKET_URL = "sfo3.digitaloceanspaces.com"
 
@@ -34,10 +37,19 @@ provider = DigitalOcean
 access_key_id = {BUCKET_KEY_PUBLIC}
 secret_access_key = {BUCKET_KEY_SECRET}
 endpoint = {BUCKET_URL}
-"""
+bucket = {BUCKET_NAME}
 
-    out = Config(config_text)
-    return out
+[src]
+type = sftp
+host = {SRC_SFTP_HOST}
+user = {SRC_SFTP_USER}
+port = {SRC_SFTP_PORT}
+pass = {SRC_SFTP_PASS}
+
+"""
+    # _CONFIG_PATH.write_text(config_text, encoding="utf-8")
+    # print(f"Config file written to: {_CONFIG_PATH}")
+    return Config(config_text)
 
 
 class RcloneCopyBytesTester(unittest.TestCase):
@@ -64,6 +76,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
             offset=0,
             length=1024 * 1024,
+            transfers=1,
         )
         if isinstance(bytes_or_err, Exception):
             print(bytes_or_err)
@@ -73,9 +86,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             len(bytes_or_err), 1024 * 1024
         )  # , f"Length: {len(bytes_or_err)}"
 
-    @unittest.skip("Tested")
     def test_copy_bytes_to_temp_file(self) -> None:
-
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir) / "tmp.mp4"
             log = Path(tmpdir) / "log.txt"
@@ -100,62 +111,6 @@ class RcloneCopyBytesTester(unittest.TestCase):
             log_text = log.read_text(encoding="utf-8")
             self.assertTrue("Getattr" in log_text)
             print("done")
-
-    @unittest.skip("Tested")
-    def test_profile_copy_bytes(self) -> None:
-        rclone = Rclone(_generate_rclone_config())
-        sizes = [
-            1024 * 1024 * 1,
-            1024 * 1024 * 16,
-            1024 * 1024 * 64,
-        ]
-        transfer_list = [1, 16]
-        import time
-
-        for size in sizes:
-            for transfers in transfer_list:
-                print("\n\n")
-                print("#" * 80)
-                print(
-                    f"# Started test download of {SizeSuffix(size)} with {transfers} transfers"
-                )
-                print("#" * 80)
-                net_io_start = psutil.net_io_counters()
-                start = time.time()
-                bytes_or_err: bytes | Exception = rclone.copy_bytes(
-                    src="dst:rclone-api-unit-test/zachs_video/internaly_ai_alignment.mp4",
-                    offset=0,
-                    length=size,
-                    direct_io=True,
-                    transfers=transfers,
-                )
-                diff = time.time() - start
-                net_io_end = psutil.net_io_counters()
-                if isinstance(bytes_or_err, Exception):
-                    print(bytes_or_err)
-                    self.fail(f"Error: {bytes_or_err}")
-                assert isinstance(bytes_or_err, bytes)
-                self.assertEqual(len(bytes_or_err), size)
-
-                # print io stats
-                bytes_sent = net_io_end.bytes_sent - net_io_start.bytes_sent
-                bytes_recv = net_io_end.bytes_recv - net_io_start.bytes_recv
-                packets_sent = net_io_end.packets_sent - net_io_start.packets_sent
-                efficiency = size / (bytes_recv)
-                efficiency_100 = efficiency * 100
-                efficiency_str = f"{efficiency_100:.2f}"
-
-                bytes_send_suffix = SizeSuffix(bytes_sent)
-                bytes_recv_suffix = SizeSuffix(bytes_recv)
-                range_size = SizeSuffix(size)
-
-                print(f"\nFinished downloading {range_size} with {transfers} transfers")
-                print("Net IO stats:")
-                print(f"Bytes sent: {bytes_send_suffix}")
-                print(f"Bytes received: {bytes_recv_suffix}")
-                print(f"Packets sent: {packets_sent}")
-                print(f"Efficiency: {efficiency_str}%")
-                print(f"Time: {diff:.1f} seconds")
 
         print("done")
 

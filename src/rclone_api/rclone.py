@@ -820,7 +820,7 @@ class Rclone:
         src: str,
         offset: int,
         length: int,
-        transfers: int = 16,
+        transfers: int = 1,  # Note, increasing transfers can result in devestating drop in performance.
         # If outfile is supplied then bytes are written to this file and success returns bytes(0)
         outfile: Path | None = None,
         mount_log: Path | None = None,
