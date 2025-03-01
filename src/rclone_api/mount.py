@@ -1,9 +1,12 @@
+import atexit
 import os
 import platform
 import shutil
 import subprocess
 import time
 import warnings
+import weakref
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +14,27 @@ from typing import Any
 from rclone_api.process import Process
 
 _SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
+
+_MOUNTS_FOR_GC: weakref.WeakSet = weakref.WeakSet()
+
+
+def _add_mount_for_gc(mount: "Mount") -> None:
+    # weak reference to avoid circular references
+    _MOUNTS_FOR_GC.add(mount)
+
+
+def _remove_mount_for_gc(mount: "Mount") -> None:
+    _MOUNTS_FOR_GC.discard(mount)
+
+
+def _cleanup_mounts() -> None:
+    with ThreadPoolExecutor() as executor:
+        mount: Mount
+        for mount in _MOUNTS_FOR_GC:
+            executor.submit(mount.close, wait=False)
+
+
+atexit.register(_cleanup_mounts)
 
 
 @dataclass
@@ -28,15 +52,18 @@ class Mount:
         assert isinstance(self.mount_path, Path)
         assert self.process is not None
         wait_for_mount(self.mount_path, self.process)
+        _add_mount_for_gc(self)
 
     def close(self, wait=True) -> None:
         """Clean up the mount."""
         if self._closed:
             return
         self._closed = True
+        self.process.terminate()
         clean_mount(self, verbose=False, wait=wait)
         if self.cache_dir and self.cache_dir_delete_on_exit:
             _cache_dir_delete_on_exit(self.cache_dir)
+        _remove_mount_for_gc(self)
 
     def __enter__(self) -> "Mount":
         return self
@@ -46,6 +73,10 @@ class Mount:
 
     def __del__(self):
         self.close(wait=False)
+
+    # make this a hashable object
+    def __hash__(self):
+        return hash(self.mount_path)
 
 
 def run_command(cmd: str, verbose: bool) -> int:
