@@ -6,12 +6,14 @@ import subprocess
 import time
 import warnings
 import weakref
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock, Semaphore
 from typing import Any
 
 from rclone_api.process import Process
+from rclone_api.types import SizeSuffix
 
 _SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
 
@@ -283,3 +285,83 @@ def _cache_dir_delete_on_exit(cache_dir: Path) -> None:
             shutil.rmtree(cache_dir)
         except Exception as e:
             warnings.warn(f"Error removing cache directory {cache_dir}: {e}")
+
+
+class MultiMountFileChunker:
+    def __init__(
+        self,
+        filename: str,
+        chunk_size: SizeSuffix,
+        mounts: list[Mount],
+        executor: ThreadPoolExecutor,
+    ) -> None:
+        self.filename = filename
+        self.chunk_size = chunk_size
+        self.executor = executor
+        self.mounts_processing: list[Mount] = []
+        self.mounts_availabe: list[Mount] = mounts
+        self.semaphore = Semaphore(len(mounts))
+        self.lock = Lock()
+
+    def close(self) -> None:
+        self.executor.shutdown(wait=False, cancel_futures=True)
+        with ThreadPoolExecutor() as executor:
+            for mount in self.mounts_processing:
+                executor.submit(lambda: mount.close())
+
+    def fetch(self, offset: int, size: int) -> bytes | Exception:
+        try:
+            assert offset % self.chunk_size.as_int() == 0
+            assert size <= self.chunk_size.as_int()
+            assert size > 0
+            assert offset >= 0
+
+            chunks: list[tuple[int, int]] = []
+            start = offset
+            end = offset + size
+            while start < end:
+                chunk_size = min(self.chunk_size.as_int(), end - start)
+                chunks.append((start, chunk_size))
+                start += chunk_size
+
+            futures: list[Future[bytes | Exception]] = []
+            for start, chunk_size in chunks:
+                self.semaphore.acquire()
+                with self.lock:
+                    mount = self.mounts_availabe.pop()
+                    self.mounts_processing.append(mount)
+
+                path = mount.mount_path / self.filename
+
+                def task() -> bytes | Exception:
+                    try:
+                        with path.open("rb") as f:
+                            f.seek(offset)
+                            return f.read(size)
+                    except KeyboardInterrupt as e:
+                        import _thread
+
+                        _thread.interrupt_main()
+                        return Exception(e)
+                    except Exception as e:
+                        return e
+                    finally:
+                        with self.lock:
+                            self.mounts_processing.remove(mount)
+                            self.mounts_availabe.append(mount)
+                            self.semaphore.release()
+
+                fut = self.executor.submit(task)
+                futures.append(fut)
+
+            out: bytes = b""
+            for fut in futures:
+                chunk: bytes | Exception = fut.result()
+                if isinstance(chunk, Exception):
+                    return chunk
+                else:
+                    out += chunk
+                    del chunk
+            return out
+        except Exception as e:
+            return e

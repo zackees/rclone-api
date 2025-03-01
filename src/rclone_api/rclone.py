@@ -13,7 +13,6 @@ from contextlib import contextmanager
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from threading import Lock, Semaphore
 from typing import Generator
 
 from rclone_api import Dir
@@ -26,7 +25,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import group_files
-from rclone_api.mount import Mount, clean_mount, prepare_mount
+from rclone_api.mount import Mount, MultiMountFileChunker, clean_mount, prepare_mount
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -64,86 +63,6 @@ def _to_rclone_conf(config: Config | Path) -> Config:
         return Config(content)
     else:
         return config
-
-
-class FileChunker:
-    def __init__(
-        self,
-        filename: str,
-        chunk_size: SizeSuffix,
-        mounts: list[Mount],
-        executor: ThreadPoolExecutor,
-    ) -> None:
-        self.filename = filename
-        self.chunk_size = chunk_size
-        self.executor = executor
-        self.mounts_processing: list[Mount] = []
-        self.mounts_availabe: list[Mount] = mounts
-        self.semaphore = Semaphore(len(mounts))
-        self.lock = Lock()
-
-    def close(self) -> None:
-        self.executor.shutdown(wait=False, cancel_futures=True)
-        with ThreadPoolExecutor() as executor:
-            for mount in self.mounts_processing:
-                executor.submit(lambda: mount.close())
-
-    def fetch(self, offset: int, size: int) -> bytes | Exception:
-        try:
-            assert offset % self.chunk_size.as_int() == 0
-            assert size <= self.chunk_size.as_int()
-            assert size > 0
-            assert offset >= 0
-
-            chunks: list[tuple[int, int]] = []
-            start = offset
-            end = offset + size
-            while start < end:
-                chunk_size = min(self.chunk_size.as_int(), end - start)
-                chunks.append((start, chunk_size))
-                start += chunk_size
-
-            futures: list[Future[bytes | Exception]] = []
-            for start, chunk_size in chunks:
-                self.semaphore.acquire()
-                with self.lock:
-                    mount = self.mounts_availabe.pop()
-                    self.mounts_processing.append(mount)
-
-                path = mount.mount_path / self.filename
-
-                def task() -> bytes | Exception:
-                    try:
-                        with path.open("rb") as f:
-                            f.seek(offset)
-                            return f.read(size)
-                    except KeyboardInterrupt as e:
-                        import _thread
-
-                        _thread.interrupt_main()
-                        return Exception(e)
-                    except Exception as e:
-                        return e
-                    finally:
-                        with self.lock:
-                            self.mounts_processing.remove(mount)
-                            self.mounts_availabe.append(mount)
-                            self.semaphore.release()
-
-                fut = self.executor.submit(task)
-                futures.append(fut)
-
-            out: bytes = b""
-            for fut in futures:
-                chunk: bytes | Exception = fut.result()
-                if isinstance(chunk, Exception):
-                    return chunk
-                else:
-                    out += chunk
-                    del chunk
-            return out
-        except Exception as e:
-            return e
 
 
 class Rclone:
@@ -910,7 +829,7 @@ class Rclone:
         """Copy bytes from a file to another file."""
         from rclone_api.util import random_str
 
-        tmp_mnt = Path("tmp_mnt") / random_str(12)
+        tmp_mnts = Path("tmp_mnts") / random_str(12)
         src_parent_path = Path(src).parent.as_posix()
         src_file = Path(src).name
         other_args: list[str] = [
@@ -941,7 +860,7 @@ class Rclone:
                 # use scoped mount to do the read, then write the bytes to the destination
                 with self.scoped_mount(
                     src_parent_path,
-                    tmp_mnt,
+                    tmp_mnts,
                     use_links=True,
                     verbose=mount_log is not None,
                     vfs_cache_mode="minimal",
@@ -950,7 +869,7 @@ class Rclone:
                     cache_dir=cache_dir,
                     cache_dir_delete_on_exit=True,
                 ):
-                    src_file_mnt = tmp_mnt / src_file
+                    src_file_mnt = tmp_mnts / src_file
                     with open(src_file_mnt, "rb") as f:
                         f.seek(offset)
                         data = f.read(length)
@@ -964,14 +883,14 @@ class Rclone:
             except Exception as e:
                 return e
 
-    def _get_file_chunker(
+    def get_multi_mount_file_chunker(
         self,
         src: str,
         chunk_size: SizeSuffix,
         threads: int,
         mount_log: Path | None,
         direct_io: bool,
-    ) -> FileChunker:
+    ) -> MultiMountFileChunker:
         from rclone_api.util import random_str
 
         mounts: list[Mount] = []
@@ -996,32 +915,45 @@ class Rclone:
             other_args += ["--direct-io"]
 
         filename = Path(src).name
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures: list[Future] = []
+            try:
+                for i in range(threads):
+                    tmp_mnts = Path("tmp_mnts") / random_str(12)
+                    verbose = mount_log is not None
+                    clean_mount(tmp_mnts, verbose=verbose)
+                    prepare_mount(tmp_mnts, verbose=verbose)
+                    src_parent_path = Path(src).parent.as_posix()
 
-        try:
-            for i in range(threads):
-                tmp_mnt = Path("tmp_mnt") / random_str(12)
-                verbose = mount_log is not None
-                clean_mount(tmp_mnt, verbose=verbose)
-                prepare_mount(tmp_mnt, verbose=verbose)
-                src_parent_path = Path(src).parent.as_posix()
-                mount = self.mount(
-                    src=src_parent_path,
-                    outdir=tmp_mnt,
-                    allow_writes=False,
-                    use_links=True,
-                    vfs_cache_mode="minimal",
-                    verbose=False,
-                    cache_dir_delete_on_exit=True,
-                    log=mount_log,
-                    other_args=other_args,
-                )
-                mounts.append(mount)
-        except Exception:
-            for mount in mounts:
-                mount.close()
-            raise
+                    def task(src_parent_path=src_parent_path, tmp_mnts=tmp_mnts):
+                        return self.mount(
+                            src=src_parent_path,
+                            outdir=tmp_mnts,
+                            allow_writes=False,
+                            use_links=True,
+                            vfs_cache_mode="minimal",
+                            verbose=False,
+                            cache_dir=Path("cache") / random_str(12),
+                            cache_dir_delete_on_exit=True,
+                            log=mount_log,
+                            other_args=other_args,
+                        )
+                    futures.append(executor.submit(task))
+                mount_errors: list[Exception] = []
+                for fut in futures:
+                    try:
+                        mount = fut.result()
+                        mounts.append(mount)
+                    except Exception as er:
+                        mount_errors.append(er)
+                if mount_errors:
+                    raise Exception(mount_errors)
+            except Exception:
+                for mount in mounts:
+                    mount.close()
+                raise
         executor = ThreadPoolExecutor(max_workers=threads)
-        filechunker: FileChunker = FileChunker(
+        filechunker: MultiMountFileChunker = MultiMountFileChunker(
             filename=filename,
             chunk_size=chunk_size,
             mounts=mounts,
@@ -1044,7 +976,7 @@ class Rclone:
         """Copy bytes from a file to another file."""
         # determine number of threads from chunk size
         threads = max(1, min(max_threads, length // chunk_size.as_int()))
-        filechunker = self._get_file_chunker(
+        filechunker = self.get_multi_mount_file_chunker(
             src=src,
             chunk_size=chunk_size,
             threads=threads,
