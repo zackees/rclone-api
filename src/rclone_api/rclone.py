@@ -777,9 +777,18 @@ class Rclone:
                 endpoint_url=section.endpoint(),
             )
 
+            chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
+                src=src_path.parent.as_posix(),
+                chunk_size=chunk_size,
+                threads=read_threads,
+                mount_log=mount_log,
+                direct_io=True,
+            )
+
             client = S3Client(s3_creds)
-            config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
+            upload_config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size.as_int(),
+                chunk_fetcher=chunk_fetcher.fetch,
                 max_write_threads=write_threads,
                 retries=retries,
                 resume_path_json=save_state_json,
@@ -791,10 +800,7 @@ class Rclone:
             print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
             print(f"Source: {src_path}")
             print(f"bucket_name: {bucket_name}")
-            print(f"upload_config: {config}")
-
-            upload_target: S3UploadTarget
-            upload_config: S3MutliPartUploadConfig
+            print(f"upload_config: {upload_config}")
 
             upload_target = S3UploadTarget(
                 bucket_name=bucket_name,
@@ -802,29 +808,14 @@ class Rclone:
                 s3_key=s3_key,
             )
 
-            upload_config = S3MutliPartUploadConfig(
-                chunk_size=chunk_size.as_int(),
-                retries=retries,
-                max_write_threads=write_threads,
-                resume_path_json=save_state_json,
-                max_chunks_before_suspension=max_chunks_before_suspension,
-            )
-
-            chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
-                src=src_path.parent.as_posix(),
-                chunk_size=chunk_size,
-                threads=read_threads,
-                mount_log=mount_log,
-                direct_io=True,
-            )
-            chunk_fetcher_function = chunk_fetcher.fetch
-
-            out: MultiUploadResult = client.upload_file_multipart(
-                chunk_fetcher=chunk_fetcher_function,
-                upload_target=upload_target,
-                upload_config=upload_config,
-            )
-            return out
+            try:
+                out: MultiUploadResult = client.upload_file_multipart(
+                    upload_target=upload_target,
+                    upload_config=upload_config,
+                )
+                return out
+            finally:
+                chunk_fetcher.close()
 
     def _copy_bytes(
         self,

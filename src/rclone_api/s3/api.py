@@ -1,7 +1,5 @@
 import json
 import warnings
-from concurrent.futures import Future
-from typing import Callable
 
 from botocore.client import BaseClient
 
@@ -49,7 +47,6 @@ class S3Client:
 
     def upload_file_multipart(
         self,
-        chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
         upload_target: S3UploadTarget,
         upload_config: S3MutliPartUploadConfig,
     ) -> MultiUploadResult:
@@ -73,7 +70,7 @@ class S3Client:
 
             out = upload_file_multipart(
                 s3_client=self.client,
-                chunk_fetcher=chunk_fetcher,
+                chunk_fetcher=upload_config.chunk_fetcher,
                 bucket_name=bucket_name,
                 file_path=upload_target.src_file,
                 object_name=upload_target.s3_key,

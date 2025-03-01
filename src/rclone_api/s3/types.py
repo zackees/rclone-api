@@ -1,6 +1,8 @@
+from concurrent.futures import Future
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Callable
 
 
 class S3Provider(Enum):
@@ -45,6 +47,7 @@ class S3MutliPartUploadConfig:
 
     chunk_size: int
     retries: int
+    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]]
     resume_path_json: Path
     max_write_threads: int
     max_chunks_before_suspension: int | None = None

@@ -66,6 +66,20 @@ class RcloneS3Tester(unittest.TestCase):
             filesize = tmpfile.stat().st_size
             state_json = Path(tempdir) / "state.json"
 
+            def simple_fetcher(
+                chunk_id: int, chunk_size: int
+            ) -> Future[bytes | Exception]:
+                with ThreadPoolExecutor() as executor:
+
+                    def task() -> bytes | Exception:
+                        with open(str(tmpfile), "rb") as f:
+                            idx = (chunk_id - 1) * chunk_size
+                            f.seek(idx * chunk_size)
+                            return f.read(chunk_size)
+
+                    fut = executor.submit(task)
+                return fut
+
             upload_target: S3UploadTarget = S3UploadTarget(
                 src_file=Path(tmpfile),
                 bucket_name=BUCKET_NAME,
@@ -75,6 +89,7 @@ class RcloneS3Tester(unittest.TestCase):
             # Uploads one chunk then stops.
             upload_config_partial: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size,
+                chunk_fetcher=simple_fetcher,
                 max_write_threads=16,
                 retries=0,
                 resume_path_json=state_json,
@@ -84,34 +99,20 @@ class RcloneS3Tester(unittest.TestCase):
             # Finishes the upload.
             upload_config_all: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
                 chunk_size=chunk_size,
+                chunk_fetcher=simple_fetcher,
                 max_write_threads=16,
                 retries=0,
                 resume_path_json=state_json,
                 max_chunks_before_suspension=None,
             )
 
-            def simple_fetcher(
-                chunk_id: int, chunk_size: int
-            ) -> Future[bytes | Exception]:
-                with ThreadPoolExecutor() as executor:
-
-                    def task() -> bytes | Exception:
-                        with open(str(tmpfile), "rb") as f:
-                            f.seek(chunk_id * chunk_size)
-                            return f.read(chunk_size)
-
-                    fut = executor.submit(task)
-                return fut
-
             print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
             rslt: MultiUploadResult = s3_client.upload_file_multipart(
-                chunk_fetcher=simple_fetcher,
                 upload_target=upload_target,
                 upload_config=upload_config_partial,
             )
             self.assertEqual(rslt, MultiUploadResult.SUSPENDED)
             rslt = s3_client.upload_file_multipart(
-                chunk_fetcher=simple_fetcher,
                 upload_target=upload_target,
                 upload_config=upload_config_all,
             )
@@ -122,7 +123,6 @@ class RcloneS3Tester(unittest.TestCase):
             print("Upload successful.")
             print(f"Uploading file {f.name} to {BUCKET_NAME}/{dst_path}")
             rslt = s3_client.upload_file_multipart(
-                chunk_fetcher=simple_fetcher,
                 upload_target=upload_target,
                 upload_config=upload_config_all,
             )
