@@ -832,7 +832,10 @@ class Rclone:
         tmp_mnt = Path("tmp_mnt") / random_str(12)
         src_parent_path = Path(src).parent.as_posix()
         src_file = Path(src).name
-        other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
+        other_args: list[str] = [
+            "--no-modtime",
+            # "--vfs-read-wait", "1s"
+        ]
         vfs_read_chunk_size = SizeSuffix(length // transfers)
         vfs_read_chunk_size_limit = SizeSuffix(length)
         vfs_read_chunk_streams = transfers

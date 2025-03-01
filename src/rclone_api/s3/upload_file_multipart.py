@@ -5,7 +5,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Event, Thread
 
 from botocore.client import BaseClient
 
@@ -207,16 +207,21 @@ def upload_file_multipart(
     upload_info = upload_state.upload_info
 
     chunker_errors: Queue[Exception] = Queue()
+    cancel_chunker_event = Event()
 
     def chunker_task(
         upload_state=upload_state,
         output=filechunks,
         max_chunks=max_chunks_before_suspension,
+        cancel_signal=cancel_chunker_event,
         queue_errors=chunker_errors,
     ) -> None:
         try:
             file_chunker(
-                upload_state=upload_state, output=output, max_chunks=max_chunks
+                upload_state=upload_state,
+                output=output,
+                max_chunks=max_chunks,
+                cancel_signal=cancel_signal,
             )
         except Exception as e:
             queue_errors.put(e)
@@ -228,25 +233,30 @@ def upload_file_multipart(
         thread_chunker.start()
 
         with ThreadPoolExecutor(max_workers=upload_threads) as executor:
-            while True:
-                file_chunk: FileChunk | None = filechunks.get()
-                if file_chunk is None:
-                    break
+            try:
+                while True:
+                    file_chunk: FileChunk | None = filechunks.get()
+                    if file_chunk is None:
+                        break
 
-                def task(upload_info=upload_info, file_chunk=file_chunk):
-                    return handle_upload(upload_info, file_chunk)
+                    def task(upload_info=upload_info, file_chunk=file_chunk):
+                        return handle_upload(upload_info, file_chunk)
 
-                fut = executor.submit(task)
+                    fut = executor.submit(task)
 
-                def done_cb(fut=fut):
-                    result = fut.result()
-                    if isinstance(result, Exception):
-                        warnings.warn(f"Error uploading part: {result}, skipping")
-                        return
-                    # upload_state.finished_parts.put(result)
-                    upload_state.add_finished(result)
+                    def done_cb(fut=fut):
+                        result = fut.result()
+                        if isinstance(result, Exception):
+                            warnings.warn(f"Error uploading part: {result}, skipping")
+                            return
+                        # upload_state.finished_parts.put(result)
+                        upload_state.add_finished(result)
 
-                fut.add_done_callback(done_cb)
+                    fut.add_done_callback(done_cb)
+            except Exception:
+                cancel_chunker_event.set()
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise
         # upload_state.finished_parts.put(None)  # Signal the end of the queue
         upload_state.add_finished(None)
         thread_chunker.join()

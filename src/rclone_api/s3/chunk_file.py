@@ -2,6 +2,7 @@ import time
 import warnings
 from pathlib import Path
 from queue import Queue
+from threading import Event
 
 from rclone_api.s3.chunk_types import FileChunk, UploadState
 from rclone_api.util import locked_print
@@ -25,12 +26,16 @@ def _get_file_size(file_path: Path, timeout: int = 60) -> int:
 
 
 def file_chunker(
-    upload_state: UploadState, max_chunks: int | None, output: Queue[FileChunk | None]
+    upload_state: UploadState,
+    max_chunks: int | None,
+    cancel_signal: Event,
+    output: Queue[FileChunk | None],
 ) -> None:
     count = 0
 
     def should_stop() -> bool:
         nonlocal count
+
         if max_chunks is None:
             return False
         if count >= max_chunks:
@@ -67,6 +72,12 @@ def file_chunker(
             if part_number > num_parts:
                 return None
             return part_number
+
+        if cancel_signal.is_set():
+            print(
+                f"Cancel signal is set for file chunker while processing {file_path}, returning"
+            )
+            return
 
         while not should_stop():
             curr_parth_num = next_part_number()
