@@ -18,6 +18,9 @@ BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 def _generate_rclone_config() -> Config:
 
+    cwd = Path.cwd()
+    print(f"Current working directory: {cwd}")
+
     # assert that .env exists for this test
     assert os.path.exists(
         ".env"
