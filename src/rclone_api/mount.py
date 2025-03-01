@@ -31,7 +31,13 @@ class Mount:
         if self._closed:
             return
         self._closed = True
-        clean_mount(self, verbose=False)
+        clean_mount(self, verbose=False, wait=wait)
+
+    def __enter__(self) -> "Mount":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close(wait=True)
 
     def __del__(self):
         self.close(wait=False)

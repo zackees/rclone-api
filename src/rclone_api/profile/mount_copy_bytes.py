@@ -3,6 +3,7 @@ Unit test file.
 """
 
 import os
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,10 +104,11 @@ def _init() -> None:
     os.environ["RCLONE_API_VERBOSE"] = "1"
 
 
-def _run_profile(rclone: Rclone, src_file: str, transfers: int, size: int) -> None:
-    mount_log = (
-        Path("logs") / "mount" / f"mount_{SizeSuffix(size)}_threads_{transfers}.log"
-    )
+def _run_profile(
+    rclone: Rclone, src_file: str, transfers: int, size: int, log_dir: Path
+) -> None:
+
+    mount_log = log_dir / f"mount_{SizeSuffix(size)}_threads_{transfers}.log"
     print("\n\n")
     print("#" * 80)
     print(f"# Started test download of {SizeSuffix(size)} with {transfers} transfers")
@@ -177,10 +179,18 @@ def test_profile_copy_bytes() -> None:
     # sftp mount
     src_file = "src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
 
+    mount_root_path = Path("logs") / "mount"
+    if mount_root_path.exists():
+        shutil.rmtree(mount_root_path)
+
     for size in sizes:
         for transfers in transfer_list:
             _run_profile(
-                rclone=rclone, src_file=src_file, transfers=transfers, size=size
+                rclone=rclone,
+                src_file=src_file,
+                transfers=transfers,
+                size=size,
+                log_dir=mount_root_path,
             )
     print("done")
 

@@ -927,10 +927,11 @@ class Rclone:
 
         allow_writes = allow_writes or False
         use_links = use_links or True
-        verbose = get_verbose(verbose)
+        verbose = get_verbose(verbose) or (log is not None)
         vfs_cache_mode = vfs_cache_mode or "full"
         clean_mount(outdir, verbose=verbose)
         prepare_mount(outdir, verbose=verbose)
+        debug_fuse = log is not None
         src_str = convert_to_str(src)
         cmd_list: list[str] = ["mount", src_str, str(outdir)]
         if not allow_writes:
@@ -940,12 +941,14 @@ class Rclone:
         if vfs_cache_mode:
             cmd_list.append("--vfs-cache-mode")
             cmd_list.append(vfs_cache_mode)
+        if debug_fuse:
+            cmd_list.append("--debug-fuse")
         if verbose:
             cmd_list.append("-vvvv")
         if other_args:
             cmd_list += other_args
         proc = self._launch_process(cmd_list, log=log)
-        mount_read_only = "--read-only" in cmd_list  # hint to allow fast teardown
+        mount_read_only = not allow_writes
         mount: Mount = Mount(mount_path=outdir, process=proc, read_only=mount_read_only)
         return mount
 
@@ -963,7 +966,6 @@ class Rclone:
     ) -> Generator[Mount, None, None]:
         """Like mount, but can be used in a context manager."""
         error_happened = False
-        verbose = get_verbose(verbose)
         mount: Mount = self.mount(
             src,
             outdir,
@@ -982,7 +984,7 @@ class Rclone:
             warnings.warn(f"Error in scoped_mount: {e}\n\nStack Trace:\n{stack_trace}")
             raise
         finally:
-            if not error_happened:
+            if not error_happened or (not allow_writes):
                 mount.close()
 
     # Settings optimized for s3.
