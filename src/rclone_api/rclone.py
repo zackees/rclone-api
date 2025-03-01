@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Lock, Semaphore
 from typing import Generator
 
 from rclone_api import Dir
@@ -63,6 +64,86 @@ def _to_rclone_conf(config: Config | Path) -> Config:
         return Config(content)
     else:
         return config
+
+
+class FileChunker:
+    def __init__(
+        self,
+        filename: str,
+        chunk_size: SizeSuffix,
+        mounts: list[Mount],
+        executor: ThreadPoolExecutor,
+    ) -> None:
+        self.filename = filename
+        self.chunk_size = chunk_size
+        self.executor = executor
+        self.mounts_processing: list[Mount] = []
+        self.mounts_availabe: list[Mount] = mounts
+        self.semaphore = Semaphore(len(mounts))
+        self.lock = Lock()
+
+    def close(self) -> None:
+        self.executor.shutdown(wait=False, cancel_futures=True)
+        with ThreadPoolExecutor() as executor:
+            for mount in self.mounts_processing:
+                executor.submit(lambda: mount.close())
+
+    def fetch(self, offset: int, size: int) -> bytes | Exception:
+        try:
+            assert offset % self.chunk_size.as_int() == 0
+            assert size <= self.chunk_size.as_int()
+            assert size > 0
+            assert offset >= 0
+
+            chunks: list[tuple[int, int]] = []
+            start = offset
+            end = offset + size
+            while start < end:
+                chunk_size = min(self.chunk_size.as_int(), end - start)
+                chunks.append((start, chunk_size))
+                start += chunk_size
+
+            futures: list[Future[bytes | Exception]] = []
+            for start, chunk_size in chunks:
+                self.semaphore.acquire()
+                with self.lock:
+                    mount = self.mounts_availabe.pop()
+                    self.mounts_processing.append(mount)
+
+                path = mount.mount_path / self.filename
+
+                def task() -> bytes | Exception:
+                    try:
+                        with path.open("rb") as f:
+                            f.seek(offset)
+                            return f.read(size)
+                    except KeyboardInterrupt as e:
+                        import _thread
+
+                        _thread.interrupt_main()
+                        return Exception(e)
+                    except Exception as e:
+                        return e
+                    finally:
+                        with self.lock:
+                            self.mounts_processing.remove(mount)
+                            self.mounts_availabe.append(mount)
+                            self.semaphore.release()
+
+                fut = self.executor.submit(task)
+                futures.append(fut)
+
+            out: bytes = b""
+            for fut in futures:
+                chunk: bytes | Exception = fut.result()
+                if isinstance(chunk, Exception):
+                    return chunk
+                else:
+                    out += chunk
+                    del chunk
+            return out
+        except Exception as e:
+            return e
 
 
 class Rclone:
@@ -883,6 +964,71 @@ class Rclone:
             except Exception as e:
                 return e
 
+    def _get_file_chunker(
+        self,
+        src: str,
+        chunk_size: SizeSuffix,
+        threads: int,
+        mount_log: Path | None,
+        direct_io: bool,
+    ) -> FileChunker:
+        from rclone_api.util import random_str
+
+        mounts: list[Mount] = []
+        vfs_read_chunk_size = chunk_size
+        vfs_read_chunk_size_limit = chunk_size
+        vfs_read_chunk_streams = 0
+        vfs_disk_space_total_size = chunk_size
+        other_args: list[str] = []
+        other_args += ["--no-modtime"]
+        other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
+        other_args += [
+            "--vfs-read-chunk-size-limit",
+            vfs_read_chunk_size_limit.as_str(),
+        ]
+        other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
+        other_args += [
+            "--vfs-disk-space-total-size",
+            vfs_disk_space_total_size.as_str(),
+        ]
+        other_args += ["--read-only"]
+        if direct_io:
+            other_args += ["--direct-io"]
+
+        filename = Path(src).name
+
+        try:
+            for i in range(threads):
+                tmp_mnt = Path("tmp_mnt") / random_str(12)
+                verbose = mount_log is not None
+                clean_mount(tmp_mnt, verbose=verbose)
+                prepare_mount(tmp_mnt, verbose=verbose)
+                src_parent_path = Path(src).parent.as_posix()
+                mount = self.mount(
+                    src=src_parent_path,
+                    outdir=tmp_mnt,
+                    allow_writes=False,
+                    use_links=True,
+                    vfs_cache_mode="minimal",
+                    verbose=False,
+                    cache_dir_delete_on_exit=True,
+                    log=mount_log,
+                    other_args=other_args,
+                )
+                mounts.append(mount)
+        except Exception:
+            for mount in mounts:
+                mount.close()
+            raise
+        executor = ThreadPoolExecutor(max_workers=threads)
+        filechunker: FileChunker = FileChunker(
+            filename=filename,
+            chunk_size=chunk_size,
+            mounts=mounts,
+            executor=executor,
+        )
+        return filechunker
+
     def copy_bytes(
         self,
         src: str,
@@ -897,49 +1043,28 @@ class Rclone:
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
         # determine number of threads from chunk size
-        threads = min(max_threads, length // chunk_size.as_int())
-
-        if threads == 1:
-            return self._copy_bytes(
-                src,
-                offset,
-                length,
-                transfers=1,
-                outfile=outfile,
-                mount_log=mount_log,
-                direct_io=direct_io,
-            )
-        else:
-            futures: list[Future] = []
-            with ThreadPoolExecutor(max_workers=threads) as executor:
-                for i in range(threads):
-                    start = i * chunk_size.as_int()
-                    end = start + chunk_size.as_int()
-                    if i == threads - 1:
-                        end = length
-                    future = executor.submit(
-                        self._copy_bytes,
-                        src,
-                        offset + start,
-                        end - start,
-                        transfers=1,
-                        outfile=None,
-                        mount_log=mount_log,
-                        direct_io=direct_io,
-                    )
-                    futures.append(future)
-                data: bytes = b""
-                for future in futures:
-                    chunk: bytes | Exception = future.result()
-                    if isinstance(chunk, Exception):
-                        return chunk
-                    data += chunk
-                if outfile is not None:
-                    with open(outfile, "wb") as out:
-                        out.write(data)
-                        del data
-                        return bytes(0)
+        threads = max(1, min(max_threads, length // chunk_size.as_int()))
+        filechunker = self._get_file_chunker(
+            src=src,
+            chunk_size=chunk_size,
+            threads=threads,
+            mount_log=mount_log,
+            direct_io=direct_io,
+        )
+        try:
+            data = filechunker.fetch(offset, length)
+            if isinstance(data, Exception):
+                raise data
+            if outfile is None:
                 return data
+            with open(outfile, "wb") as out:
+                out.write(data)
+                del data
+            return bytes(0)
+        except Exception as e:
+            return e
+        finally:
+            filechunker.close()
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
