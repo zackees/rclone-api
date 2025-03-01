@@ -824,6 +824,7 @@ class Rclone:
         # If supplied then bytes are written to this file and success returns bytes(0)
         outfile: Path | None = None,
         mount_log: Path | None = None,
+        direct_io: bool = True,
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
         from rclone_api.util import random_str
@@ -841,7 +842,8 @@ class Rclone:
         other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
         other_args += ["--vfs-disk-space-total-size", str(vfs_disk_space_total_size)]
         other_args += ["--read-only"]
-        other_args += ["--direct-io"]
+        if direct_io:
+            other_args += ["--direct-io"]
 
         try:
             # use scoped mount to do the read, then write the bytes to the destination

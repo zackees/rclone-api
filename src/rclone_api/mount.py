@@ -106,7 +106,7 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     try:
         mount_exists = mount_path.exists()
     except OSError as e:
-        warnings.warn(f"Error checking {mount_path}: {e}")
+        # warnings.warn(f"Error checking {mount_path}: {e}")
         mount_exists = True
 
     # Give the system a moment (if unmount is in progress, etc.)
@@ -140,7 +140,8 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
             if verbose:
                 print(f"Successfully removed mount directory {mount_path}")
         except Exception as e:
-            warnings.warn(f"Failed to remove mount {mount_path}: {e}")
+            # warnings.warn(f"Failed to remove mount {mount_path}: {e}")
+            pass
     else:
         warnings.warn(f"Unsupported platform: {_SYSTEM}")
 
