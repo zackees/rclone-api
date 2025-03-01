@@ -921,8 +921,7 @@ class Rclone:
                 for i in range(threads):
                     tmp_mnts = Path("tmp_mnts") / random_str(12)
                     verbose = mount_log is not None
-                    clean_mount(tmp_mnts, verbose=verbose)
-                    prepare_mount(tmp_mnts, verbose=verbose)
+
                     src_parent_path = Path(src).parent.as_posix()
                     cache_dir = Path("cache") / random_str(12)
 
@@ -931,6 +930,8 @@ class Rclone:
                         tmp_mnts=tmp_mnts,
                         cache_dir=cache_dir,
                     ):
+                        clean_mount(tmp_mnts, verbose=verbose)
+                        prepare_mount(tmp_mnts, verbose=verbose)
                         return self.mount(
                             src=src_parent_path,
                             outdir=tmp_mnts,

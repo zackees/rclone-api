@@ -129,30 +129,6 @@ def _run_profile(
         mount_log=mount_log,
     )
     bytes_count = 0
-    for i in range(num):
-        bytes_or_err = filechunker.fetch(offset.as_int(), size.as_int()).result()
-        if isinstance(bytes_or_err, Exception):
-            assert False, f"Error: {bytes_or_err}"
-        bytes_count += len(bytes_or_err)
-
-    start = time.time()
-    net_io_start = psutil.net_io_counters()
-
-    # bytes_or_err: bytes | Exception = rclone.copy_bytes(
-    #     src=src_file,
-    #     offset=offset.as_int(),
-    #     length=size.as_int(),
-    #     chunk_size=chunk_size,
-    #     direct_io=direct_io,
-    #     max_threads=transfers,
-    #     mount_log=mount_log,
-    # )
-
-    # bytes_or_err = filechunker.fetch(
-    #     (offset + SizeSuffix("1G")).as_int(), size.as_int()
-    # )
-
-    offset = SizeSuffix("1G")
 
     futures: list[Future[bytes | Exception]] = []
     for i in range(num):
@@ -164,11 +140,30 @@ def _run_profile(
         bytes_or_err = future.result()
         if isinstance(bytes_or_err, Exception):
             assert False, f"Error: {bytes_or_err}"
+    futures.clear()
 
-    diff = time.time() - start
+    start = time.time()
+    net_io_start = psutil.net_io_counters()
+
+    offset = SizeSuffix("1G")
+
+    for i in range(num):
+        offset = SizeSuffix(i * chunk_size.as_int()) + offset
+        future = filechunker.fetch(offset.as_int(), size.as_int())
+        futures.append(future)
+
+    for future in futures:
+        bytes_or_err = future.result()
+        if isinstance(bytes_or_err, Exception):
+            assert False, f"Error: {bytes_or_err}"
+        bytes_count += len(bytes_or_err)
+
+    diff = (time.time() - start) / num
     net_io_end = psutil.net_io_counters()
     # self.assertEqual(len(bytes_or_err), size)
-    assert bytes_count * num == size, f"Length: {SizeSuffix(bytes_count)} != {size}"
+    assert (
+        bytes_count == SizeSuffix(size * num).as_int()
+    ), f"Length: {SizeSuffix(bytes_count)} != {SizeSuffix(size* num)}"
 
     # print io stats
     bytes_sent = (net_io_end.bytes_sent - net_io_start.bytes_sent) // num
