@@ -288,6 +288,32 @@ def _cache_dir_delete_on_exit(cache_dir: Path) -> None:
             warnings.warn(f"Error removing cache directory {cache_dir}: {e}")
 
 
+def _read_from_mount_task(
+    offset: int, size: int, path: Path, verbose: bool
+) -> bytes | Exception:
+    if verbose or True:
+        print(f"Fetching chunk: offset={offset}, size={size}, path={path}")
+    try:
+        with path.open("rb") as f:
+            f.seek(offset)
+            sz = f.read(size)
+            assert len(sz) == size, f"Invalid read size: {len(sz)}"
+            return sz
+    except KeyboardInterrupt as e:
+        import _thread
+
+        warnings.warn(f"Error fetching file chunk: {e}")
+
+        _thread.interrupt_main()
+        return Exception(e)
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        warnings.warn(
+            f"Error fetching file chunk at offset {offset} + {size}: {e}\n{stack_trace}"
+        )
+        return e
+
+
 class MultiMountFileChunker:
     def __init__(
         self,
@@ -335,36 +361,16 @@ class MultiMountFileChunker:
             path = mount.mount_path / self.filename
 
             def task(
-                offset=offset, size=size, path=path, mount=mount
+                offset=offset, size=size, path=path, mount=mount, verbose=self.verbose
             ) -> bytes | Exception:
-                if self.verbose or True:
-                    print(f"Fetching chunk: offset={offset}, size={size}, path={path}")
-                try:
-                    if offset + size > self.filesize:
-                        raise ValueError(f"Invalid offset + size: {offset + size}")
-                    with path.open("rb") as f:
-                        f.seek(offset)
-                        sz = f.read(size)
-                        assert len(sz) == size, f"Invalid read size: {len(sz)}"
-                        return sz
-                except KeyboardInterrupt as e:
-                    import _thread
-
-                    warnings.warn(f"Error fetching file chunk: {e}")
-
-                    _thread.interrupt_main()
-                    return Exception(e)
-                except Exception as e:
-                    stack_trace = traceback.format_exc()
-                    warnings.warn(
-                        f"Error fetching file chunk at offset {offset} + {size}: {e}\n{stack_trace}"
-                    )
-                    return e
-                finally:
-                    with self.lock:
-                        self.mounts_processing.remove(mount)
-                        self.mounts_availabe.append(mount)
-                        self.semaphore.release()
+                out = _read_from_mount_task(
+                    offset=offset, size=size, path=path, verbose=verbose
+                )
+                with self.lock:
+                    self.mounts_processing.remove(mount)
+                    self.mounts_availabe.append(mount)
+                    self.semaphore.release()
+                return out
 
             fut = self.executor.submit(task)
             return fut
