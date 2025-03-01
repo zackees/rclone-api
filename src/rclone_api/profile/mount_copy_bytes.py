@@ -103,6 +103,53 @@ def _init() -> None:
     os.environ["RCLONE_API_VERBOSE"] = "1"
 
 
+def _run_profile(rclone: Rclone, src_file: str, transfers: int, size: int) -> None:
+    mount_log = Path("logs") / "mount" / f"mount_{size}_{transfers}.log"
+    print("\n\n")
+    print("#" * 80)
+    print(f"# Started test download of {SizeSuffix(size)} with {transfers} transfers")
+    print("#" * 80)
+    net_io_start = psutil.net_io_counters()
+    start = time.time()
+    bytes_or_err: bytes | Exception = rclone.copy_bytes(
+        src=src_file,
+        offset=0,
+        length=size,
+        direct_io=True,
+        transfers=transfers,
+        mount_log=mount_log,
+    )
+    diff = time.time() - start
+    net_io_end = psutil.net_io_counters()
+    if isinstance(bytes_or_err, Exception):
+        print(bytes_or_err)
+        stack_trace = bytes_or_err.__traceback__
+        assert False, f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}"
+    assert isinstance(bytes_or_err, bytes)
+    # self.assertEqual(len(bytes_or_err), size)
+    assert len(bytes_or_err) == size, f"Length: {len(bytes_or_err)} != {size}"
+
+    # print io stats
+    bytes_sent = net_io_end.bytes_sent - net_io_start.bytes_sent
+    bytes_recv = net_io_end.bytes_recv - net_io_start.bytes_recv
+    packets_sent = net_io_end.packets_sent - net_io_start.packets_sent
+    efficiency = size / (bytes_recv)
+    efficiency_100 = efficiency * 100
+    efficiency_str = f"{efficiency_100:.2f}"
+
+    bytes_send_suffix = SizeSuffix(bytes_sent)
+    bytes_recv_suffix = SizeSuffix(bytes_recv)
+    range_size = SizeSuffix(size)
+
+    print(f"\nFinished downloading {range_size} with {transfers} transfers")
+    print("Net IO stats:")
+    print(f"Bytes sent: {bytes_send_suffix}")
+    print(f"Bytes received: {bytes_recv_suffix}")
+    print(f"Packets sent: {packets_sent}")
+    print(f"Efficiency: {efficiency_str}%")
+    print(f"Time: {diff:.1f} seconds")
+
+
 def test_profile_copy_bytes() -> None:
     print("Running test_profile_copy_bytes")
     config, creds = _generate_rclone_config()
@@ -130,53 +177,9 @@ def test_profile_copy_bytes() -> None:
 
     for size in sizes:
         for transfers in transfer_list:
-            mount_log = Path("logs") / "mount" / f"mount_{size}_{transfers}.log"
-            print("\n\n")
-            print("#" * 80)
-            print(
-                f"# Started test download of {SizeSuffix(size)} with {transfers} transfers"
+            _run_profile(
+                rclone=rclone, src_file=src_file, transfers=transfers, size=size
             )
-            print("#" * 80)
-            net_io_start = psutil.net_io_counters()
-            start = time.time()
-            bytes_or_err: bytes | Exception = rclone.copy_bytes(
-                src=src_file,
-                offset=0,
-                length=size,
-                direct_io=True,
-                transfers=transfers,
-                mount_log=mount_log,
-            )
-            diff = time.time() - start
-            net_io_end = psutil.net_io_counters()
-            if isinstance(bytes_or_err, Exception):
-                print(bytes_or_err)
-                stack_trace = bytes_or_err.__traceback__
-                assert False, f"Error: {bytes_or_err}\nStack trace:\n{stack_trace}"
-            assert isinstance(bytes_or_err, bytes)
-            # self.assertEqual(len(bytes_or_err), size)
-            assert len(bytes_or_err) == size, f"Length: {len(bytes_or_err)} != {size}"
-
-            # print io stats
-            bytes_sent = net_io_end.bytes_sent - net_io_start.bytes_sent
-            bytes_recv = net_io_end.bytes_recv - net_io_start.bytes_recv
-            packets_sent = net_io_end.packets_sent - net_io_start.packets_sent
-            efficiency = size / (bytes_recv)
-            efficiency_100 = efficiency * 100
-            efficiency_str = f"{efficiency_100:.2f}"
-
-            bytes_send_suffix = SizeSuffix(bytes_sent)
-            bytes_recv_suffix = SizeSuffix(bytes_recv)
-            range_size = SizeSuffix(size)
-
-            print(f"\nFinished downloading {range_size} with {transfers} transfers")
-            print("Net IO stats:")
-            print(f"Bytes sent: {bytes_send_suffix}")
-            print(f"Bytes received: {bytes_recv_suffix}")
-            print(f"Packets sent: {packets_sent}")
-            print(f"Efficiency: {efficiency_str}%")
-            print(f"Time: {diff:.1f} seconds")
-
     print("done")
 
 
