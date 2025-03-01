@@ -168,7 +168,7 @@ def _run_profile(
     diff = time.time() - start
     net_io_end = psutil.net_io_counters()
     # self.assertEqual(len(bytes_or_err), size)
-    assert bytes_count == size.as_int(), f"Length: {bytes_count} != {size}"
+    assert bytes_count == size, f"Length: {SizeSuffix(bytes_count)} != {size}"
 
     # print io stats
     bytes_sent = (net_io_end.bytes_sent - net_io_start.bytes_sent) // num
