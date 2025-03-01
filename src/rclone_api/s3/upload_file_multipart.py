@@ -74,7 +74,6 @@ def handle_upload(
 
 def prepare_upload_file_multipart(
     s3_client: BaseClient,
-    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
     bucket_name: str,
     file_path: Path,
     object_name: str,
@@ -94,7 +93,6 @@ def prepare_upload_file_multipart(
 
     upload_info: UploadInfo = UploadInfo(
         s3_client=s3_client,
-        chunk_fetcher=chunk_fetcher,
         bucket_name=bucket_name,
         object_name=object_name,
         src_file_path=file_path,
@@ -160,7 +158,6 @@ def upload_file_multipart(
         locked_print(f"Creating new upload state for {file_path}")
         upload_info = prepare_upload_file_multipart(
             s3_client=s3_client,
-            chunk_fetcher=chunk_fetcher,
             bucket_name=bucket_name,
             file_path=file_path,
             object_name=object_name,
@@ -216,6 +213,7 @@ def upload_file_multipart(
 
     def chunker_task(
         upload_state=upload_state,
+        chunk_fetcher=chunk_fetcher,
         output=filechunks,
         max_chunks=max_chunks_before_suspension,
         cancel_signal=cancel_chunker_event,
@@ -224,6 +222,7 @@ def upload_file_multipart(
         try:
             file_chunker(
                 upload_state=upload_state,
+                chunk_fetcher=chunk_fetcher,
                 output=output,
                 max_chunks=max_chunks,
                 cancel_signal=cancel_signal,

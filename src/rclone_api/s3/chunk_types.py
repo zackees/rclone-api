@@ -2,11 +2,9 @@ import hashlib
 import json
 import os
 import time
-from concurrent.futures import Future
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from threading import Lock
-from typing import Callable
 
 from botocore.client import BaseClient
 
@@ -89,7 +87,6 @@ class UploadInfo:
     bucket_name: str
     object_name: str
     src_file_path: Path
-    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]]
     upload_id: str
     retries: int
     chunk_size: int

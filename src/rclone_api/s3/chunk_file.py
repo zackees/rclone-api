@@ -1,8 +1,10 @@
 import time
 import warnings
+from concurrent.futures import Future
 from pathlib import Path
 from queue import Queue
 from threading import Event
+from typing import Callable
 
 from rclone_api.s3.chunk_types import FileChunk, UploadState
 from rclone_api.util import locked_print
@@ -27,11 +29,15 @@ def _get_file_size(file_path: Path, timeout: int = 60) -> int:
 
 def file_chunker(
     upload_state: UploadState,
+    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
     max_chunks: int | None,
     cancel_signal: Event,
     output: Queue[FileChunk | None],
 ) -> None:
     count = 0
+
+    if False:
+        print(chunk_fetcher)
 
     def should_stop() -> bool:
         nonlocal count
