@@ -47,14 +47,6 @@ def file_chunker(
         if count >= max_chunks:
             return True
         count += 1
-        if count > 10 and count % 10 == 0:
-            # recheck that the file size has not changed
-            file_size = _get_file_size(upload_state.upload_info.src_file_path)
-            if file_size != upload_state.upload_info.file_size:
-                locked_print(
-                    f"File size changed, cannot resume, expected {upload_state.upload_info.file_size}, got {file_size}"
-                )
-                raise ValueError("File size changed, cannot resume")
         return False
 
     upload_info = upload_state.upload_info
@@ -64,7 +56,6 @@ def file_chunker(
     # Mounted files may take a while to appear, so keep retrying.
 
     try:
-        file_size = _get_file_size(src, timeout=60)
         part_number = 1
         done_part_numbers: set[int] = {
             p.part_number for p in upload_state.parts if p is not None
@@ -92,6 +83,7 @@ def file_chunker(
                 break
             assert curr_parth_num is not None
             offset = (curr_parth_num - 1) * chunk_size
+            file_size = upload_info.file_size
 
             assert offset < file_size, f"Offset {offset} is greater than file size"
 
