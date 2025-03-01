@@ -170,3 +170,11 @@ class SizeSuffix:
             raise ZeroDivisionError("Division by zero is undefined")
         # Use floor division to maintain integer arithmetic.
         return SizeSuffix(self._size // other_int._size)
+
+    # support / division
+    def __floordiv__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        if other_int._size == 0:
+            raise ZeroDivisionError("Division by zero is undefined")
+        # Use floor division to maintain integer arithmetic.
+        return SizeSuffix(self._size // other_int._size)

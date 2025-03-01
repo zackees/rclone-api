@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api import Config, Rclone
+from rclone_api import Config, Rclone, SizeSuffix
 
 load_dotenv()
 
@@ -76,7 +76,8 @@ class RcloneCopyBytesTester(unittest.TestCase):
             src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
             offset=0,
             length=1024 * 1024,
-            transfers=1,
+            chunk_size=SizeSuffix(1024 * 1024),
+            max_threads=1,
         )
         if isinstance(bytes_or_err, Exception):
             print(bytes_or_err)
@@ -95,6 +96,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
                 src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
                 offset=0,
                 length=1024 * 1024,
+                chunk_size=SizeSuffix(1024 * 1024),
                 outfile=tmp,
                 mount_log=log,
             )

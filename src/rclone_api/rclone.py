@@ -815,7 +815,7 @@ class Rclone:
             )
             return out
 
-    def copy_bytes(
+    def _copy_bytes(
         self,
         src: str,
         offset: int,
@@ -844,7 +844,7 @@ class Rclone:
         max_read_ahead = SizeSuffix(vfs_read_chunk_size.as_int())
 
         # other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
-        other_args += ["--vfs-read-chunk-size", str(0)]
+        other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
         other_args += ["--vfs-read-chunk-size-limit", str(vfs_read_chunk_size_limit)]
         other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
         other_args += ["--vfs-disk-space-total-size", str(vfs_disk_space_total_size)]
@@ -882,6 +882,64 @@ class Rclone:
 
             except Exception as e:
                 return e
+
+    def copy_bytes(
+        self,
+        src: str,
+        offset: int,
+        length: int,
+        chunk_size: SizeSuffix,
+        max_threads: int = 1,
+        # If outfile is supplied then bytes are written to this file and success returns bytes(0)
+        outfile: Path | None = None,
+        mount_log: Path | None = None,
+        direct_io: bool = True,
+    ) -> bytes | Exception:
+        """Copy bytes from a file to another file."""
+        # determine number of threads from chunk size
+        threads = min(max_threads, length // chunk_size.as_int())
+
+        if threads == 1:
+            return self._copy_bytes(
+                src,
+                offset,
+                length,
+                transfers=1,
+                outfile=outfile,
+                mount_log=mount_log,
+                direct_io=direct_io,
+            )
+        else:
+            futures: list[Future] = []
+            with ThreadPoolExecutor(max_workers=threads) as executor:
+                for i in range(threads):
+                    start = i * chunk_size.as_int()
+                    end = start + chunk_size.as_int()
+                    if i == threads - 1:
+                        end = length
+                    future = executor.submit(
+                        self._copy_bytes,
+                        src,
+                        offset + start,
+                        end - start,
+                        transfers=1,
+                        outfile=None,
+                        mount_log=mount_log,
+                        direct_io=direct_io,
+                    )
+                    futures.append(future)
+                data: bytes = b""
+                for future in futures:
+                    chunk: bytes | Exception = future.result()
+                    if isinstance(chunk, Exception):
+                        return chunk
+                    data += chunk
+                if outfile is not None:
+                    with open(outfile, "wb") as out:
+                        out.write(data)
+                        del data
+                        return bytes(0)
+                return data
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None

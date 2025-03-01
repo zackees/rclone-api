@@ -6,7 +6,6 @@ import argparse
 import os
 import shutil
 import time
-from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -119,12 +118,14 @@ def _run_profile(
     print("#" * 80)
     net_io_start = psutil.net_io_counters()
     start = time.time()
+    chunk_size = size // transfers
     bytes_or_err: bytes | Exception = rclone.copy_bytes(
         src=src_file,
         offset=offset.as_int(),
         length=size.as_int(),
+        chunk_size=chunk_size,
         direct_io=direct_io,
-        transfers=transfers,
+        max_threads=transfers,
         mount_log=mount_log,
     )
     diff = time.time() - start
@@ -138,6 +139,8 @@ def _run_profile(
     assert len(bytes_or_err) == size.as_int(), f"Length: {len(bytes_or_err)} != {size}"
 
     # print io stats
+    # disabling num for now
+    num = 1
     bytes_sent = (net_io_end.bytes_sent - net_io_start.bytes_sent) // num
     bytes_recv = (net_io_end.bytes_recv - net_io_start.bytes_recv) // num
     packets_sent = (net_io_end.packets_sent - net_io_start.packets_sent) // num
@@ -230,8 +233,8 @@ def main() -> None:
         shutil.rmtree(mount_root_path)
 
     args = _parse_args()
-    transfer_list = [1]
-    parallel_workers = args.num
+    transfer_list = [args.num]
+    # parallel_workers = args.num
 
     def task(
         offset: SizeSuffix,
@@ -250,12 +253,14 @@ def main() -> None:
             num=args.num,
         )
 
-    with ThreadPoolExecutor(max_workers=parallel_workers) as _:
-        tasks: list[Future] = []
-        for i in range(parallel_workers):
-            offset = SizeSuffix(i * 1024 * 1024 * 256)
-            future = ThreadPoolExecutor().submit(lambda: task(offset=offset))
-            tasks.append(future)
+    task(SizeSuffix(0))
+
+    # with ThreadPoolExecutor(max_workers=parallel_workers) as _:
+    #     tasks: list[Future] = []
+    #     for i in range(parallel_workers):
+    #         offset = SizeSuffix(i * 1024 * 1024 * 256)
+    #         future = ThreadPoolExecutor().submit(lambda: task(offset=offset))
+    #         tasks.append(future)
 
 
 if __name__ == "__main__":
