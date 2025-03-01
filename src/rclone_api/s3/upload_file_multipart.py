@@ -21,6 +21,7 @@ _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 def upload_task(
     info: UploadInfo, chunk: bytes, part_number: int, retries: int
 ) -> FinishedPiece:
+    assert len(chunk) > 0
     retries = retries + 1  # Add one for the initial attempt
     for retry in range(retries):
         try:
