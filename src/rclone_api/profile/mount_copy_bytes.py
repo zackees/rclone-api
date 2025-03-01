@@ -4,6 +4,7 @@ Unit test file.
 
 import os
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import psutil
@@ -16,7 +17,18 @@ load_dotenv()
 BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 
-def _generate_rclone_config() -> Config:
+@dataclass
+class Credentials:
+    BUCKET_KEY_SECRET: str
+    BUCKET_KEY_PUBLIC: str
+    SRC_SFTP_HOST: str
+    SRC_SFTP_USER: str
+    SRC_SFTP_PORT: str
+    SRC_SFTP_PASS: str
+    BUCKET_URL: str
+
+
+def _generate_rclone_config() -> tuple[Config, Credentials]:
 
     cwd = Path.cwd()
     print(f"Current working directory: {cwd}")
@@ -59,7 +71,18 @@ pass = {SRC_SFTP_PASS}
     print(config_text)
     # _CONFIG_PATH.write_text(config_text, encoding="utf-8")
     # print(f"Config file written to: {_CONFIG_PATH}")
-    return Config(config_text)
+
+    creds = Credentials(
+        BUCKET_KEY_SECRET=str(BUCKET_KEY_SECRET),
+        BUCKET_KEY_PUBLIC=str(BUCKET_KEY_PUBLIC),
+        SRC_SFTP_HOST=str(SRC_SFTP_HOST),
+        SRC_SFTP_USER=str(SRC_SFTP_USER),
+        SRC_SFTP_PORT=str(SRC_SFTP_PORT),
+        SRC_SFTP_PASS=str(SRC_SFTP_PASS),
+        BUCKET_URL=str(BUCKET_URL),
+    )
+
+    return Config(config_text), creds
 
 
 def _init() -> None:
@@ -78,7 +101,12 @@ def _init() -> None:
 
 def test_profile_copy_bytes() -> None:
     print("Running test_profile_copy_bytes")
-    rclone = Rclone(_generate_rclone_config())
+    config, creds = _generate_rclone_config()
+    print("Config:")
+    print(config)
+    print("Credentials:")
+    print(creds)
+    rclone = Rclone(config)
 
     sizes = [
         1024 * 1024 * 1,
