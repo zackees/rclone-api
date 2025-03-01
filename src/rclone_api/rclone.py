@@ -810,8 +810,19 @@ class Rclone:
                 max_chunks_before_suspension=max_chunks_before_suspension,
             )
 
+            chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
+                src=src_path.parent.as_posix(),
+                chunk_size=chunk_size,
+                threads=read_threads,
+                mount_log=mount_log,
+                direct_io=True,
+            )
+            chunk_fetcher_function = chunk_fetcher.fetch
+
             out: MultiUploadResult = client.upload_file_multipart(
-                upload_target=upload_target, upload_config=upload_config
+                chunk_fetcher=chunk_fetcher_function,
+                upload_target=upload_target,
+                upload_config=upload_config,
             )
             return out
 

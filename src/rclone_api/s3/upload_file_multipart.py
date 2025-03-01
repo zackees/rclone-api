@@ -2,10 +2,11 @@ import _thread
 import os
 import traceback
 import warnings
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from queue import Queue
 from threading import Event, Thread
+from typing import Callable
 
 from botocore.client import BaseClient
 
@@ -73,6 +74,7 @@ def handle_upload(
 
 def prepare_upload_file_multipart(
     s3_client: BaseClient,
+    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
     bucket_name: str,
     file_path: Path,
     object_name: str,
@@ -92,6 +94,7 @@ def prepare_upload_file_multipart(
 
     upload_info: UploadInfo = UploadInfo(
         s3_client=s3_client,
+        chunk_fetcher=chunk_fetcher,
         bucket_name=bucket_name,
         object_name=object_name,
         src_file_path=file_path,
@@ -117,6 +120,7 @@ def _abort_previous_upload(upload_state: UploadState) -> None:
 
 def upload_file_multipart(
     s3_client: BaseClient,
+    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
     bucket_name: str,
     file_path: Path,
     object_name: str,
@@ -156,6 +160,7 @@ def upload_file_multipart(
         locked_print(f"Creating new upload state for {file_path}")
         upload_info = prepare_upload_file_multipart(
             s3_client=s3_client,
+            chunk_fetcher=chunk_fetcher,
             bucket_name=bucket_name,
             file_path=file_path,
             object_name=object_name,

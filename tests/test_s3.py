@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -89,14 +90,30 @@ class RcloneS3Tester(unittest.TestCase):
                 max_chunks_before_suspension=None,
             )
 
+            def simple_fetcher(
+                chunk_id: int, chunk_size: int
+            ) -> Future[bytes | Exception]:
+                with ThreadPoolExecutor() as executor:
+
+                    def task() -> bytes | Exception:
+                        with open(str(tmpfile), "rb") as f:
+                            f.seek(chunk_id * chunk_size)
+                            return f.read(chunk_size)
+
+                    fut = executor.submit(task)
+                return fut
+
             print(f"Uploading file {f.name} of size {filesize} to {BUCKET_NAME}")
             rslt: MultiUploadResult = s3_client.upload_file_multipart(
+                chunk_fetcher=simple_fetcher,
                 upload_target=upload_target,
                 upload_config=upload_config_partial,
             )
             self.assertEqual(rslt, MultiUploadResult.SUSPENDED)
             rslt = s3_client.upload_file_multipart(
-                upload_target=upload_target, upload_config=upload_config_all
+                chunk_fetcher=simple_fetcher,
+                upload_target=upload_target,
+                upload_config=upload_config_all,
             )
             self.assertEqual(rslt, MultiUploadResult.UPLOADED_RESUME)
             print(f"Uploading file {f.name} to {BUCKET_NAME}")
@@ -105,7 +122,9 @@ class RcloneS3Tester(unittest.TestCase):
             print("Upload successful.")
             print(f"Uploading file {f.name} to {BUCKET_NAME}/{dst_path}")
             rslt = s3_client.upload_file_multipart(
-                upload_target=upload_target, upload_config=upload_config_all
+                chunk_fetcher=simple_fetcher,
+                upload_target=upload_target,
+                upload_config=upload_config_all,
             )
             self.assertEqual(rslt, MultiUploadResult.ALREADY_DONE)
             print("done")

@@ -1,5 +1,7 @@
 import json
 import warnings
+from concurrent.futures import Future
+from typing import Callable
 
 from botocore.client import BaseClient
 
@@ -11,7 +13,10 @@ from rclone_api.s3.basic_ops import (
 )
 from rclone_api.s3.create import create_s3_client
 from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
-from rclone_api.s3.upload_file_multipart import MultiUploadResult, upload_file_multipart
+from rclone_api.s3.upload_file_multipart import (
+    MultiUploadResult,
+    upload_file_multipart,
+)
 
 _MIN_THRESHOLD_FOR_CHUNKING = 5 * 1024 * 1024
 
@@ -44,6 +49,7 @@ class S3Client:
 
     def upload_file_multipart(
         self,
+        chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
         upload_target: S3UploadTarget,
         upload_config: S3MutliPartUploadConfig,
     ) -> MultiUploadResult:
@@ -67,6 +73,7 @@ class S3Client:
 
             out = upload_file_multipart(
                 s3_client=self.client,
+                chunk_fetcher=chunk_fetcher,
                 bucket_name=bucket_name,
                 file_path=upload_target.src_file,
                 object_name=upload_target.s3_key,
