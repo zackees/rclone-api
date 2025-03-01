@@ -821,7 +821,7 @@ class Rclone:
         offset: int,
         length: int,
         transfers: int = 16,
-        # If supplied then bytes are written to this file and success returns bytes(0)
+        # If outfile is supplied then bytes are written to this file and success returns bytes(0)
         outfile: Path | None = None,
         mount_log: Path | None = None,
         direct_io: bool = True,
