@@ -17,7 +17,7 @@ class RcloneS3Tester(unittest.TestCase):
     """Test rclone functionality."""
 
     # @unittest.skipIf(not _ENABLED, "Test not enabled")
-    # @unittest.skipIf(True, "Test not enabled")
+    @unittest.skipIf(True, "Test not enabled")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
 

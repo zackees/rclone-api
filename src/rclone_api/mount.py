@@ -105,7 +105,7 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     mount_path = mount.mount_path if isinstance(mount, Mount) else mount
     try:
         mount_exists = mount_path.exists()
-    except OSError as e:
+    except OSError:
         # warnings.warn(f"Error checking {mount_path}: {e}")
         mount_exists = True
 
@@ -139,7 +139,7 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
             mount_path.rmdir()
             if verbose:
                 print(f"Successfully removed mount directory {mount_path}")
-        except Exception as e:
+        except Exception:
             # warnings.warn(f"Failed to remove mount {mount_path}: {e}")
             pass
     else:

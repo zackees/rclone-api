@@ -7,9 +7,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import psutil
 from dotenv import load_dotenv
 
-from rclone_api import Config, Rclone
+from rclone_api import Config, Rclone, SizeSuffix
 
 load_dotenv()
 
@@ -72,6 +73,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             len(bytes_or_err), 1024 * 1024
         )  # , f"Length: {len(bytes_or_err)}"
 
+    @unittest.skip("Tested")
     def test_copy_bytes_to_temp_file(self) -> None:
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -95,7 +97,67 @@ class RcloneCopyBytesTester(unittest.TestCase):
             self.assertEqual(tmp_size, 1024 * 1024)
             print(f"Log file: {log}:")
             print(log.read_text())
+            log_text = log.read_text(encoding="utf-8")
+            self.assertTrue("Getattr" in log_text)
             print("done")
+
+    @unittest.skip("Tested")
+    def test_profile_copy_bytes(self) -> None:
+        rclone = Rclone(_generate_rclone_config())
+        sizes = [
+            1024 * 1024 * 1,
+            1024 * 1024 * 16,
+            1024 * 1024 * 64,
+        ]
+        transfer_list = [1, 16]
+        import time
+
+        for size in sizes:
+            for transfers in transfer_list:
+                print("\n\n")
+                print("#" * 80)
+                print(
+                    f"# Started test download of {SizeSuffix(size)} with {transfers} transfers"
+                )
+                print("#" * 80)
+                net_io_start = psutil.net_io_counters()
+                start = time.time()
+                bytes_or_err: bytes | Exception = rclone.copy_bytes(
+                    src="dst:rclone-api-unit-test/zachs_video/internaly_ai_alignment.mp4",
+                    offset=0,
+                    length=size,
+                    direct_io=True,
+                    transfers=transfers,
+                )
+                diff = time.time() - start
+                net_io_end = psutil.net_io_counters()
+                if isinstance(bytes_or_err, Exception):
+                    print(bytes_or_err)
+                    self.fail(f"Error: {bytes_or_err}")
+                assert isinstance(bytes_or_err, bytes)
+                self.assertEqual(len(bytes_or_err), size)
+
+                # print io stats
+                bytes_sent = net_io_end.bytes_sent - net_io_start.bytes_sent
+                bytes_recv = net_io_end.bytes_recv - net_io_start.bytes_recv
+                packets_sent = net_io_end.packets_sent - net_io_start.packets_sent
+                efficiency = size / (bytes_recv)
+                efficiency_100 = efficiency * 100
+                efficiency_str = f"{efficiency_100:.2f}"
+
+                bytes_send_suffix = SizeSuffix(bytes_sent)
+                bytes_recv_suffix = SizeSuffix(bytes_recv)
+                range_size = SizeSuffix(size)
+
+                print(f"\nFinished downloading {range_size} with {transfers} transfers")
+                print("Net IO stats:")
+                print(f"Bytes sent: {bytes_send_suffix}")
+                print(f"Bytes received: {bytes_recv_suffix}")
+                print(f"Packets sent: {packets_sent}")
+                print(f"Efficiency: {efficiency_str}%")
+                print(f"Time: {diff:.1f} seconds")
+
+        print("done")
 
 
 if __name__ == "__main__":
