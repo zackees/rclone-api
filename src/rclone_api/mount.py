@@ -319,89 +319,54 @@ class MultiMountFileChunker:
     def fetch(self, offset: int, size: int) -> Future[bytes | Exception]:
         if self.verbose:
             print(f"Fetching data range: offset={offset}, size={size}")
+
+        assert size > 0, f"Invalid size: {size}"
+        assert offset >= 0, f"Invalid offset: {offset}"
+        assert (
+            offset + size <= self.filesize
+        ), f"Invalid offset + size: {offset} + {size} ({offset+size}) <= {self.filesize}"
+
         try:
-            try:
-                if offset + size > self.filesize:
-                    size = self.filesize - offset
-                assert (
-                    offset + size <= self.filesize
-                ), f"Invalid offset + size: {offset + size}, it is beyond the end of the file."
-                assert size > 0, f"Invalid size: {size}"
-                assert offset >= 0, f"Invalid offset: {offset}"
-            except AssertionError as e:
-                warnings.warn(f"Invalid chunk request: {e}")
-                # return ValueError(e)
-                # return self.executor.submit(lambda: Exception(e))
-                err = Exception(e)
-                return self.executor.submit(lambda: err)
+            self.semaphore.acquire()
+            with self.lock:
+                mount = self.mounts_availabe.pop()
+                self.mounts_processing.append(mount)
 
-            chunks: list[tuple[int, int]] = []
-            start = offset
-            end = offset + size
-            while start < end:
-                chunk_size = min(self.chunk_size.as_int(), end - start)
-                chunks.append((start, chunk_size))
-                start += chunk_size
+            path = mount.mount_path / self.filename
 
-            futures: list[Future[bytes | Exception]] = []
-            for start, chunk_size in chunks:
-                self.semaphore.acquire()
-                with self.lock:
-                    mount = self.mounts_availabe.pop()
-                    self.mounts_processing.append(mount)
+            def task(
+                offset=offset, size=size, path=path, mount=mount
+            ) -> bytes | Exception:
+                if self.verbose or True:
+                    print(f"Fetching chunk: offset={offset}, size={size}, path={path}")
+                try:
+                    if offset + size > self.filesize:
+                        raise ValueError(f"Invalid offset + size: {offset + size}")
+                    with path.open("rb") as f:
+                        f.seek(offset)
+                        sz = f.read(size)
+                        assert len(sz) == size, f"Invalid read size: {len(sz)}"
+                        return sz
+                except KeyboardInterrupt as e:
+                    import _thread
 
-                path = mount.mount_path / self.filename
+                    warnings.warn(f"Error fetching file chunk: {e}")
 
-                def task(
-                    offset=start, size=chunk_size, path=path, mount=mount
-                ) -> bytes | Exception:
-                    if self.verbose:
-                        print(
-                            f"Fetching chunk: offset={offset}, size={size}, path={path}"
-                        )
-                    try:
-                        # make sure we don't overflow the file size
-                        # assert (
-                        #     offset + size <= self.chunk_size.as_int()
-                        # ), f"Invalid offset + size: {offset + size}, it is beyond the end of the file."
-                        if offset + size > self.filesize:
-                            size = self.filesize - offset
-                        with path.open("rb") as f:
-                            f.seek(offset)
-                            return f.read(size)
-                    except KeyboardInterrupt as e:
-                        import _thread
+                    _thread.interrupt_main()
+                    return Exception(e)
+                except Exception as e:
+                    stack_trace = traceback.format_exc()
+                    warnings.warn(
+                        f"Error fetching file chunk at offset {offset} + {size}: {e}\n{stack_trace}"
+                    )
+                    return e
+                finally:
+                    with self.lock:
+                        self.mounts_processing.remove(mount)
+                        self.mounts_availabe.append(mount)
+                        self.semaphore.release()
 
-                        warnings.warn(f"Error fetching file chunk: {e}")
-
-                        _thread.interrupt_main()
-                        return Exception(e)
-                    except Exception as e:
-                        stack_trace = traceback.format_exc()
-                        warnings.warn(
-                            f"Error fetching file chunk at offset {offset} + {size}: {e}\n{stack_trace}"
-                        )
-                        return e
-                    finally:
-                        with self.lock:
-                            self.mounts_processing.remove(mount)
-                            self.mounts_availabe.append(mount)
-                            self.semaphore.release()
-
-                fut = self.executor.submit(task)
-                futures.append(fut)
-
-            def combine(futs: list[Future[bytes | Exception]]) -> bytes | Exception:
-                finished_list: list[bytes | Exception] = [f.result() for f in futs]
-                bytes_list = [f for f in finished_list if isinstance(f, bytes)]
-                if len(bytes_list) != len(finished_list):
-                    exceptions = [f for f in finished_list if isinstance(f, Exception)]
-                    return Exception(f"Error fetching file chunk: {exceptions}")
-                return b"".join(bytes_list)
-
-            if len(futures) == 1:
-                return futures[0]
-            fut = self.executor.submit(combine, futures)
+            fut = self.executor.submit(task)
             return fut
         except Exception as e:
             warnings.warn(f"Error fetching file chunk: {e}")
