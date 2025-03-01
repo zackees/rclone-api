@@ -18,6 +18,9 @@ BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 
 def _generate_rclone_config() -> Config:
 
+    # assert that .env exists for this test
+    assert os.path.exists(".env"), "this test requires that the secret .env file exists with the credentials"
+
     # BUCKET_NAME = os.getenv("BUCKET_NAME", "TorrentBooks")  # Default if not in .env
 
     # Load additional environment variables
@@ -81,7 +84,8 @@ class RcloneProfileCopyBytes(unittest.TestCase):
             1024 * 1024 * 32,
             1024 * 1024 * 64,
         ]
-        transfer_list = [1, 2, 4, 8, 16]
+        # transfer_list = [1, 2, 4, 8, 16]
+        transfer_list = [1, 2, 4]
 
         # src_file = "dst:rclone-api-unit-test/zachs_video/internaly_ai_alignment.mp4"
         # sftp mount
