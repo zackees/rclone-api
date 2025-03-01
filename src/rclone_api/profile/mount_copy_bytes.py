@@ -104,7 +104,9 @@ def _init() -> None:
 
 
 def _run_profile(rclone: Rclone, src_file: str, transfers: int, size: int) -> None:
-    mount_log = Path("logs") / "mount" / f"mount_{size}_{transfers}.log"
+    mount_log = (
+        Path("logs") / "mount" / f"mount_{SizeSuffix(size)}_threads_{transfers}.log"
+    )
     print("\n\n")
     print("#" * 80)
     print(f"# Started test download of {SizeSuffix(size)} with {transfers} transfers")
