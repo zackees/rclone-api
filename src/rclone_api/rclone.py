@@ -778,7 +778,7 @@ class Rclone:
             )
 
             chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
-                src=src_path.parent.as_posix(),
+                src=src_path.as_posix(),
                 chunk_size=chunk_size,
                 threads=read_threads,
                 mount_log=mount_log,

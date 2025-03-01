@@ -50,7 +50,6 @@ def file_chunker(
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
     src = Path(file_path)
-    # Mounted files may take a while to appear, so keep retrying.
 
     try:
         part_number = 1
