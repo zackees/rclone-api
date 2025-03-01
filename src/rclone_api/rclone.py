@@ -852,30 +852,35 @@ class Rclone:
         if direct_io:
             other_args += ["--direct-io"]
 
-        try:
-            # use scoped mount to do the read, then write the bytes to the destination
-            with self.scoped_mount(
-                src_parent_path,
-                tmp_mnt,
-                use_links=True,
-                verbose=mount_log is not None,
-                vfs_cache_mode="minimal",
-                other_args=other_args,
-                log=mount_log,
-            ):
-                src_file_mnt = tmp_mnt / src_file
-                with open(src_file_mnt, "rb") as f:
-                    f.seek(offset)
-                    data = f.read(length)
-                    if outfile is None:
-                        return data
-                    with open(outfile, "wb") as out:
-                        out.write(data)
-                        del data
-                    return bytes(0)
+        with TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir) / "cache"
+            other_args += ["--cache-dir", str(cache_dir.absolute())]
+            try:
+                # use scoped mount to do the read, then write the bytes to the destination
+                with self.scoped_mount(
+                    src_parent_path,
+                    tmp_mnt,
+                    use_links=True,
+                    verbose=mount_log is not None,
+                    vfs_cache_mode="minimal",
+                    other_args=other_args,
+                    log=mount_log,
+                    cache_dir=cache_dir,
+                    cache_dir_delete_on_exit=True,
+                ):
+                    src_file_mnt = tmp_mnt / src_file
+                    with open(src_file_mnt, "rb") as f:
+                        f.seek(offset)
+                        data = f.read(length)
+                        if outfile is None:
+                            return data
+                        with open(outfile, "wb") as out:
+                            out.write(data)
+                            del data
+                        return bytes(0)
 
-        except Exception as e:
-            return e
+            except Exception as e:
+                return e
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None
@@ -909,6 +914,8 @@ class Rclone:
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
+        cache_dir: Path | None = None,
+        cache_dir_delete_on_exit: bool | None = None,
         log: Path | None = None,
         other_args: list[str] | None = None,
     ) -> Mount:
@@ -941,6 +948,9 @@ class Rclone:
         if vfs_cache_mode:
             cmd_list.append("--vfs-cache-mode")
             cmd_list.append(vfs_cache_mode)
+        if cache_dir:
+            cmd_list.append("--cache-dir")
+            cmd_list.append(str(cache_dir.absolute()))
         if debug_fuse:
             cmd_list.append("--debug-fuse")
         if verbose:
@@ -949,7 +959,13 @@ class Rclone:
             cmd_list += other_args
         proc = self._launch_process(cmd_list, log=log)
         mount_read_only = not allow_writes
-        mount: Mount = Mount(mount_path=outdir, process=proc, read_only=mount_read_only)
+        mount: Mount = Mount(
+            mount_path=outdir,
+            process=proc,
+            read_only=mount_read_only,
+            cache_dir=cache_dir,
+            cache_dir_delete_on_exit=cache_dir_delete_on_exit,
+        )
         return mount
 
     @contextmanager
@@ -962,6 +978,8 @@ class Rclone:
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
         log: Path | None = None,
+        cache_dir: Path | None = None,
+        cache_dir_delete_on_exit: bool | None = None,
         other_args: list[str] | None = None,
     ) -> Generator[Mount, None, None]:
         """Like mount, but can be used in a context manager."""
@@ -973,6 +991,8 @@ class Rclone:
             use_links=use_links,
             vfs_cache_mode=vfs_cache_mode,
             verbose=verbose,
+            cache_dir=cache_dir,
+            cache_dir_delete_on_exit=cache_dir_delete_on_exit,
             log=log,
             other_args=other_args,
         )

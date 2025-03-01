@@ -1,5 +1,6 @@
 import os
 import platform
+import shutil
 import subprocess
 import time
 import warnings
@@ -19,6 +20,8 @@ class Mount:
     mount_path: Path
     process: Process
     read_only: bool
+    cache_dir: Path | None = None
+    cache_dir_delete_on_exit: bool | None = None
     _closed: bool = False
 
     def __post_init__(self):
@@ -32,6 +35,8 @@ class Mount:
             return
         self._closed = True
         clean_mount(self, verbose=False, wait=wait)
+        if self.cache_dir and self.cache_dir_delete_on_exit:
+            _cache_dir_delete_on_exit(self.cache_dir)
 
     def __enter__(self) -> "Mount":
         return self
@@ -179,3 +184,11 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     else:
         if verbose:
             print(f"{mount_path} successfully cleaned up.")
+
+
+def _cache_dir_delete_on_exit(cache_dir: Path) -> None:
+    if cache_dir.exists():
+        try:
+            shutil.rmtree(cache_dir)
+        except Exception as e:
+            warnings.warn(f"Error removing cache directory {cache_dir}: {e}")
