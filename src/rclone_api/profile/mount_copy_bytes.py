@@ -12,8 +12,6 @@ from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone, SizeSuffix
 
-load_dotenv()
-
 
 @dataclass
 class Credentials:
@@ -30,6 +28,11 @@ class Credentials:
 def _generate_rclone_config() -> tuple[Config, Credentials]:
 
     cwd = Path.cwd()
+    env_path = cwd / ".env"
+    assert (
+        env_path.exists()
+    ), "this test requires that the secret .env file exists with the credentials"
+    load_dotenv(env_path, verbose=True)
     print(f"Current working directory: {cwd}")
 
     # assert that .env exists for this test
