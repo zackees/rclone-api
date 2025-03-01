@@ -76,6 +76,7 @@ class RcloneProfileCopyBytes(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     def test_profile_copy_bytes(self) -> None:
+        print("Running test_profile_copy_bytes")
         rclone = Rclone(_generate_rclone_config())
         sizes = [
             1024 * 1024 * 1,
