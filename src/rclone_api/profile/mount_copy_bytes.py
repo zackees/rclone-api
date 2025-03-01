@@ -77,8 +77,8 @@ port = {SRC_SFTP_PORT}
 pass = {SRC_SFTP_PASS}
 
 """
-    print("Config text:")
-    print(config_text)
+    # print("Config text:")
+    # print(config_text)
     # _CONFIG_PATH.write_text(config_text, encoding="utf-8")
     # print(f"Config file written to: {_CONFIG_PATH}")
 
@@ -175,13 +175,15 @@ def test_profile_copy_bytes(args: Args) -> None:
     rclone = Rclone(config)
 
     sizes = [
-        1024 * 1024 * 1,
-        1024 * 1024 * 2,
-        1024 * 1024 * 4,
-        1024 * 1024 * 8,
-        1024 * 1024 * 16,
-        1024 * 1024 * 32,
-        1024 * 1024 * 64,
+        # 1024 * 1024 * 1,
+        # 1024 * 1024 * 2,
+        # 1024 * 1024 * 4,
+        # 1024 * 1024 * 8,
+        # 1024 * 1024 * 16,
+        # 1024 * 1024 * 32,
+        # 1024 * 1024 * 64,
+        1024 * 1024 * 128,
+        1024 * 1024 * 256,
     ]
     # transfer_list = [1, 2, 4, 8, 16]
     transfer_list = [1, 2, 4]

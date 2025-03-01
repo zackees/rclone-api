@@ -41,6 +41,7 @@ atexit.register(_cleanup_mounts)
 class Mount:
     """Mount information."""
 
+    src: str
     mount_path: Path
     process: Process
     read_only: bool

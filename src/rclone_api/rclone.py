@@ -960,6 +960,7 @@ class Rclone:
         proc = self._launch_process(cmd_list, log=log)
         mount_read_only = not allow_writes
         mount: Mount = Mount(
+            src=src_str,
             mount_path=outdir,
             process=proc,
             read_only=mount_read_only,
