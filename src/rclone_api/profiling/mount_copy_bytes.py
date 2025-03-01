@@ -19,7 +19,9 @@ BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
 def _generate_rclone_config() -> Config:
 
     # assert that .env exists for this test
-    assert os.path.exists(".env"), "this test requires that the secret .env file exists with the credentials"
+    assert os.path.exists(
+        ".env"
+    ), "this test requires that the secret .env file exists with the credentials"
 
     # BUCKET_NAME = os.getenv("BUCKET_NAME", "TorrentBooks")  # Default if not in .env
 
