@@ -58,7 +58,12 @@ class S3Client:
         bucket_name = upload_target.bucket_name
 
         try:
-            filesize = upload_target.src_file.stat().st_size
+
+            if upload_target.src_file_size is None:
+                filesize = upload_target.src_file.stat().st_size
+            else:
+                filesize = upload_target.src_file_size
+
             if filesize < _MIN_THRESHOLD_FOR_CHUNKING:
                 warnings.warn(
                     f"File size {filesize} is less than the minimum threshold for chunking ({_MIN_THRESHOLD_FOR_CHUNKING}), switching to single threaded upload."
@@ -73,6 +78,7 @@ class S3Client:
                 chunk_fetcher=upload_config.chunk_fetcher,
                 bucket_name=bucket_name,
                 file_path=upload_target.src_file,
+                file_size=filesize,
                 object_name=upload_target.s3_key,
                 resumable_info_path=resume_path_json,
                 chunk_size=chunk_size,

@@ -172,8 +172,12 @@ class UploadState:
     lock: Lock = Lock()
     parts: list[FinishedPiece | None] = field(default_factory=list)
 
-    def update_source_file(self, src_file: Path) -> None:
-        new_file_size = os.path.getsize(src_file)
+    def update_source_file(self, src_file: Path, known_file_size: int | None) -> None:
+        new_file_size = (
+            known_file_size
+            if known_file_size is not None
+            else os.path.getsize(src_file)
+        )
         if new_file_size != self.upload_info.file_size:
             raise ValueError("File size changed, cannot resume")
         self.upload_info.src_file_path = src_file

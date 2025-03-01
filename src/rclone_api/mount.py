@@ -292,6 +292,7 @@ class MultiMountFileChunker:
     def __init__(
         self,
         filename: str,
+        filesize: int,
         chunk_size: SizeSuffix,
         mounts: list[Mount],
         executor: ThreadPoolExecutor,
@@ -300,6 +301,7 @@ class MultiMountFileChunker:
         from rclone_api.util import get_verbose
 
         self.filename = filename
+        self.filesize = filesize
         self.chunk_size = chunk_size
         self.executor = executor
         self.mounts_processing: list[Mount] = []
@@ -309,7 +311,7 @@ class MultiMountFileChunker:
         self.verbose = get_verbose(verbose)
 
     def close(self) -> None:
-        self.executor.shutdown(wait=False, cancel_futures=True)
+        self.executor.shutdown(wait=True, cancel_futures=True)
         with ThreadPoolExecutor() as executor:
             for mount in self.mounts_processing:
                 executor.submit(lambda: mount.close())
@@ -319,9 +321,11 @@ class MultiMountFileChunker:
             print(f"Fetching data range: offset={offset}, size={size}")
         try:
             try:
+                if offset + size > self.filesize:
+                    size = self.filesize - offset
                 assert (
-                    offset % self.chunk_size.as_int() == 0
-                ), f"Invalid offset: {offset}"
+                    offset + size <= self.filesize
+                ), f"Invalid offset + size: {offset + size}, it is beyond the end of the file."
                 assert size > 0, f"Invalid size: {size}"
                 assert offset >= 0, f"Invalid offset: {offset}"
             except AssertionError as e:
@@ -356,6 +360,12 @@ class MultiMountFileChunker:
                             f"Fetching chunk: offset={offset}, size={size}, path={path}"
                         )
                     try:
+                        # make sure we don't overflow the file size
+                        # assert (
+                        #     offset + size <= self.chunk_size.as_int()
+                        # ), f"Invalid offset + size: {offset + size}, it is beyond the end of the file."
+                        if offset + size > self.filesize:
+                            size = self.filesize - offset
                         with path.open("rb") as f:
                             f.seek(offset)
                             return f.read(size)
@@ -369,7 +379,7 @@ class MultiMountFileChunker:
                     except Exception as e:
                         stack_trace = traceback.format_exc()
                         warnings.warn(
-                            f"Error fetching file chunk at offset{offset} + {size}: {e}\n{stack_trace}"
+                            f"Error fetching file chunk at offset {offset} + {size}: {e}\n{stack_trace}"
                         )
                         return e
                     finally:

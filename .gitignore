@@ -150,3 +150,4 @@ t.py
 mount
 t2.py
 chunk_store
+state.json

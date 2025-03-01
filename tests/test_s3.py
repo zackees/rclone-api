@@ -81,6 +81,7 @@ class RcloneS3Tester(unittest.TestCase):
 
             upload_target: S3UploadTarget = S3UploadTarget(
                 src_file=Path(tmpfile),
+                src_file_size=filesize,
                 bucket_name=BUCKET_NAME,
                 s3_key=dst_path,
             )

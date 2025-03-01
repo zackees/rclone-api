@@ -135,8 +135,10 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         print(f"Config file written to: {_CONFIG_PATH}")
         rclone = Rclone(_CONFIG_PATH)
         save_state_json = Path("state.json")
+        if save_state_json.exists():
+            save_state_json.unlink()
         rclone.copy_file_resumable_s3(
-            src="src:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent",
+            src="dst:rclone-api-unit-test/zachs_video/perpetualmaniac_an_authoritative_school_teacher_forcing_a_stude_c65528d3-aa6f-4777-a56b-a919856d44e1.png",
             dst="dst:rclone-api-unit-test/test_data/test.torrent.testwrite",
             chunk_size=SizeSuffix("16MB"),
             retries=0,

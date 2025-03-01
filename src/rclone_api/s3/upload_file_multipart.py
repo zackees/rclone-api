@@ -76,6 +76,7 @@ def prepare_upload_file_multipart(
     s3_client: BaseClient,
     bucket_name: str,
     file_path: Path,
+    file_size: int | None,
     object_name: str,
     chunk_size: int,
     retries: int,
@@ -89,7 +90,7 @@ def prepare_upload_file_multipart(
     mpu = s3_client.create_multipart_upload(Bucket=bucket_name, Key=object_name)
     upload_id = mpu["UploadId"]
 
-    file_size = os.path.getsize(file_path)
+    file_size = file_size if file_size is not None else os.path.getsize(file_path)
 
     upload_info: UploadInfo = UploadInfo(
         s3_client=s3_client,
@@ -121,6 +122,7 @@ def upload_file_multipart(
     chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
     bucket_name: str,
     file_path: Path,
+    file_size: int | None,
     object_name: str,
     resumable_info_path: Path | None,
     chunk_size: int = 16 * 1024 * 1024,  # Default chunk size is 16MB; can be overridden
@@ -130,12 +132,12 @@ def upload_file_multipart(
     abort_transfer_on_failure: bool = False,
 ) -> MultiUploadResult:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
-    file_size = os.path.getsize(str(file_path))
-    if chunk_size > file_size:
-        warnings.warn(
-            f"Chunk size {chunk_size} is greater than file size {file_size}, using file size"
-        )
-        chunk_size = file_size
+    file_size = file_size if file_size is not None else os.path.getsize(str(file_path))
+    # if chunk_size > file_size:
+    #     warnings.warn(
+    #         f"Chunk size {chunk_size} is greater than file size {file_size}, using file size"
+    #     )
+    #     chunk_size = file_size
 
     if chunk_size < _MIN_UPLOAD_CHUNK_SIZE:
         raise ValueError(
@@ -160,6 +162,7 @@ def upload_file_multipart(
             s3_client=s3_client,
             bucket_name=bucket_name,
             file_path=file_path,
+            file_size=file_size,
             object_name=object_name,
             chunk_size=chunk_size,
             retries=retries,
@@ -194,7 +197,7 @@ def upload_file_multipart(
             upload_state = loaded_state
 
     try:
-        upload_state.update_source_file(file_path)
+        upload_state.update_source_file(file_path, file_size)
     except ValueError as e:
         locked_print(f"Cannot resume upload: {e}, size changed, starting over")
         _abort_previous_upload(upload_state)

@@ -37,6 +37,7 @@ class S3UploadTarget:
     """Target information for S3 upload."""
 
     src_file: Path
+    src_file_size: int | None
     bucket_name: str
     s3_key: str
 

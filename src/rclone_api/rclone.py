@@ -353,13 +353,11 @@ class Rclone:
         check: bool | None = None,
         verbose: bool | None = None,
         other_args: list[str] | None = None,
-    ) -> None:
-        """Copy multiple files from source to destination.
+    ) -> CompletedProcess:
+        """Copy one file from source to destination.
 
         Warning - slow.
 
-        Args:
-            payload: Dictionary of source and destination file paths
         """
         check = get_check(check)
         verbose = get_verbose(verbose)
@@ -368,7 +366,8 @@ class Rclone:
         cmd_list: list[str] = ["copyto", src, dst]
         if other_args is not None:
             cmd_list += other_args
-        self._run(cmd_list, check=check)
+        cp = self._run(cmd_list, check=check)
+        return CompletedProcess.from_subprocess(cp)
 
     def copy_files(
         self,
@@ -685,13 +684,12 @@ class Rclone:
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
-        mount_path: Path | None = None,
         mount_log: Path | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         from rclone_api.s3.api import S3Client
         from rclone_api.s3.create import S3Credentials
-        from rclone_api.util import S3PathInfo, random_str, split_s3_path
+        from rclone_api.util import S3PathInfo, split_s3_path
 
         other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
         chunk_size = chunk_size or SizeSuffix("64M")
@@ -717,9 +715,23 @@ class Rclone:
         other_args += ["--direct-io"]
         # --vfs-cache-max-size
         other_args += ["--vfs-cache-max-size", vfs_disk_space_total_size.as_str()]
-        mount_path = mount_path or Path("tmp_mnts") / random_str(12)
+        mount_path = Path("tmp_mnts") / "RCLONE_API_DYNAMIC_MOUNT"
         src_path = Path(src)
         name = src_path.name
+
+        src_parent_path = Path(src).parent.as_posix()
+        size_result: SizeResult = self.size_files(src_parent_path, [name])
+
+        target_size = SizeSuffix(size_result.total_size)
+        if target_size < SizeSuffix("5M"):
+            # fallback to normal copy
+            completed_proc = self.copy_to(src, dst, check=True)
+            if completed_proc.ok:
+                return MultiUploadResult.UPLOADED_FRESH
+        if size_result.total_size <= 0:
+            raise ValueError(
+                f"File {src} has size {size_result.total_size}, is this a directory?"
+            )
 
         path_info: S3PathInfo = split_s3_path(dst)
         remote = path_info.remote
@@ -793,9 +805,12 @@ class Rclone:
         print(f"bucket_name: {bucket_name}")
         print(f"upload_config: {upload_config}")
 
+        # get the file size
+
         upload_target = S3UploadTarget(
-            bucket_name=bucket_name,
             src_file=src_file,
+            src_file_size=size_result.total_size,
+            bucket_name=bucket_name,
             s3_key=s3_key,
         )
 
@@ -805,6 +820,10 @@ class Rclone:
                 upload_config=upload_config,
             )
             return out
+        except Exception as e:
+            print(f"Error uploading file: {e}")
+            traceback.print_exc()
+            raise
         finally:
             chunk_fetcher.close()
 
@@ -954,9 +973,17 @@ class Rclone:
                 for mount in mounts:
                     mount.close()
                 raise
+
+        src_path: Path = Path(src)
+        src_parent_path = src_path.parent.as_posix()
+        name = src_path.name
+        size_result: SizeResult = self.size_files(src_parent_path, [name])
+        filesize = size_result.total_size
+
         executor = ThreadPoolExecutor(max_workers=threads)
         filechunker: MultiMountFileChunker = MultiMountFileChunker(
             filename=filename,
+            filesize=filesize,
             chunk_size=chunk_size,
             mounts=mounts,
             executor=executor,
