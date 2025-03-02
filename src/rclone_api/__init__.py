@@ -1,3 +1,6 @@
+# Import logging module to activate default configuration
+import rclone_api.logging  # noqa: F401
+
 from .completed_process import CompletedProcess
 from .config import Config, Parsed, Section
 from .diff import DiffItem, DiffOption, DiffType
@@ -5,6 +8,9 @@ from .dir import Dir
 from .dir_listing import DirListing
 from .file import File
 from .filelist import FileList
+
+# Import the configure_logging function to make it available at package level
+from .logging import configure_logging
 from .process import Process
 from .rclone import Rclone, rclone_verbose
 from .remote import Remote
@@ -35,4 +41,5 @@ __all__ = [
     "Section",
     "MultiUploadResult",
     "SizeSuffix",
+    "configure_logging",
 ]
