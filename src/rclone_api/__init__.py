@@ -1,5 +1,6 @@
 # Import logging module to activate default configuration
-import rclone_api.logging  # noqa: F401
+
+from rclone_api import logging
 
 from .completed_process import CompletedProcess
 from .config import Config, Parsed, Section
@@ -42,4 +43,5 @@ __all__ = [
     "MultiUploadResult",
     "SizeSuffix",
     "configure_logging",
+    "logging",
 ]
