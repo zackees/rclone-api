@@ -1,9 +1,14 @@
 import logging
 import sys
 
+_INITIALISED = False
+
 
 def setup_default_logging():
     """Set up default logging configuration if none exists."""
+    global _INITIALISED
+    if _INITIALISED:
+        return
     if not logging.root.handlers:
         logging.basicConfig(
             level=logging.INFO,

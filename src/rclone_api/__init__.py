@@ -1,6 +1,6 @@
 # Import logging module to activate default configuration
 
-from rclone_api import logging
+from rclone_api import log
 
 from .completed_process import CompletedProcess
 from .config import Config, Parsed, Section
@@ -11,7 +11,7 @@ from .file import File
 from .filelist import FileList
 
 # Import the configure_logging function to make it available at package level
-from .logging import configure_logging
+from .log import configure_logging, setup_default_logging
 from .process import Process
 from .rclone import Rclone, rclone_verbose
 from .remote import Remote
@@ -43,5 +43,7 @@ __all__ = [
     "MultiUploadResult",
     "SizeSuffix",
     "configure_logging",
-    "logging",
+    "log",
 ]
+
+setup_default_logging()
