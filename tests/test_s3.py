@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -10,6 +11,7 @@ from rclone_api.s3.api import S3Client
 from rclone_api.s3.create import S3Provider
 from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
 from rclone_api.s3.upload_file_multipart import MultiUploadResult
+from rclone_api.types import FilePart
 
 load_dotenv()
 
@@ -67,14 +69,18 @@ class RcloneS3Tester(unittest.TestCase):
             state_json = Path(tempdir) / "state.json"
 
             def simple_fetcher(
-                offset: int, chunk_size: int
-            ) -> Future[bytes | Exception]:
+                offset: int, chunk_size: int, extra: Any
+            ) -> Future[FilePart]:
                 with ThreadPoolExecutor() as executor:
 
-                    def task() -> bytes | Exception:
+                    def task(
+                        tmpfile=tmpfile, offset=offset, chunk_size=chunk_size
+                    ) -> FilePart:
                         with open(str(tmpfile), "rb") as f:
                             f.seek(offset)
-                            return f.read(chunk_size)
+                            data = f.read(chunk_size)
+                            fp = FilePart(payload=data, extra=extra)
+                            return fp
 
                     fut = executor.submit(task)
                 return fut

@@ -1,6 +1,12 @@
+import os
 import re
+import time
+import warnings
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from threading import Lock
+from typing import Any
 
 
 class ModTimeStrategy(Enum):
@@ -214,3 +220,114 @@ class SizeSuffix:
 
     def __int__(self) -> int:
         return self._size
+
+
+_TMP_DIR_ACCESS_LOCK = Lock()
+
+
+def _clean_old_files(out: Path) -> None:
+    # clean up files older than 1 day
+    from rclone_api.util import locked_print
+
+    now = time.time()
+    # Erase all stale files and then purge empty directories.
+    for root, dirs, files in os.walk(out):
+        for name in files:
+            f = Path(root) / name
+            filemod = f.stat().st_mtime
+            diff_secs = now - filemod
+            diff_days = diff_secs / (60 * 60 * 24)
+            if diff_days > 1:
+                locked_print(f"Removing old file: {f}")
+                f.unlink()
+
+    for root, dirs, _ in os.walk(out):
+        for dir in dirs:
+            d = Path(root) / dir
+            if not list(d.iterdir()):
+                locked_print(f"Removing empty directory: {d}")
+                d.rmdir()
+
+
+def get_chunk_tmpdir() -> Path:
+    with _TMP_DIR_ACCESS_LOCK:
+        dat = get_chunk_tmpdir.__dict__
+        if "out" in dat:
+            return dat["out"]  # Folder already validated.
+        out = Path("chunk_store")
+        if out.exists():
+            # first access, clean up directory
+            _clean_old_files(out)
+        out.mkdir(exist_ok=True, parents=True)
+        dat["out"] = out
+        return out
+
+
+class Finished:
+    pass
+
+
+class FilePart:
+    def __init__(self, payload: bytes | Exception, extra: Any) -> None:
+        from rclone_api.util import random_str
+
+        self.extra = extra
+        self._lock = Lock()
+        self.payload: Path | Exception
+        if isinstance(payload, Exception):
+            self.payload = payload
+            return
+        self.payload = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
+        with _TMP_DIR_ACCESS_LOCK:
+            if not self.payload.parent.exists():
+                self.payload.parent.mkdir(parents=True)
+            self.payload.write_bytes(payload)
+
+    @property
+    def size(self) -> int:
+        with self._lock:
+            if isinstance(self.payload, Path):
+                return self.payload.stat().st_size
+            return -1
+
+    def n_bytes(self) -> int:
+        with self._lock:
+            if isinstance(self.payload, Path):
+                return self.payload.stat().st_size
+            return -1
+
+    def load(self) -> bytes:
+        with self._lock:
+            if isinstance(self.payload, Path):
+                with open(self.payload, "rb") as f:
+                    return f.read()
+            raise ValueError("Cannot load from error")
+
+    def __post_init__(self):
+        if isinstance(self.payload, Path):
+            assert self.payload.exists(), f"File part {self.payload} does not exist"
+            assert self.payload.is_file(), f"File part {self.payload} is not a file"
+            assert self.payload.stat().st_size > 0, f"File part {self.payload} is empty"
+        elif isinstance(self.payload, Exception):
+            warnings.warn(f"File part error: {self.payload}")
+        print(f"File part created with payload: {self.payload}")
+
+    def is_error(self) -> bool:
+        return isinstance(self.payload, Exception)
+
+    def close(self) -> None:
+        with self._lock:
+            if isinstance(self.payload, Exception):
+                warnings.warn(
+                    f"Cannot close file part because the payload represents an error: {self.payload}"
+                )
+                return
+            if self.payload.exists():
+                try:
+                    self.payload.unlink()
+                    print(f"File part {self.payload} deleted")
+                except Exception as e:
+                    warnings.warn(f"Cannot close file part because of error: {e}")
+
+    def __del__(self):
+        self.close()

@@ -2,7 +2,9 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
+
+from rclone_api.mount import FilePart
 
 
 class S3Provider(Enum):
@@ -48,7 +50,7 @@ class S3MutliPartUploadConfig:
 
     chunk_size: int
     retries: int
-    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]]
+    chunk_fetcher: Callable[[int, int, Any], Future[FilePart]]
     resume_path_json: Path
     max_write_threads: int
     max_chunks_before_suspension: int | None = None

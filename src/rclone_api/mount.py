@@ -14,7 +14,7 @@ from threading import Lock, Semaphore
 from typing import Any
 
 from rclone_api.process import Process
-from rclone_api.types import SizeSuffix
+from rclone_api.types import FilePart
 
 _SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
 
@@ -34,7 +34,7 @@ def _cleanup_mounts() -> None:
     with ThreadPoolExecutor() as executor:
         mount: Mount
         for mount in _MOUNTS_FOR_GC:
-            executor.submit(mount.close, wait=False)
+            executor.submit(mount.close)
 
 
 atexit.register(_cleanup_mounts)
@@ -296,13 +296,12 @@ def _read_from_mount_task(
     try:
         with path.open("rb") as f:
             f.seek(offset)
-            sz = f.read(size)
-            assert len(sz) == size, f"Invalid read size: {len(sz)}"
-            return sz
+            payload = f.read(size)
+            assert len(payload) == size, f"Invalid read size: {len(payload)}"
+            return payload
+
     except KeyboardInterrupt as e:
         import _thread
-
-        warnings.warn(f"Error fetching file chunk: {e}")
 
         _thread.interrupt_main()
         return Exception(e)
@@ -319,7 +318,6 @@ class MultiMountFileChunker:
         self,
         filename: str,
         filesize: int,
-        chunk_size: SizeSuffix,
         mounts: list[Mount],
         executor: ThreadPoolExecutor,
         verbose: bool | None,
@@ -328,7 +326,6 @@ class MultiMountFileChunker:
 
         self.filename = filename
         self.filesize = filesize
-        self.chunk_size = chunk_size
         self.executor = executor
         self.mounts_processing: list[Mount] = []
         self.mounts_availabe: list[Mount] = mounts
@@ -336,13 +333,26 @@ class MultiMountFileChunker:
         self.lock = Lock()
         self.verbose = get_verbose(verbose)
 
-    def close(self) -> None:
+    def shutdown(self) -> None:
         self.executor.shutdown(wait=True, cancel_futures=True)
         with ThreadPoolExecutor() as executor:
             for mount in self.mounts_processing:
                 executor.submit(lambda: mount.close())
 
-    def fetch(self, offset: int, size: int) -> Future[bytes | Exception]:
+    def _acquire_mount(self) -> Mount:
+        self.semaphore.acquire()
+        with self.lock:
+            mount = self.mounts_availabe.pop()
+            self.mounts_processing.append(mount)
+        return mount
+
+    def _release_mount(self, mount: Mount) -> None:
+        with self.lock:
+            self.mounts_processing.remove(mount)
+            self.mounts_availabe.append(mount)
+            self.semaphore.release()
+
+    def fetch(self, offset: int, size: int, extra: Any) -> Future[FilePart]:
         if self.verbose:
             print(f"Fetching data range: offset={offset}, size={size}")
 
@@ -353,28 +363,25 @@ class MultiMountFileChunker:
         ), f"Invalid offset + size: {offset} + {size} ({offset+size}) <= {self.filesize}"
 
         try:
-            self.semaphore.acquire()
-            with self.lock:
-                mount = self.mounts_availabe.pop()
-                self.mounts_processing.append(mount)
-
+            mount = self._acquire_mount()
             path = mount.mount_path / self.filename
 
-            def task(
-                offset=offset, size=size, path=path, mount=mount, verbose=self.verbose
-            ) -> bytes | Exception:
-                out = _read_from_mount_task(
+            def task_fetch_file_range(
+                size=size, path=path, mount=mount, verbose=self.verbose
+            ) -> FilePart:
+                bytes_or_err = _read_from_mount_task(
                     offset=offset, size=size, path=path, verbose=verbose
                 )
-                with self.lock:
-                    self.mounts_processing.remove(mount)
-                    self.mounts_availabe.append(mount)
-                    self.semaphore.release()
+                self._release_mount(mount)
+
+                if isinstance(bytes_or_err, Exception):
+                    return FilePart(payload=bytes_or_err, extra=extra)
+                out = FilePart(payload=bytes_or_err, extra=extra)
                 return out
 
-            fut = self.executor.submit(task)
+            fut = self.executor.submit(task_fetch_file_range)
             return fut
         except Exception as e:
             warnings.warn(f"Error fetching file chunk: {e}")
-            err = Exception(e)
-            return self.executor.submit(lambda: err)
+            fp = FilePart(payload=e, extra=extra)
+            return self.executor.submit(lambda: fp)

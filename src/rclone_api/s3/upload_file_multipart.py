@@ -6,13 +6,19 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from queue import Queue
 from threading import Event, Thread
-from typing import Callable
+from typing import Any, Callable
 
 from botocore.client import BaseClient
 
-from rclone_api.s3.chunk_file import file_chunker
-from rclone_api.s3.chunk_types import FileChunk, FinishedPiece, UploadInfo, UploadState
+from rclone_api.mount import FilePart
+from rclone_api.s3.chunk_file import S3FileInfo, file_chunker
+from rclone_api.s3.chunk_types import (
+    FinishedPiece,
+    UploadInfo,
+    UploadState,
+)
 from rclone_api.s3.types import MultiUploadResult
+from rclone_api.types import Finished
 from rclone_api.util import locked_print
 
 _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
@@ -52,20 +58,22 @@ def upload_task(
 
 
 def handle_upload(
-    upload_info: UploadInfo, file_chunk: FileChunk | None
+    upload_info: UploadInfo, fp: FilePart
 ) -> FinishedPiece | Exception | None:
-    if file_chunk is None:
+    if fp is None:
         return None
-    print(f"Handling upload for {file_chunk.part_number}, size {len(file_chunk.data)}")
-    chunk, part_number = file_chunk.data, file_chunk.part_number
+    assert isinstance(fp.extra, S3FileInfo)
+    extra: S3FileInfo = fp.extra
+    part_number = extra.part_number
+    print(f"Handling upload for {part_number}, size {fp.size}")
     try:
         part: FinishedPiece = upload_task(
             info=upload_info,
-            chunk=chunk,
+            chunk=fp.load(),
             part_number=part_number,
             retries=upload_info.retries,
         )
-        file_chunk.close()
+        fp.close()
         return part
     except Exception as e:
         stacktrace = traceback.format_exc()
@@ -121,7 +129,7 @@ def _abort_previous_upload(upload_state: UploadState) -> None:
 
 def upload_file_multipart(
     s3_client: BaseClient,
-    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
+    chunk_fetcher: Callable[[int, int, Any], Future[FilePart]],
     bucket_name: str,
     file_path: Path,
     file_size: int | None,
@@ -178,7 +186,6 @@ def upload_file_multipart(
 
     work_que_max = upload_threads // 2 + 2
 
-    filechunks: Queue[FileChunk | None] = Queue(work_que_max)
     new_state = make_new_state()
     loaded_state = get_upload_state()
 
@@ -215,13 +222,14 @@ def upload_file_multipart(
     started_new_upload = finished == 0
     upload_info = upload_state.upload_info
 
+    queue_upload: Queue[FilePart | Finished] = Queue(work_que_max)
     chunker_errors: Queue[Exception] = Queue()
     cancel_chunker_event = Event()
 
     def chunker_task(
         upload_state=upload_state,
         chunk_fetcher=chunk_fetcher,
-        output=filechunks,
+        queue_upload=queue_upload,
         max_chunks=max_chunks_before_suspension,
         cancel_signal=cancel_chunker_event,
         queue_errors=chunker_errors,
@@ -229,8 +237,8 @@ def upload_file_multipart(
         try:
             file_chunker(
                 upload_state=upload_state,
-                chunk_fetcher=chunk_fetcher,
-                output=output,
+                fetcher=chunk_fetcher,
+                queue_upload=queue_upload,
                 max_chunks=max_chunks,
                 cancel_signal=cancel_signal,
             )
@@ -246,8 +254,11 @@ def upload_file_multipart(
         with ThreadPoolExecutor(max_workers=upload_threads) as executor:
             try:
                 while True:
-                    file_chunk: FileChunk | None = filechunks.get()
-                    if file_chunk is None:
+                    file_chunk: FilePart | Finished = queue_upload.get()
+                    if file_chunk is Finished:
+                        break
+
+                    if isinstance(file_chunk, Finished):
                         break
 
                     def task(upload_info=upload_info, file_chunk=file_chunk):

@@ -1,12 +1,15 @@
 import time
 import warnings
 from concurrent.futures import Future
+from dataclasses import dataclass
 from pathlib import Path
 from queue import Queue
 from threading import Event
-from typing import Callable
+from typing import Any, Callable
 
-from rclone_api.s3.chunk_types import FileChunk, UploadState
+from rclone_api.mount import FilePart
+from rclone_api.s3.chunk_types import UploadState
+from rclone_api.types import Finished
 from rclone_api.util import locked_print
 
 
@@ -27,12 +30,18 @@ def _get_file_size(file_path: Path, timeout: int = 60) -> int:
             raise TimeoutError(f"File {file_path} not found after {timeout} seconds")
 
 
+@dataclass
+class S3FileInfo:
+    upload_id: str
+    part_number: int
+
+
 def file_chunker(
     upload_state: UploadState,
-    chunk_fetcher: Callable[[int, int], Future[bytes | Exception]],
+    fetcher: Callable[[int, int, Any], Future[FilePart]],
     max_chunks: int | None,
     cancel_signal: Event,
-    output: Queue[FileChunk | None],
+    queue_upload: Queue[FilePart | Finished],
 ) -> None:
     count = 0
 
@@ -49,7 +58,7 @@ def file_chunker(
     upload_info = upload_state.upload_info
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
-    src = Path(file_path)
+    # src = Path(file_path)
 
     try:
         part_number = 1
@@ -73,12 +82,12 @@ def file_chunker(
             return
 
         while not should_stop():
-            curr_parth_num = next_part_number()
-            if curr_parth_num is None:
+            curr_part_number = next_part_number()
+            if curr_part_number is None:
                 locked_print(f"File {file_path} has completed chunking all parts")
                 break
-            assert curr_parth_num is not None
-            offset = (curr_parth_num - 1) * chunk_size
+            assert curr_part_number is not None
+            offset = (curr_part_number - 1) * chunk_size
             file_size = upload_info.file_size
 
             assert offset < file_size, f"Offset {offset} is greater than file size"
@@ -90,44 +99,38 @@ def file_chunker(
 
             # data = chunk_fetcher(offset, chunk_size).result()
 
-            assert curr_parth_num is not None
-            cpn: int = curr_parth_num
+            assert curr_part_number is not None
+            cpn: int = curr_part_number
 
-            def on_complete(
-                fut: Future[bytes | Exception],
-                part_number: int = cpn,
-                file_path: Path = file_path,
-            ) -> None:
-                data: bytes | Exception = fut.result()
-                if isinstance(data, Exception):
+            def on_complete(fut: Future[FilePart]) -> None:
+                fp: FilePart = fut.result()
+                if fp.is_error():
                     warnings.warn(
-                        f"Error reading file: {data}, skipping part {part_number}"
+                        f"Error reading file: {fp}, skipping part {part_number}"
                     )
                     return
 
-                if not data or len(data) == 0:
+                if fp.n_bytes() == 0:
                     warnings.warn(f"Empty data for part {part_number} of {file_path}")
                     raise ValueError(
                         f"Empty data for part {part_number} of {file_path}"
                     )
 
-                file_chunk = FileChunk(
-                    src,
-                    upload_id=upload_info.upload_id,
-                    part_number=part_number,
-                    data=data,  # After this, data should not be reused.
-                )
-                done_part_numbers.add(part_number)
-                output.put(file_chunk)
+                if isinstance(fp.payload, Exception):
+                    warnings.warn(f"Error reading file because of error: {fp.payload}")
+                    return
 
-            offset = (curr_parth_num - 1) * chunk_size
-            fut = chunk_fetcher(offset, chunk_size)
+                done_part_numbers.add(part_number)
+                queue_upload.put(fp)
+
+            offset = (curr_part_number - 1) * chunk_size
+            fut = fetcher(offset, file_size, S3FileInfo(upload_info.upload_id, cpn))
             fut.add_done_callback(on_complete)
-            # wait until the output queue can accept the next chunk
-            while output.full():
+            # wait until the queue_upload queue can accept the next chunk
+            while queue_upload.full():
                 time.sleep(0.1)
     except Exception as e:
 
         warnings.warn(f"Error reading file: {e}")
     finally:
-        output.put(None)
+        queue_upload.put(Finished())

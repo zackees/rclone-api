@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import time
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from threading import Lock
@@ -11,78 +10,8 @@ from botocore.client import BaseClient
 from rclone_api.types import SizeSuffix
 from rclone_api.util import locked_print
 
-_MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
+# _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 _SAVE_STATE_LOCK = Lock()
-
-_TMP_DIR_ACCESS_LOCK = Lock()
-
-
-def _clean_old_files(out: Path) -> None:
-    # clean up files older than 1 day
-
-    now = time.time()
-    # Erase all stale files and then purge empty directories.
-    for root, dirs, files in os.walk(out):
-        for name in files:
-            f = Path(root) / name
-            filemod = f.stat().st_mtime
-            diff_secs = now - filemod
-            diff_days = diff_secs / (60 * 60 * 24)
-            if diff_days > 1:
-                locked_print(f"Removing old file: {f}")
-                f.unlink()
-
-    for root, dirs, _ in os.walk(out):
-        for dir in dirs:
-            d = Path(root) / dir
-            if not list(d.iterdir()):
-                locked_print(f"Removing empty directory: {d}")
-                d.rmdir()
-
-
-def _get_chunk_tmpdir() -> Path:
-    with _TMP_DIR_ACCESS_LOCK:
-        dat = _get_chunk_tmpdir.__dict__
-        if "out" in dat:
-            return dat["out"]  # Folder already validated.
-        out = Path("chunk_store")
-        if out.exists():
-            # first access, clean up directory
-            _clean_old_files(out)
-        out.mkdir(exist_ok=True, parents=True)
-        dat["out"] = out
-        return out
-
-
-class FileChunk:
-    def __init__(self, src: Path, upload_id: str, part_number: int, data: bytes):
-        assert data is not None, f"{src}: Data must not be None"
-        self.upload_id = upload_id
-        self.src = src
-        self.part_number = part_number
-        name = src.name
-        self.tmpdir = _get_chunk_tmpdir()
-        self.filepart = self.tmpdir / f"{name}_{upload_id}.part_{part_number}.tmp"
-        self.filepart.write_bytes(data)
-        del data  # free up memory
-
-    @property
-    def data(self) -> bytes:
-        assert self.filepart is not None
-        with open(self.filepart, "rb") as f:
-            return f.read()
-        return b""
-
-    def close(self):
-        import traceback
-
-        stacktrace = traceback.format_stack()
-        locked_print(f"Closing file chunk: {self.filepart}\n{stacktrace}")
-        if self.filepart.exists():
-            self.filepart.unlink()
-
-    def __del__(self):
-        self.close()
 
 
 @dataclass
@@ -220,11 +149,13 @@ class UploadState:
             self._save_no_lock()
 
     def __post_init__(self):
+        from rclone_api.types import get_chunk_tmpdir
+
         if self.peristant is None:
             # upload_id = self.upload_info.upload_id
             object_name = self.upload_info.object_name
             chunk_size = self.upload_info.chunk_size
-            parent = _get_chunk_tmpdir()
+            parent = get_chunk_tmpdir()
             self.peristant = parent / f"{object_name}_chunk_size_{chunk_size}_.json"
 
     def save(self) -> None:

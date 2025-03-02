@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone, SizeSuffix
 from rclone_api.mount import MultiMountFileChunker
+from rclone_api.types import FilePart
 
 os.environ["RCLONE_API_VERBOSE"] = "1"
 
@@ -130,16 +131,18 @@ def _run_profile(
     )
     bytes_count = 0
 
-    futures: list[Future[bytes | Exception]] = []
+    futures: list[Future[FilePart]] = []
     for i in range(num):
         offset = SizeSuffix(i * chunk_size.as_int()) + offset
-        future = filechunker.fetch(offset.as_int(), size.as_int())
+        future = filechunker.fetch(offset.as_int(), size.as_int(), "TEST OBJECT")
         futures.append(future)
 
     for future in futures:
-        bytes_or_err = future.result()
-        if isinstance(bytes_or_err, Exception):
-            assert False, f"Error: {bytes_or_err}"
+        filepart_or_err = future.result()
+        if isinstance(filepart_or_err, Exception):
+            assert False, f"Error: {filepart_or_err}"
+        bytes_count += filepart_or_err.n_bytes()
+        filepart_or_err.close()
     futures.clear()
 
     start = time.time()
@@ -149,14 +152,14 @@ def _run_profile(
 
     for i in range(num):
         offset = SizeSuffix(i * chunk_size.as_int()) + offset
-        future = filechunker.fetch(offset.as_int(), size.as_int())
+        future = filechunker.fetch(offset.as_int(), size.as_int(), "TEST OBJECT")
         futures.append(future)
 
     for future in futures:
         bytes_or_err = future.result()
         if isinstance(bytes_or_err, Exception):
             assert False, f"Error: {bytes_or_err}"
-        bytes_count += len(bytes_or_err)
+        bytes_count += bytes_or_err.n_bytes()
 
     diff = (time.time() - start) / num
     net_io_end = psutil.net_io_counters()

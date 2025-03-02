@@ -4,6 +4,7 @@ Unit test file.
 
 import os
 import random
+import shutil
 import subprocess
 import time
 import traceback
@@ -825,7 +826,7 @@ class Rclone:
             traceback.print_exc()
             raise
         finally:
-            chunk_fetcher.close()
+            chunk_fetcher.shutdown()
 
     def _copy_bytes(
         self,
@@ -984,7 +985,6 @@ class Rclone:
         filechunker: MultiMountFileChunker = MultiMountFileChunker(
             filename=filename,
             filesize=filesize,
-            chunk_size=chunk_size,
             mounts=mounts,
             executor=executor,
             verbose=mount_log is not None,
@@ -1004,6 +1004,8 @@ class Rclone:
         direct_io: bool = True,
     ) -> bytes | Exception:
         """Copy bytes from a file to another file."""
+        from rclone_api.types import FilePart
+
         # determine number of threads from chunk size
         threads = max(1, min(max_threads, length // chunk_size.as_int()))
         filechunker = self.get_multi_mount_file_chunker(
@@ -1014,23 +1016,24 @@ class Rclone:
             direct_io=direct_io,
         )
         try:
-            fut = filechunker.fetch(offset, length)
-            data = fut.result()
-            if isinstance(data, Exception):
-                warnings.warn(f"Error copying bytes: {data}")
-                raise data
+            fut = filechunker.fetch(offset, length, extra=None)
+            fp: FilePart = fut.result()
+            payload = fp.payload
+            if isinstance(payload, Exception):
+                return payload
             if outfile is None:
-                return data
-            with open(outfile, "wb") as out:
-                out.write(data)
-                del data
+                out = payload.read_bytes()
+                payload.unlink()
+                return out
+            shutil.move(payload, outfile)
             return bytes(0)
+
         except Exception as e:
             warnings.warn(f"Error copying bytes: {e}")
             return e
         finally:
             try:
-                filechunker.close()
+                filechunker.shutdown()
             except Exception as e:
                 warnings.warn(f"Error closing filechunker: {e}")
 
