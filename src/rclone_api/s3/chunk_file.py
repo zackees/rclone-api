@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from rclone_api.mount import FilePart
 from rclone_api.s3.chunk_types import UploadState
-from rclone_api.types import Finished
+from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print
 
 
@@ -41,7 +41,7 @@ def file_chunker(
     fetcher: Callable[[int, int, Any], Future[FilePart]],
     max_chunks: int | None,
     cancel_signal: Event,
-    queue_upload: Queue[FilePart | Finished],
+    queue_upload: Queue[FilePart | EndOfStream],
 ) -> None:
     count = 0
 
@@ -63,7 +63,7 @@ def file_chunker(
     try:
         part_number = 1
         done_part_numbers: set[int] = {
-            p.part_number for p in upload_state.parts if p is not None
+            p.part_number for p in upload_state.parts if not isinstance(p, EndOfStream)
         }
         num_parts = upload_info.total_chunks()
 
@@ -133,4 +133,4 @@ def file_chunker(
 
         warnings.warn(f"Error reading file: {e}")
     finally:
-        queue_upload.put(Finished())
+        queue_upload.put(EndOfStream())

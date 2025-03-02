@@ -7,7 +7,7 @@ from threading import Lock
 
 from botocore.client import BaseClient
 
-from rclone_api.types import SizeSuffix
+from rclone_api.types import EndOfStream, SizeSuffix
 from rclone_api.util import locked_print
 
 # _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
@@ -83,27 +83,34 @@ class FinishedPiece:
         return json.dumps(self.to_json(), indent=0)
 
     @staticmethod
-    def to_json_array(parts: list["FinishedPiece | None"]) -> list[dict | None]:
-        non_none: list[FinishedPiece] = [p for p in parts if p is not None]
+    def to_json_array(parts: list["FinishedPiece | EndOfStream"]) -> list[dict]:
+        non_none: list[FinishedPiece] = []
+        for p in parts:
+            if not isinstance(p, EndOfStream):
+                non_none.append(p)
         non_none.sort(key=lambda x: x.part_number)
-        all_nones: list[None] = [None for p in parts if p is None]
-        assert len(all_nones) <= 1, "Only one None should be present"
+        # all_nones: list[None] = [None for p in parts if p is None]
+        # assert len(all_nones) <= 1, "Only one None should be present"
+        count_eos = 0
+        for p in parts:
+            if p is EndOfStream:
+                count_eos += 1
+        assert count_eos <= 1, "Only one EndOfStream should be present"
         return [p.to_json() for p in non_none]
 
     @staticmethod
-    def from_json(json: dict | None) -> "FinishedPiece | None":
+    def from_json(json: dict | None) -> "FinishedPiece | EndOfStream":
         if json is None:
-            return None
+            return EndOfStream()
         return FinishedPiece(**json)
 
 
 @dataclass
 class UploadState:
     upload_info: UploadInfo
-    # finished_parts: Queue[FinishedPiece | None]
     peristant: Path | None
     lock: Lock = Lock()
-    parts: list[FinishedPiece | None] = field(default_factory=list)
+    parts: list[FinishedPiece | EndOfStream] = field(default_factory=list)
 
     def update_source_file(self, src_file: Path, known_file_size: int | None) -> None:
         new_file_size = (
@@ -126,7 +133,7 @@ class UploadState:
         num_chunks = self.upload_info.total_chunks()
         count = 0
         for p in self.parts:
-            if p is not None:
+            if not isinstance(p, EndOfStream):
                 count += 1
         return count, num_chunks
 
@@ -141,7 +148,7 @@ class UploadState:
         ), f"Count {count} is greater than num_chunks {num_chunks}"
         return num_chunks - count
 
-    def add_finished(self, part: FinishedPiece | None) -> None:
+    def add_finished(self, part: FinishedPiece | EndOfStream) -> None:
         if part is None:
             return
         with self.lock:
@@ -195,13 +202,13 @@ class UploadState:
     def to_json(self) -> dict:
         # queue -> list
         # parts: list[dict] = [f.to_json() for f in self.parts]
-        parts: list[FinishedPiece | None] = list(self.parts)
+        parts: list[FinishedPiece | EndOfStream] = list(self.parts)
 
         parts_json = FinishedPiece.to_json_array(parts)
         is_done = self.is_done()
         count_non_none: int = 0
         for p in parts:
-            if p is not None:
+            if p is not EndOfStream:
                 count_non_none += 1
 
         file_size_bytes = self.upload_info.file_size

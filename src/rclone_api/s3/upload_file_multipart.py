@@ -18,7 +18,7 @@ from rclone_api.s3.chunk_types import (
     UploadState,
 )
 from rclone_api.s3.types import MultiUploadResult
-from rclone_api.types import Finished
+from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print
 
 _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
@@ -58,10 +58,10 @@ def upload_task(
 
 
 def handle_upload(
-    upload_info: UploadInfo, fp: FilePart
-) -> FinishedPiece | Exception | None:
-    if fp is None:
-        return None
+    upload_info: UploadInfo, fp: FilePart | EndOfStream
+) -> FinishedPiece | Exception | EndOfStream:
+    if isinstance(fp, EndOfStream):
+        return fp
     assert isinstance(fp.extra, S3FileInfo)
     extra: S3FileInfo = fp.extra
     part_number = extra.part_number
@@ -222,7 +222,7 @@ def upload_file_multipart(
     started_new_upload = finished == 0
     upload_info = upload_state.upload_info
 
-    queue_upload: Queue[FilePart | Finished] = Queue(work_que_max)
+    queue_upload: Queue[FilePart | EndOfStream] = Queue(work_que_max)
     chunker_errors: Queue[Exception] = Queue()
     cancel_chunker_event = Event()
 
@@ -254,11 +254,11 @@ def upload_file_multipart(
         with ThreadPoolExecutor(max_workers=upload_threads) as executor:
             try:
                 while True:
-                    file_chunk: FilePart | Finished = queue_upload.get()
-                    if file_chunk is Finished:
+                    file_chunk: FilePart | EndOfStream = queue_upload.get()
+                    if file_chunk is EndOfStream:
                         break
 
-                    if isinstance(file_chunk, Finished):
+                    if isinstance(file_chunk, EndOfStream):
                         break
 
                     def task(upload_info=upload_info, file_chunk=file_chunk):
@@ -280,7 +280,7 @@ def upload_file_multipart(
                 executor.shutdown(wait=False, cancel_futures=True)
                 raise
         # upload_state.finished_parts.put(None)  # Signal the end of the queue
-        upload_state.add_finished(None)
+        upload_state.add_finished(EndOfStream())
         thread_chunker.join()
 
         if not chunker_errors.empty():
@@ -288,7 +288,9 @@ def upload_file_multipart(
         if not upload_state.is_done():
             upload_state.save()
             return MultiUploadResult.SUSPENDED
-        parts: list[FinishedPiece] = [p for p in upload_state.parts if p is not None]
+        parts: list[FinishedPiece] = [
+            p for p in upload_state.parts if not isinstance(p, EndOfStream)
+        ]
         locked_print(f"Upload complete, sorting {len(parts)} parts to complete upload")
         parts.sort(key=lambda x: x.part_number)  # Some backends need this.
         parts_s3: list[dict] = [

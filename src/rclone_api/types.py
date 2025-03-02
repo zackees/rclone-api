@@ -263,7 +263,7 @@ def get_chunk_tmpdir() -> Path:
         return out
 
 
-class Finished:
+class EndOfStream:
     pass
 
 
