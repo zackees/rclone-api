@@ -15,6 +15,12 @@ _SAVE_STATE_LOCK = Lock()
 
 
 @dataclass
+class S3FileInfo:
+    upload_id: str
+    part_number: int
+
+
+@dataclass
 class UploadInfo:
     s3_client: BaseClient
     bucket_name: str
