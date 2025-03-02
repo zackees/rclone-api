@@ -1,5 +1,5 @@
+import logging
 import time
-import warnings
 from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +10,8 @@ from typing import Any, Callable
 from rclone_api.mount_read_chunker import FilePart
 from rclone_api.s3.chunk_types import UploadState
 from rclone_api.types import EndOfStream
-from rclone_api.util import locked_print
+
+logger = logging.getLogger(__name__)  # noqa
 
 
 def _get_file_size(file_path: Path, timeout: int = 60) -> int:
@@ -51,7 +52,7 @@ def file_chunker(
         if max_chunks is None:
             return False
         if count >= max_chunks:
-            print(
+            logger.info(
                 f"Stopping file chunker after {count} chunks because it exceeded max_chunks {max_chunks}"
             )
             return True
@@ -79,16 +80,16 @@ def file_chunker(
             return part_number
 
         if cancel_signal.is_set():
-            print(
+            logger.info(
                 f"Cancel signal is set for file chunker while processing {file_path}, returning"
             )
             return
 
         while not should_stop():
-            print("@@@@@@@@@@")
+            logger.debug("Processing next chunk")
             curr_part_number = next_part_number()
             if curr_part_number is None:
-                locked_print(f"File {file_path} has completed chunking all parts")
+                logger.info(f"File {file_path} has completed chunking all parts")
                 break
             assert curr_part_number is not None
             offset = (curr_part_number - 1) * chunk_size
@@ -107,29 +108,31 @@ def file_chunker(
             cpn: int = curr_part_number
 
             def on_complete(fut: Future[FilePart]) -> None:
-                print("ON COMPLETE")
+                logger.debug("Chunk read complete")
                 fp: FilePart = fut.result()
                 if fp.is_error():
-                    warnings.warn(
+                    logger.warning(
                         f"Error reading file: {fp}, skipping part {part_number}"
                     )
                     return
 
                 if fp.n_bytes() == 0:
-                    warnings.warn(f"Empty data for part {part_number} of {file_path}")
+                    logger.warning(f"Empty data for part {part_number} of {file_path}")
                     raise ValueError(
                         f"Empty data for part {part_number} of {file_path}"
                     )
 
                 if isinstance(fp.payload, Exception):
-                    warnings.warn(f"Error reading file because of error: {fp.payload}")
+                    logger.warning(f"Error reading file because of error: {fp.payload}")
                     return
 
                 done_part_numbers.add(part_number)
                 queue_upload.put(fp)
 
             offset = (curr_part_number - 1) * chunk_size
-            print(f"Reading chunk {curr_part_number} of {num_parts} for {file_path}")
+            logger.info(
+                f"Reading chunk {curr_part_number} of {num_parts} for {file_path}"
+            )
             fut = fetcher(offset, file_size, S3FileInfo(upload_info.upload_id, cpn))
             fut.add_done_callback(on_complete)
             # wait until the queue_upload queue can accept the next chunk
@@ -137,9 +140,7 @@ def file_chunker(
                 time.sleep(0.1)
     except Exception as e:
 
-        warnings.warn(f"Error reading file: {e}")
+        logger.error(f"Error reading file: {e}", exc_info=True)
     finally:
-        print("#############################################################")
-        print(f"Finishing FILE CHUNKER for {file_path} and adding EndOfStream")
-        print("#############################################################")
+        logger.info(f"Finishing FILE CHUNKER for {file_path} and adding EndOfStream")
         queue_upload.put(EndOfStream())
