@@ -4,17 +4,14 @@ import platform
 import shutil
 import subprocess
 import time
-import traceback
 import warnings
 import weakref
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from threading import Lock, Semaphore
 from typing import Any
 
 from rclone_api.process import Process
-from rclone_api.types import FilePart
 
 _SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
 
@@ -35,6 +32,14 @@ def _cleanup_mounts() -> None:
         mount: Mount
         for mount in _MOUNTS_FOR_GC:
             executor.submit(mount.close)
+
+
+def _cache_dir_delete_on_exit(cache_dir: Path) -> None:
+    if cache_dir.exists():
+        try:
+            shutil.rmtree(cache_dir)
+        except Exception as e:
+            warnings.warn(f"Error removing cache directory {cache_dir}: {e}")
 
 
 atexit.register(_cleanup_mounts)
@@ -278,110 +283,3 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     else:
         if verbose:
             print(f"{mount_path} successfully cleaned up.")
-
-
-def _cache_dir_delete_on_exit(cache_dir: Path) -> None:
-    if cache_dir.exists():
-        try:
-            shutil.rmtree(cache_dir)
-        except Exception as e:
-            warnings.warn(f"Error removing cache directory {cache_dir}: {e}")
-
-
-def _read_from_mount_task(
-    offset: int, size: int, path: Path, verbose: bool
-) -> bytes | Exception:
-    if verbose or True:
-        print(f"Fetching chunk: offset={offset}, size={size}, path={path}")
-    try:
-        with path.open("rb") as f:
-            f.seek(offset)
-            payload = f.read(size)
-            assert len(payload) == size, f"Invalid read size: {len(payload)}"
-            return payload
-
-    except KeyboardInterrupt as e:
-        import _thread
-
-        _thread.interrupt_main()
-        return Exception(e)
-    except Exception as e:
-        stack_trace = traceback.format_exc()
-        warnings.warn(
-            f"Error fetching file chunk at offset {offset} + {size}: {e}\n{stack_trace}"
-        )
-        return e
-
-
-class MultiMountFileChunker:
-    def __init__(
-        self,
-        filename: str,
-        filesize: int,
-        mounts: list[Mount],
-        executor: ThreadPoolExecutor,
-        verbose: bool | None,
-    ) -> None:
-        from rclone_api.util import get_verbose
-
-        self.filename = filename
-        self.filesize = filesize
-        self.executor = executor
-        self.mounts_processing: list[Mount] = []
-        self.mounts_availabe: list[Mount] = mounts
-        self.semaphore = Semaphore(len(mounts))
-        self.lock = Lock()
-        self.verbose = get_verbose(verbose)
-
-    def shutdown(self) -> None:
-        self.executor.shutdown(wait=True, cancel_futures=True)
-        with ThreadPoolExecutor() as executor:
-            for mount in self.mounts_processing:
-                executor.submit(lambda: mount.close())
-
-    def _acquire_mount(self) -> Mount:
-        self.semaphore.acquire()
-        with self.lock:
-            mount = self.mounts_availabe.pop()
-            self.mounts_processing.append(mount)
-        return mount
-
-    def _release_mount(self, mount: Mount) -> None:
-        with self.lock:
-            self.mounts_processing.remove(mount)
-            self.mounts_availabe.append(mount)
-            self.semaphore.release()
-
-    def fetch(self, offset: int, size: int, extra: Any) -> Future[FilePart]:
-        if self.verbose:
-            print(f"Fetching data range: offset={offset}, size={size}")
-
-        assert size > 0, f"Invalid size: {size}"
-        assert offset >= 0, f"Invalid offset: {offset}"
-        assert (
-            offset + size <= self.filesize
-        ), f"Invalid offset + size: {offset} + {size} ({offset+size}) <= {self.filesize}"
-
-        try:
-            mount = self._acquire_mount()
-            path = mount.mount_path / self.filename
-
-            def task_fetch_file_range(
-                size=size, path=path, mount=mount, verbose=self.verbose
-            ) -> FilePart:
-                bytes_or_err = _read_from_mount_task(
-                    offset=offset, size=size, path=path, verbose=verbose
-                )
-                self._release_mount(mount)
-
-                if isinstance(bytes_or_err, Exception):
-                    return FilePart(payload=bytes_or_err, extra=extra)
-                out = FilePart(payload=bytes_or_err, extra=extra)
-                return out
-
-            fut = self.executor.submit(task_fetch_file_range)
-            return fut
-        except Exception as e:
-            warnings.warn(f"Error fetching file chunk: {e}")
-            fp = FilePart(payload=e, extra=extra)
-            return self.executor.submit(lambda: fp)

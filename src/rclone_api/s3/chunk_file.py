@@ -7,7 +7,7 @@ from queue import Queue
 from threading import Event
 from typing import Any, Callable
 
-from rclone_api.mount import FilePart
+from rclone_api.mount_read_chunker import FilePart
 from rclone_api.s3.chunk_types import UploadState
 from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print

@@ -26,7 +26,8 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.group_files import group_files
-from rclone_api.mount import Mount, MultiMountFileChunker, clean_mount, prepare_mount
+from rclone_api.mount import Mount, clean_mount, prepare_mount
+from rclone_api.mount_read_chunker import MultiMountFileChunker
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath

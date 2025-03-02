@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from botocore.client import BaseClient
 
-from rclone_api.mount import FilePart
+from rclone_api.mount_read_chunker import FilePart
 from rclone_api.s3.chunk_file import S3FileInfo, file_chunker
 from rclone_api.s3.chunk_types import (
     FinishedPiece,
