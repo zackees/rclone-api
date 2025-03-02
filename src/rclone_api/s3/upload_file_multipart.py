@@ -246,6 +246,9 @@ def upload_file_multipart(
             queue_errors.put(e)
             _thread.interrupt_main()
             raise
+        print("#########################################")
+        print("# CHUNKER TASK COMPLETED")
+        print("#########################################")
 
     try:
         thread_chunker = Thread(target=chunker_task, daemon=True)

@@ -51,6 +51,9 @@ def file_chunker(
         if max_chunks is None:
             return False
         if count >= max_chunks:
+            print(
+                f"Stopping file chunker after {count} chunks because it exceeded max_chunks {max_chunks}"
+            )
             return True
         count += 1
         return False
@@ -133,4 +136,7 @@ def file_chunker(
 
         warnings.warn(f"Error reading file: {e}")
     finally:
+        print("#############################################################")
+        print(f"Finishing FILE CHUNKER for {file_path} and adding EndOfStream")
+        print("#############################################################")
         queue_upload.put(EndOfStream())
