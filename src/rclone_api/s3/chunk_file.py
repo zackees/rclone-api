@@ -85,6 +85,7 @@ def file_chunker(
             return
 
         while not should_stop():
+            print("@@@@@@@@@@")
             curr_part_number = next_part_number()
             if curr_part_number is None:
                 locked_print(f"File {file_path} has completed chunking all parts")
@@ -106,6 +107,7 @@ def file_chunker(
             cpn: int = curr_part_number
 
             def on_complete(fut: Future[FilePart]) -> None:
+                print("ON COMPLETE")
                 fp: FilePart = fut.result()
                 if fp.is_error():
                     warnings.warn(
@@ -127,6 +129,7 @@ def file_chunker(
                 queue_upload.put(fp)
 
             offset = (curr_part_number - 1) * chunk_size
+            print(f"Reading chunk {curr_part_number} of {num_parts} for {file_path}")
             fut = fetcher(offset, file_size, S3FileInfo(upload_info.upload_id, cpn))
             fut.add_done_callback(on_complete)
             # wait until the queue_upload queue can accept the next chunk
