@@ -94,7 +94,7 @@ class MultiMountFileChunker:
         assert offset >= 0, f"Invalid offset: {offset}"
         assert (
             offset + size <= self.filesize
-        ), f"Invalid offset + size: {offset} + {size} ({offset+size}) <= {self.filesize}"
+        ), f"Invalid offset + size: {offset} + {size} ({offset+size}) > {self.filesize}"
 
         try:
             mount = self._acquire_mount()
