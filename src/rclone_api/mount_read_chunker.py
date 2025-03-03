@@ -6,7 +6,7 @@ from threading import Lock, Semaphore
 from typing import Any
 
 from rclone_api.mount import Mount
-from rclone_api.types import FilePart
+from rclone_api.types import FilePart, SizeSuffix
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -86,7 +86,13 @@ class MultiMountFileChunker:
             self.semaphore.release()
         logger.debug("Mount released")
 
-    def fetch(self, offset: int, size: int, extra: Any) -> Future[FilePart]:
+    def fetch(
+        self, offset: int | SizeSuffix, size: int | SizeSuffix, extra: Any
+    ) -> Future[FilePart]:
+        offset = SizeSuffix(offset).as_int()
+        size = SizeSuffix(size).as_int()
+        if isinstance(size, SizeSuffix):
+            size = size.as_int()
         if self.verbose:
             logger.debug(f"Fetching data range: offset={offset}, size={size}")
 

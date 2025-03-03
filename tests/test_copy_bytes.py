@@ -72,7 +72,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
 
     def test_copy_bytes(self) -> None:
         rclone = Rclone(_generate_rclone_config())
-        bytes_or_err: bytes | Exception = rclone.copy_bytes_multimount(
+        bytes_or_err: bytes | Exception = rclone.copy_bytes_mount(
             src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
             offset=0,
             length=1024 * 1024,
@@ -90,9 +90,27 @@ class RcloneCopyBytesTester(unittest.TestCase):
     def test_copy_bytes_to_temp_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir) / "tmp.mp4"
+            rclone = Rclone(_generate_rclone_config())
+            err: Exception | None = rclone.copy_bytes(
+                src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
+                offset=0,
+                length=1024 * 1024,
+                outfile=tmp,
+            )
+            if isinstance(err, Exception):
+                print(err)
+                self.fail(f"Error: {err}")
+            self.assertTrue(tmp.exists())
+            tmp_size = tmp.stat().st_size
+            self.assertEqual(tmp_size, 1024 * 1024)
+        print("done")
+
+    def test_copy_bytes_to_temp_file_via_mount(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir) / "tmp.mp4"
             log = Path(tmpdir) / "log.txt"
             rclone = Rclone(_generate_rclone_config())
-            bytes_or_err: bytes | Exception = rclone.copy_bytes_multimount(
+            bytes_or_err: bytes | Exception = rclone.copy_bytes_mount(
                 src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
                 offset=0,
                 length=1024 * 1024,

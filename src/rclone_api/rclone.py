@@ -78,7 +78,7 @@ class Rclone:
         self.config: Config = _to_rclone_conf(rclone_conf)
 
     def _run(
-        self, cmd: list[str], check: bool = False, capture: bool | None = None
+        self, cmd: list[str], check: bool = False, capture: bool | Path | None = None
     ) -> subprocess.CompletedProcess:
         return self._exec.execute(cmd, check=check, capture=capture)
 
@@ -927,11 +927,40 @@ class Rclone:
         )
         return filechunker
 
-    def copy_bytes_multimount(
+    def copy_bytes(
         self,
         src: str,
-        offset: int,
-        length: int,
+        offset: int | SizeSuffix,
+        length: int | SizeSuffix,
+        outfile: Path,
+        other_args: list[str] | None = None,
+    ) -> Exception | None:
+        """Copy a slice of bytes from the src file to dst."""
+        offset = SizeSuffix(offset).as_int()
+        length = SizeSuffix(length).as_int()
+        cmd_list: list[str] = [
+            "cat",
+            "--offset",
+            str(offset),
+            "--count",
+            str(length),
+            src,
+        ]
+        if other_args:
+            cmd_list.extend(other_args)
+        try:
+            cp = self._run(cmd_list, capture=outfile)
+            if cp.returncode == 0:
+                return None
+            return Exception(cp.stderr)
+        except subprocess.CalledProcessError as e:
+            return e
+
+    def copy_bytes_mount(
+        self,
+        src: str,
+        offset: int | SizeSuffix,
+        length: int | SizeSuffix,
         chunk_size: SizeSuffix,
         max_threads: int = 1,
         # If outfile is supplied then bytes are written to this file and success returns bytes(0)
@@ -942,8 +971,11 @@ class Rclone:
         """Copy a slice of bytes from the src file to dst. Parallelism is achieved through multiple mounted files."""
         from rclone_api.types import FilePart
 
+        offset = SizeSuffix(offset).as_int()
+        length = SizeSuffix(length).as_int()
         # determine number of threads from chunk size
         threads = max(1, min(max_threads, length // chunk_size.as_int()))
+        # todo - implement max threads.
         filechunker = self.get_multi_mount_file_chunker(
             src=src,
             chunk_size=chunk_size,

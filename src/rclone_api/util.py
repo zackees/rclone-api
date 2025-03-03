@@ -93,12 +93,20 @@ def rclone_execute(
     rclone_conf: Path | Config,
     rclone_exe: Path,
     check: bool,
-    capture: bool | None = None,
+    capture: bool | Path | None = None,
     verbose: bool | None = None,
 ) -> subprocess.CompletedProcess:
     tempdir: TemporaryDirectory | None = None
     verbose = get_verbose(verbose)
-    capture = capture if isinstance(capture, bool) else True
+
+    # Handle the Path case for capture
+    output_file = None
+    if isinstance(capture, Path):
+        output_file = capture
+        capture = False  # Don't capture to memory when redirecting to file
+    else:
+        capture = capture if isinstance(capture, bool) else True
+
     assert verbose is not None
 
     try:
@@ -113,9 +121,22 @@ def rclone_execute(
         if verbose:
             cmd_str = subprocess.list2cmdline(cmd)
             print(f"\nRunning: {cmd_str}")
-        cp = subprocess.run(
-            cmd, capture_output=capture, encoding="utf-8", check=False, shell=False
-        )
+
+        # If output_file is set, redirect output to that file
+        if output_file:
+            with open(output_file, "w", encoding="utf-8") as f:
+                cp = subprocess.run(
+                    cmd,
+                    stdout=f,
+                    stderr=subprocess.PIPE,
+                    encoding="utf-8",
+                    check=False,
+                    shell=False,
+                )
+        else:
+            cp = subprocess.run(
+                cmd, capture_output=capture, encoding="utf-8", check=False, shell=False
+            )
         if cp.returncode != 0:
             cmd_str = subprocess.list2cmdline(cmd)
             warnings.warn(
