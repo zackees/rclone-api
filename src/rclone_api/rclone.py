@@ -87,6 +87,12 @@ class Rclone:
     ) -> Process:
         return self._exec.launch_process(cmd, capture=capture, log=log)
 
+    def _get_tmp_mount_dir(self) -> Path:
+        return Path("tmp_mnts")
+
+    def _get_cache_dir(self) -> Path:
+        return Path("cache")
+
     def webgui(self, other_args: list[str] | None = None) -> Process:
         """Launch the Rclone web GUI."""
         cmd = ["rcd", "--rc-web-gui"]
@@ -696,6 +702,7 @@ class Rclone:
         other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
         chunk_size = chunk_size or SizeSuffix("64M")
         unit_chunk_size = chunk_size / read_threads
+        tmp_mount_dir = self._get_tmp_mount_dir()
         vfs_read_chunk_size = unit_chunk_size
         vfs_read_chunk_size_limit = chunk_size
         vfs_read_chunk_streams = read_threads
@@ -717,7 +724,7 @@ class Rclone:
         other_args += ["--direct-io"]
         # --vfs-cache-max-size
         other_args += ["--vfs-cache-max-size", vfs_disk_space_total_size.as_str()]
-        mount_path = Path("tmp_mnts") / "RCLONE_API_DYNAMIC_MOUNT"
+        mount_path = tmp_mount_dir / "RCLONE_API_DYNAMIC_MOUNT"
         src_path = Path(src)
         name = src_path.name
 
@@ -860,8 +867,8 @@ class Rclone:
         if direct_io:
             other_args += ["--direct-io"]
 
-        base_mount_dir = Path("tmp_mnts")
-        base_cache_dir = Path("cache")
+        base_mount_dir = self._get_tmp_mount_dir()
+        base_cache_dir = self._get_cache_dir()
 
         filename = Path(src).name
         with ThreadPoolExecutor(max_workers=threads) as executor:
