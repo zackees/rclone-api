@@ -4,8 +4,6 @@ from pathlib import Path
 
 from rclone_api import MultiUploadResult, Rclone, SizeSuffix
 
-_1MB = 1024 * 1024
-
 
 @dataclass
 class Args:
@@ -39,7 +37,7 @@ def _parse_args() -> Args:
         "--chunk-size",
         help="Chunk size that will be read and uploaded in SizeSuffix form, too low or too high will cause issues",
         type=str,
-        default="64MB",  # if this is too low or too high an s3 service
+        default="128MB",  # if this is too low or too high an s3 service
     )
     parser.add_argument(
         "--read-threads",

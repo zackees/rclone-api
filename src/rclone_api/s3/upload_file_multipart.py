@@ -258,9 +258,6 @@ def upload_file_multipart(
             try:
                 while True:
                     file_chunk: FilePart | EndOfStream = queue_upload.get()
-                    if file_chunk is EndOfStream:
-                        break
-
                     if isinstance(file_chunk, EndOfStream):
                         break
 
@@ -291,6 +288,12 @@ def upload_file_multipart(
         if not upload_state.is_done():
             upload_state.save()
             return MultiUploadResult.SUSPENDED
+        ######################## COMPLETE UPLOAD #######################
+        # Final part now is to complete the upload
+        msg = "\n########################################"
+        msg += f"# Upload complete, sorting {len(upload_state.parts)} parts to complete upload"
+        msg += "########################################\n"
+        locked_print(msg)
         parts: list[FinishedPiece] = [
             p for p in upload_state.parts if not isinstance(p, EndOfStream)
         ]
