@@ -132,11 +132,6 @@ def file_chunker(
     upload_info = upload_state.upload_info
     file_path = upload_info.src_file_path
     chunk_size = upload_info.chunk_size
-    # src = Path(file_path)
-
-    # for p in upload_state.parts:
-    #     if not isinstance(p, EndOfStream):
-    #         part_tracker.add_done_part_number(p.part_number)
 
     done_part_numbers: set[int] = {
         p.part_number for p in upload_state.parts if not isinstance(p, EndOfStream)
@@ -173,9 +168,6 @@ def file_chunker(
 
             assert offset < file_size, f"Offset {offset} is greater than file size"
             fetch_size = max(0, min(chunk_size, file_size - offset))
-
-            # assert fetch_size > 0, f"Invalid fetch size: {fetch_size}"
-
             if fetch_size == 0:
                 logger.error(
                     f"Empty data for part {curr_part_number} of {file_path}, is this the last chunk?"
@@ -186,17 +178,7 @@ def file_chunker(
                         f"This should have been the last part, but it is not: {final_part_number} != {curr_part_number}"
                     )
 
-            # Open the file, seek, read the chunk, and close immediately.
-            # with open(file_path, "rb") as f:
-            #     f.seek(offset)
-            #     data = f.read(chunk_size)
-
-            # data = chunk_fetcher(offset, chunk_size).result()
-
             assert curr_part_number is not None
-            # cpn: int = curr_part_number
-
-            # offset = (curr_part_number - 1) * chunk_size
             logger.info(
                 f"Reading chunk {curr_part_number} of {num_parts} for {file_path}"
             )
@@ -208,7 +190,6 @@ def file_chunker(
             while queue_upload.full():
                 time.sleep(0.1)
     except Exception as e:
-
         logger.error(f"Error reading file: {e}", exc_info=True)
     finally:
         logger.info(f"Finishing FILE CHUNKER for {file_path} and adding EndOfStream")

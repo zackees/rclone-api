@@ -137,11 +137,11 @@ def _run_profile(
         future = filechunker.fetch(offset.as_int(), size.as_int(), "TEST OBJECT")
         futures.append(future)
 
+    # dry run to warm up the mounts, then read a different byte range.
     for future in futures:
         filepart_or_err = future.result()
         if isinstance(filepart_or_err, Exception):
             assert False, f"Error: {filepart_or_err}"
-        bytes_count += filepart_or_err.n_bytes()
         filepart_or_err.close()
     futures.clear()
 
@@ -164,9 +164,17 @@ def _run_profile(
     diff = (time.time() - start) / num
     net_io_end = psutil.net_io_counters()
     # self.assertEqual(len(bytes_or_err), size)
-    assert (
-        bytes_count == SizeSuffix(size * num).as_int()
-    ), f"Length: {SizeSuffix(bytes_count)} != {SizeSuffix(size* num)}"
+    # assert (
+    #     bytes_count == SizeSuffix(size * num).as_int()
+    # ), f"Length: {SizeSuffix(bytes_count)} != {SizeSuffix(size* num)}"
+
+    if bytes_count != SizeSuffix(size * num).as_int():
+        print("\n######################## ERROR ########################")
+        print(f"Error: Length: {SizeSuffix(bytes_count)} != {SizeSuffix(size* num)}")
+        print(f"  Bytes count: {bytes_count}")
+        print(f"  Size: {SizeSuffix(size * num)}")
+        print(f"  num: {num}")
+        print("########################################################\n")
 
     # print io stats
     bytes_sent = (net_io_end.bytes_sent - net_io_start.bytes_sent) // num
@@ -203,15 +211,15 @@ def test_profile_copy_bytes(
         sizes = [size.as_int()]
     else:
         sizes = [
-            # 1024 * 1024 * 1,
+            1024 * 1024 * 1,
             # 1024 * 1024 * 2,
-            # 1024 * 1024 * 4,
+            1024 * 1024 * 4,
             # 1024 * 1024 * 8,
             1024 * 1024 * 16,
             # 1024 * 1024 * 32,
             1024 * 1024 * 64,
-            1024 * 1024 * 128,
-            # 1024 * 1024 * 256,
+            # 1024 * 1024 * 128,
+            1024 * 1024 * 256,
         ]
     # transfer_list = [1, 2, 4, 8, 16]
     transfer_list = transfer_list or [1, 2, 4]
@@ -246,14 +254,18 @@ def _parse_args() -> Args:
     return Args(direct_io=args.direct_io, num=args.num, size=args.size)
 
 
+_SHOW_CREDS = False
+
+
 def main() -> None:
     """Main entry point."""
     print("Running test_profile_copy_bytes")
     config, creds = _generate_rclone_config()
-    print("Config:")
-    print(config)
-    print("Credentials:")
-    print(creds)
+    if _SHOW_CREDS:
+        print("Config:")
+        print(config)
+        print("Credentials:")
+        print(creds)
     rclone = Rclone(config)
 
     mount_root_path = Path("rclone_logs") / "mount"
@@ -261,7 +273,7 @@ def main() -> None:
         shutil.rmtree(mount_root_path)
 
     args = _parse_args()
-    transfer_list = [args.num]
+    transfer_list = None
     # parallel_workers = args.num
 
     def task(

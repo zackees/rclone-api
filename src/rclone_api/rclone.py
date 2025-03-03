@@ -682,7 +682,7 @@ class Rclone:
         save_state_json: Path,
         chunk_size: SizeSuffix | None = None,
         read_threads: int = 8,
-        write_threads: int = 16,
+        write_threads: int = 8,
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
@@ -829,74 +829,6 @@ class Rclone:
         finally:
             chunk_fetcher.shutdown()
 
-    def _copy_bytes(
-        self,
-        src: str,
-        offset: int,
-        length: int,
-        transfers: int = 1,  # Note, increasing transfers can result in devestating drop in performance.
-        # If outfile is supplied then bytes are written to this file and success returns bytes(0)
-        outfile: Path | None = None,
-        mount_log: Path | None = None,
-        direct_io: bool = True,
-    ) -> bytes | Exception:
-        """Copy bytes from a file to another file."""
-        from rclone_api.util import random_str
-
-        tmp_mnts = Path("tmp_mnts") / random_str(12)
-        src_parent_path = Path(src).parent.as_posix()
-        src_file = Path(src).name
-        other_args: list[str] = [
-            "--no-modtime",
-            # "--vfs-read-wait", "1s"
-        ]
-        vfs_read_chunk_size = SizeSuffix(length // transfers)
-        vfs_read_chunk_size_limit = SizeSuffix(length)
-        vfs_read_chunk_streams = transfers
-        vfs_disk_space_total_size = SizeSuffix(length)
-        # --max-read-ahead SizeSuffix
-        max_read_ahead = SizeSuffix(vfs_read_chunk_size.as_int())
-
-        # other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
-        other_args += ["--vfs-read-chunk-size", str(vfs_read_chunk_size)]
-        other_args += ["--vfs-read-chunk-size-limit", str(vfs_read_chunk_size_limit)]
-        other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
-        other_args += ["--vfs-disk-space-total-size", str(vfs_disk_space_total_size)]
-        other_args += ["--max-read-ahead", str(max_read_ahead)]
-        other_args += ["--read-only"]
-        if direct_io:
-            other_args += ["--direct-io"]
-
-        with TemporaryDirectory() as tmpdir:
-            cache_dir = Path(tmpdir) / "cache"
-            other_args += ["--cache-dir", str(cache_dir.absolute())]
-            try:
-                # use scoped mount to do the read, then write the bytes to the destination
-                with self.scoped_mount(
-                    src_parent_path,
-                    tmp_mnts,
-                    use_links=True,
-                    verbose=mount_log is not None,
-                    vfs_cache_mode="minimal",
-                    other_args=other_args,
-                    log=mount_log,
-                    cache_dir=cache_dir,
-                    cache_dir_delete_on_exit=True,
-                ):
-                    src_file_mnt = tmp_mnts / src_file
-                    with open(src_file_mnt, "rb") as f:
-                        f.seek(offset)
-                        data = f.read(length)
-                        if outfile is None:
-                            return data
-                        with open(outfile, "wb") as out:
-                            out.write(data)
-                            del data
-                        return bytes(0)
-
-            except Exception as e:
-                return e
-
     def get_multi_mount_file_chunker(
         self,
         src: str,
@@ -928,16 +860,19 @@ class Rclone:
         if direct_io:
             other_args += ["--direct-io"]
 
+        base_mount_dir = Path("tmp_mnts")
+        base_cache_dir = Path("cache")
+
         filename = Path(src).name
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures: list[Future] = []
             try:
                 for i in range(threads):
-                    tmp_mnts = Path("tmp_mnts") / random_str(12)
+                    tmp_mnts = base_mount_dir / random_str(12)
                     verbose = mount_log is not None
 
                     src_parent_path = Path(src).parent.as_posix()
-                    cache_dir = Path("cache") / random_str(12)
+                    cache_dir = base_cache_dir / random_str(12)
 
                     def task(
                         src_parent_path=src_parent_path,
@@ -992,7 +927,7 @@ class Rclone:
         )
         return filechunker
 
-    def copy_bytes(
+    def copy_bytes_multimount(
         self,
         src: str,
         offset: int,
@@ -1004,7 +939,7 @@ class Rclone:
         mount_log: Path | None = None,
         direct_io: bool = True,
     ) -> bytes | Exception:
-        """Copy bytes from a file to another file."""
+        """Copy a slice of bytes from the src file to dst. Parallelism is achieved through multiple mounted files."""
         from rclone_api.types import FilePart
 
         # determine number of threads from chunk size
@@ -1022,12 +957,13 @@ class Rclone:
             payload = fp.payload
             if isinstance(payload, Exception):
                 return payload
-            if outfile is None:
-                out = payload.read_bytes()
-                payload.unlink()
-                return out
-            shutil.move(payload, outfile)
-            return bytes(0)
+            try:
+                if outfile is None:
+                    return payload.read_bytes()
+                shutil.move(payload, outfile)
+                return bytes(0)
+            finally:
+                fp.close()
 
         except Exception as e:
             warnings.warn(f"Error copying bytes: {e}")

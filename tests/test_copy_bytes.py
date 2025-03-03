@@ -72,7 +72,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
 
     def test_copy_bytes(self) -> None:
         rclone = Rclone(_generate_rclone_config())
-        bytes_or_err: bytes | Exception = rclone.copy_bytes(
+        bytes_or_err: bytes | Exception = rclone.copy_bytes_multimount(
             src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
             offset=0,
             length=1024 * 1024,
@@ -92,7 +92,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             tmp = Path(tmpdir) / "tmp.mp4"
             log = Path(tmpdir) / "log.txt"
             rclone = Rclone(_generate_rclone_config())
-            bytes_or_err: bytes | Exception = rclone.copy_bytes(
+            bytes_or_err: bytes | Exception = rclone.copy_bytes_multimount(
                 src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
                 offset=0,
                 length=1024 * 1024,
