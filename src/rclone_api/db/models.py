@@ -2,6 +2,7 @@
 Database models for rclone_api.
 """
 
+from abc import ABC, abstractmethod
 from typing import Optional, Type
 
 from sqlmodel import Field, SQLModel
@@ -17,7 +18,7 @@ class RepositoryMeta(SQLModel, table=True):
 
 
 # Base FileEntry model that will be extended
-class FileEntry(SQLModel):
+class FileEntry(SQLModel, ABC):
     """Base file entry model with common fields."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -27,9 +28,14 @@ class FileEntry(SQLModel):
     mime_type: str
     mod_time: str
 
+    @abstractmethod
+    def table_name(self) -> str:
+        """Return the table name for this file entry model."""
+        pass
+
 
 # Factory to dynamically create a FileEntry model with a given table name
-def create_file_entry_model(table_name: str) -> Type[FileEntry]:
+def create_file_entry_model(_table_name: str) -> Type[FileEntry]:
     """Create a file entry model with a given table name.
 
     Args:
@@ -40,6 +46,9 @@ def create_file_entry_model(table_name: str) -> Type[FileEntry]:
     """
 
     class FileEntryConcrete(FileEntry, table=True):
-        __tablename__ = table_name  # type: ignore # dynamically set table name
+        __tablename__ = _table_name  # type: ignore # dynamically set table name
+
+        def table_name(self) -> str:
+            return _table_name
 
     return FileEntryConcrete
