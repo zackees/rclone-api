@@ -16,7 +16,8 @@ class RcloneDBTests(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up the test."""
-        self.db = DB(str(DB_PATH))
+        sql_url = "sqlite:///" + str(DB_PATH)
+        self.db = DB(sql_url)
 
     def tearDown(self) -> None:
         """Clean up after the test."""
@@ -29,10 +30,10 @@ class RcloneDBTests(unittest.TestCase):
         """Test database creation."""
         self.assertTrue(DB_PATH.exists())
 
-    def test_table_section(self) -> None:
+    def test_table(self) -> None:
         """Test table section functionality."""
         # Create a table section
-        ts = self.db.get_table_section("dst:TorrentBooks")
+        ts = self.db.get_table("dst:TorrentBooks")
 
         new_files = [
             DBFile(

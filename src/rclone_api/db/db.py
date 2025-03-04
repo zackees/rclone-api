@@ -38,14 +38,14 @@ def _to_table_name(remote_name: str) -> str:
 class DB:
     """Database class for rclone_api."""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path_url: str):
         """Initialize the database.
 
         Args:
             db_path: Path to the database file
         """
-        self.db_path = db_path
-        self.engine = create_engine(f"sqlite:///{db_path}")
+        self.db_path_url = db_path_url
+        self.engine = create_engine(db_path_url)
 
         # Create the meta table
         SQLModel.metadata.create_all(self.engine)
@@ -55,7 +55,7 @@ class DB:
         if hasattr(self, "engine") and self.engine is not None:
             self.engine.dispose()
 
-    def get_table_section(self, remote_name: str) -> "TableSection":
+    def get_table(self, remote_name: str) -> "DbRepo":
         """Get a table section for a remote.
 
         Args:
@@ -63,14 +63,14 @@ class DB:
             table_name: Optional table name, will be derived from remote_name if not provided
 
         Returns:
-            TableSection: A table section for the remote
+            DbRepo: A table section for the remote
         """
         table_name = _to_table_name(remote_name)
-        return TableSection(self.engine, remote_name, table_name)
+        return DbRepo(self.engine, remote_name, table_name)
 
 
-class TableSection:
-    """Table section for a remote."""
+class DbRepo:
+    """Table repo remote."""
 
     def __init__(self, engine, remote_name: str, table_name: Optional[str] = None):
         """Initialize a table section.
