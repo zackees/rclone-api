@@ -170,10 +170,12 @@ class Rclone:
                     linestr = linestr[:-1]
                 if linestr.endswith("]"):
                     continue
-                fileitem: FileItem | None = FileItem.from_json_str(linestr)
+                fileitem: FileItem | None = FileItem.from_json_str(path, linestr)
                 if fileitem is None:
                     continue
                 yield fileitem
+            process.wait()
+            process.stdout.close()
 
     def ls(
         self,

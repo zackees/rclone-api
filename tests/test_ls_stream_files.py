@@ -78,7 +78,7 @@ class RcloneLsStreamFileTests(unittest.TestCase):
         rclone = Rclone(_generate_rclone_config())
 
         for filepath in rclone.ls_stream_files(f"dst:{BUCKET_NAME}", max_depth=-1):
-            print(filepath)
+            print(filepath.path)
 
         print("done")
 

@@ -17,6 +17,7 @@ def _intern(s: str) -> str:
 class FileItem:
     """Remote file dataclass."""
 
+    remote: str
     parent: str
     name: str
     size: int
@@ -25,7 +26,10 @@ class FileItem:
 
     @property
     def path(self) -> str:
-        return f"{self.parent}/{self.name}"
+        if self.parent == ".":
+            return f"{self.remote}/{self.name}"
+        else:
+            return f"{self.remote}/{self.parent}/{self.name}"
 
     @property
     def suffix(self) -> str:
@@ -34,11 +38,11 @@ class FileItem:
     def __post_init__(self):
         self.parent = _intern(self.parent)
         self.mime_type = _intern(self.mime_type)
-        suffix = Path(self.name).suffix
-        self._suffix = _intern(suffix)
+        self.remote = _intern(self.remote)
+        self._suffix = _intern(Path(self.name).suffix)
 
     @staticmethod
-    def from_json(data: dict) -> "FileItem | None":
+    def from_json(remote: str, data: dict) -> "FileItem | None":
         try:
             path_str: str = data["Path"]
             parent_path = Path(path_str).parent.as_posix()
@@ -48,6 +52,7 @@ class FileItem:
             mod_time = data["ModTime"]
 
             return FileItem(
+                remote=remote,
                 parent=parent_path,
                 name=name,
                 size=size,
@@ -59,10 +64,10 @@ class FileItem:
             return None
 
     @staticmethod
-    def from_json_str(data: str) -> "FileItem | None":
+    def from_json_str(remote: str, data: str) -> "FileItem | None":
         try:
             data_dict = json.loads(data)
-            return FileItem.from_json(data_dict)
+            return FileItem.from_json(remote, data_dict)
         except json.JSONDecodeError:
             warnings.warn(f"Invalid JSON data: {data}")
             return None

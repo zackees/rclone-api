@@ -15,6 +15,7 @@ def _intern(s: str) -> str:
 class FileItem:
     """Remote file dataclass."""
 
+    remote: str
     parent: str
     name: str
     size: int
@@ -23,7 +24,7 @@ class FileItem:
 
     @property
     def path(self) -> str:
-        return f"{self.parent}/{self.name}"
+        return f"{self.remote}/{self.parent}/{self.name}"
 
     @property
     def suffix(self) -> str:
@@ -46,6 +47,7 @@ class FileItem:
             mod_time = data["ModTime"]
 
             return FileItem(
+                remote="DUMMY",
                 parent=parent_path,
                 name=name,
                 size=size,
