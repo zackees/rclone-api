@@ -65,6 +65,19 @@ class DB:
             repo = self.get_or_create_repo(remote_name)
             repo.insert_files(files)
 
+    def query_files(self, remote_name: str) -> list[FileItem]:
+        """Query files from the database.
+
+        Args:
+            remote_name: Name of the remote
+        """
+        repo = self.get_or_create_repo(remote_name)
+        files = repo.get_files()
+        out: list[FileItem] = []
+        for file in files:
+            out.append(file)
+        return out
+
     def get_or_create_repo(self, remote_name: str) -> "DBRepo":
         """Get a table section for a remote.
 

@@ -152,3 +152,4 @@ t2.py
 chunk_store
 state.json
 database.db
+data.db

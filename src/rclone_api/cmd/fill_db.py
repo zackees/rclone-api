@@ -5,7 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api import FileItem, Rclone
+from rclone_api import Rclone
 from rclone_api.db import DB
 
 load_dotenv()
@@ -26,16 +26,42 @@ class Args:
             raise FileNotFoundError(f"Config file not found: {self.config}")
 
 
+#
+# method) def ls_stream_files_paged(
+#     path: str,
+#     max_depth: int = -1,
+#     fast_list: bool = False,
+#     page_size: int = 1000
+# ) -> Generator[list[FileItem], None, None]
+#
+
+
 def list_files(rclone: Rclone, path: str):
     """List files in a remote path."""
     db = DB()
-    files_page: list[FileItem]
 
-    for files_page in rclone.ls_stream_files_paged(path, fast_list=True, page_size=100):
-        # print(file_item.path, "", file_item.size, file_item.mod_time)
-        # for file_item in files_page:
-        # print(file_item.path, "", file_item.size, file_item.mod_time)
-        db.add_files(files_page)
+    # with closing(
+    #     rclone.ls_stream_files_paged(path, fast_list=True, page_size=100)
+    # ) as pages:
+    #     for files_page in pages:
+    #         # print(file_item.path, "", file_item.size, file_item.mod_time)
+    #         # for file_item in files_page:
+    #         # print(file_item.path, "", file_item.size, file_item.mod_time)
+    #         db.add_files(files_page)
+    #         break
+
+    with rclone.ls_stream(path, fast_list=True) as stream:
+        for page in stream.files_paged(page_size=100):
+            for file_item in page:
+                print(file_item.path, "", file_item.size, file_item.mod_time)
+                db.add_files([file_item])
+
+    # now query
+    print("Querying")
+    files = db.query_files(path)
+    for file in files:
+        print(file.path, "", file.size, file.mod_time)
+    print()
 
 
 def _parse_args() -> Args:

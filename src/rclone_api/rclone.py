@@ -67,6 +67,77 @@ def _to_rclone_conf(config: Config | Path) -> Config:
         return config
 
 
+# class closing(AbstractContextManager):
+#     """Context to automatically close something at the end of a block.
+
+#     Code like this:
+
+#         with closing(<module>.open(<arguments>)) as f:
+#             <block>
+
+#     is equivalent to this:
+
+#         f = <module>.open(<arguments>)
+#         try:
+#             <block>
+#         finally:
+#             f.close()
+
+#     """
+#     def __init__(self, thing):
+#         self.thing = thing
+#     def __enter__(self):
+#         return self.thing
+#     def __exit__(self, *exc_info):
+#         self.thing.close()
+
+
+# Process
+
+
+class FilesStream:
+
+    def __init__(self, path: str, process: Process) -> None:
+        self.path = path
+        self.process = process
+
+    def __enter__(self) -> "FilesStream":
+        self.process.__enter__()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.process.__exit__(*exc_info)
+
+    def files(self) -> Generator[FileItem, None, None]:
+        for line in self.process.stdout:
+            linestr = line.decode("utf-8").strip()
+            if linestr.startswith("["):
+                continue
+            if linestr.endswith(","):
+                linestr = linestr[:-1]
+            if linestr.endswith("]"):
+                continue
+            fileitem: FileItem | None = FileItem.from_json_str(self.path, linestr)
+            if fileitem is None:
+                continue
+            yield fileitem
+
+    def files_paged(
+        self, page_size: int = 1000
+    ) -> Generator[list[FileItem], None, None]:
+        page: list[FileItem] = []
+        for fileitem in self.files():
+            page.append(fileitem)
+            if len(page) >= page_size:
+                yield page
+                page = []
+        if len(page) > 0:
+            yield page
+
+    def __iter__(self) -> Generator[FileItem, None, None]:
+        return self.files()
+
+
 class Rclone:
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
@@ -147,12 +218,12 @@ class Rclone:
         cp = self._run(cmd_list)
         return cp.stdout.strip()
 
-    def ls_stream_files(
+    def ls_stream(
         self,
         path: str,
         max_depth: int = -1,
         fast_list: bool = False,
-    ) -> Generator[FileItem, None, None]:
+    ) -> FilesStream:
         """List files in the given path"""
         cmd = ["lsjson", path]
         if max_depth < 0:
@@ -161,40 +232,49 @@ class Rclone:
             cmd += ["--max-depth", str(max_depth)]
         if fast_list:
             cmd.append("--fast-list")
-        with self._launch_process(cmd, capture=True) as process:
-            for line in process.stdout:
-                linestr = line.decode("utf-8").strip()
-                if linestr.startswith("["):
-                    continue
-                if linestr.endswith(","):
-                    linestr = linestr[:-1]
-                if linestr.endswith("]"):
-                    continue
-                fileitem: FileItem | None = FileItem.from_json_str(path, linestr)
-                if fileitem is None:
-                    continue
-                yield fileitem
-            process.wait()
-            process.stdout.close()
+        streamer = FilesStream(path, self._launch_process(cmd, capture=True))
+        return streamer
+        # with self._launch_process(cmd, capture=True) as process:
+        #     for line in process.stdout:
+        #         linestr = line.decode("utf-8").strip()
+        #         if linestr.startswith("["):
+        #             continue
+        #         if linestr.endswith(","):
+        #             linestr = linestr[:-1]
+        #         if linestr.endswith("]"):
+        #             continue
+        #         fileitem: FileItem | None = FileItem.from_json_str(path, linestr)
+        #         if fileitem is None:
+        #             continue
+        #         yield fileitem
+        #     process.wait()
+        #     process.stdout.close()
 
-    def ls_stream_files_paged(
-        self,
-        path: str,
-        max_depth: int = -1,
-        fast_list: bool = False,
-        page_size: int = 1000,
-    ) -> Generator[list[FileItem], None, None]:
-        """List files in the given path"""
-        page: list[FileItem] = []
-        for fileitem in self.ls_stream_files(
-            path, max_depth=max_depth, fast_list=fast_list
-        ):
-            page.append(fileitem)
-            if len(page) >= page_size:
-                yield page
-                page = []
-        if len(page) > 0:
-            yield page
+    # def ls_stream_files_paged(
+    #     self,
+    #     path: str,
+    #     max_depth: int = -1,
+    #     fast_list: bool = False,
+    #     page_size: int = 1000,
+    # ) -> Generator[list[FileItem], None, None]:
+    #     """List files in the given path"""
+    #     # Note that if you want to break early and have the process killed, then please use
+    #     # from contextlib import closing to wrap the generator.
+    #     # example:
+    #     #   with closing(rclone.ls_stream_files_paged(...)) as pages:
+    #     #       for page in pages:
+    #     #           print(page)
+    #     #           break
+    #     page: list[FileItem] = []
+    #     for fileitem in self.ls_stream_files(
+    #         path, max_depth=max_depth, fast_list=fast_list
+    #     ):
+    #         page.append(fileitem)
+    #         if len(page) >= page_size:
+    #             yield page
+    #             page = []
+    #     if len(page) > 0:
+    #         yield page
 
     def ls(
         self,

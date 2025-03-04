@@ -17,8 +17,10 @@ class Args:
 
 def list_files(rclone: Rclone, path: str):
     """List files in a remote path."""
-    for file_item in rclone.ls_stream_files(path, fast_list=True):
-        print(file_item.path, "", file_item.size, file_item.mod_time)
+
+    with rclone.ls_stream(path, fast_list=True) as files:
+        for file_item in files:
+            print(file_item.path, "", file_item.size, file_item.mod_time)
 
 
 def _parse_args() -> Args:

@@ -76,6 +76,7 @@ class Process:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.terminate()
         self.wait()
         self.cleanup()
 

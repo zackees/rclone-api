@@ -77,8 +77,11 @@ class RcloneLsStreamFileTests(unittest.TestCase):
         self.assertIsNotNone(BUCKET_NAME)
         rclone = Rclone(_generate_rclone_config())
 
-        for filepath in rclone.ls_stream_files(f"dst:{BUCKET_NAME}", max_depth=-1):
-            print(filepath.path)
+        # for filepath in rclone.ls_stream_files(f"dst:{BUCKET_NAME}", max_depth=-1):
+        #     print(filepath.path)
+        with rclone.ls_stream(f"dst:{BUCKET_NAME}", max_depth=-1) as files:
+            for filepath in files:
+                print(filepath.path)
 
         print("done")
 
