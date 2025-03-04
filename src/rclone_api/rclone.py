@@ -177,6 +177,25 @@ class Rclone:
             process.wait()
             process.stdout.close()
 
+    def ls_stream_files_paged(
+        self,
+        path: str,
+        max_depth: int = -1,
+        fast_list: bool = False,
+        page_size: int = 1000,
+    ) -> Generator[list[FileItem], None, None]:
+        """List files in the given path"""
+        page: list[FileItem] = []
+        for fileitem in self.ls_stream_files(
+            path, max_depth=max_depth, fast_list=fast_list
+        ):
+            page.append(fileitem)
+            if len(page) >= page_size:
+                yield page
+                page = []
+        if len(page) > 0:
+            yield page
+
     def ls(
         self,
         path: Dir | Remote | str,

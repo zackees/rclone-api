@@ -12,7 +12,7 @@ load_dotenv()
 
 # DB_URL = "sqlite:///data.db"
 
-DB_URL = os.getenv("DB_URL", None)
+os.environ["DB_URL"] = "sqlite:///data.db"
 
 
 @dataclass
@@ -27,10 +27,12 @@ class Args:
 
 def list_files(rclone: Rclone, path: str):
     """List files in a remote path."""
-    file_item: FileItem
+    files_page: list[FileItem]
 
-    for file_item in rclone.ls_stream_files(path, fast_list=True):
-        print(file_item.path, "", file_item.size, file_item.mod_time)
+    for files_page in rclone.ls_stream_files_paged(path, fast_list=True, page_size=100):
+        # print(file_item.path, "", file_item.size, file_item.mod_time)
+        for file_item in files_page:
+            print(file_item.path, "", file_item.size, file_item.mod_time)
 
 
 def _parse_args() -> Args:
@@ -45,8 +47,6 @@ def _parse_args() -> Args:
 
 def main() -> int:
     """Main entry point."""
-    if DB_URL is None:
-        raise ValueError("DB_URL not set")
     args = _parse_args()
     path = args.path
     rclone = Rclone(Path(args.config))
