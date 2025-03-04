@@ -1,77 +1,94 @@
 """
-Unit test file.
+UUnit test file for the DB class.
 """
 
-import os
 import unittest
+from pathlib import Path
 
-from dotenv import load_dotenv
+from rclone_api.db import DB
 
-from rclone_api import Config, Rclone
-
-load_dotenv()
-
-BUCKET_NAME = os.getenv("BUCKET_NAME")  # Default if not in .env
+HERE = Path(__file__).parent
+DB_PATH = HERE / "test.db"
 
 
-def _generate_rclone_config() -> Config:
-
-    # BUCKET_NAME = os.getenv("BUCKET_NAME", "TorrentBooks")  # Default if not in .env
-
-    # Load additional environment variables
-    BUCKET_KEY_SECRET = os.getenv("BUCKET_KEY_SECRET")
-    BUCKET_KEY_PUBLIC = os.getenv("BUCKET_KEY_PUBLIC")
-    # BUCKET_URL = os.getenv("BUCKET_URL")
-    BUCKET_URL = "sfo3.digitaloceanspaces.com"
-
-    config_text = f"""
-[dst]
-type = s3
-provider = DigitalOcean
-access_key_id = {BUCKET_KEY_PUBLIC}
-secret_access_key = {BUCKET_KEY_SECRET}
-endpoint = {BUCKET_URL}
-bucket = {BUCKET_NAME}
-"""
-
-    out = Config(config_text)
-    return out
-
-
-class RcloneLsStreamFileTests(unittest.TestCase):
-    """Test rclone functionality."""
+class RcloneDBTests(unittest.TestCase):
+    """Test DB functionality."""
 
     def setUp(self) -> None:
-        """Check if all required environment variables are set before running tests."""
-        required_vars = [
-            "BUCKET_NAME",
-            "BUCKET_KEY_SECRET",
-            "BUCKET_KEY_PUBLIC",
-            "BUCKET_URL",
-        ]
-        missing = [var for var in required_vars if not os.getenv(var)]
-        if missing:
-            self.skipTest(
-                f"Missing required environment variables: {', '.join(missing)}"
-            )
-        os.environ["RCLONE_API_VERBOSE"] = "1"
+        """Set up the test."""
+        self.db = DB(str(DB_PATH))
 
-    def test_ls_stream(self) -> None:
-        """Test listing the root directory of the bucket.
+    def tearDown(self) -> None:
+        """Clean up after the test."""
+        # Remove the database file
+        self.db.close()
+        if DB_PATH.exists():
+            DB_PATH.unlink()
 
-        Verifies that we can:
-        1. Connect to the bucket
-        2. List its contents
-        3. Get both directories and files as proper types
-        """
-        self.assertIsNotNone(BUCKET_NAME)
-        rclone = Rclone(_generate_rclone_config())
+    def test_db_creation(self) -> None:
+        """Test database creation."""
+        self.assertTrue(DB_PATH.exists())
 
-        for filepath in rclone.ls_stream_files(f"dst:{BUCKET_NAME}", max_depth=-1):
-            print(filepath)
+    def test_table_section(self) -> None:
+        """Test table section functionality."""
+        # Create a table section
+        ts = self.db.get_table_section(
+            "dst:TorrentBooks", "file_entries_dst_torrentbooks"
+        )
 
-        print("done")
+        # Insert sample data
+        ts.insert_file(
+            parent="/dst:TorrentBooks",
+            name="book1.pdf",
+            size=2048,
+            mime_type="application/pdf",
+            mod_time="2025-03-03T12:00:00",
+        )
+        ts.insert_file(
+            parent="/dst:TorrentBooks",
+            name="book2.epub",
+            size=1024,
+            mime_type="application/epub+zip",
+            mod_time="2025-03-03T12:05:00",
+        )
+
+        # Query the data
+        file_entries = ts.get_files()
+
+        # Assert that two file entries exist
+        self.assertEqual(
+            len(file_entries), 2, f"Expected 2 file entries, found {len(file_entries)}"
+        )
+
+        # Map file names to their entries for easier verification
+        entries = {entry.name: entry for entry in file_entries}  # type: ignore
+        expected_entries = {
+            "book1.pdf": {
+                "size": 2048,
+                "mime_type": "application/pdf",
+                "mod_time": "2025-03-03T12:00:00",
+                "parent": "/dst:TorrentBooks",
+            },
+            "book2.epub": {
+                "size": 1024,
+                "mime_type": "application/epub+zip",
+                "mod_time": "2025-03-03T12:05:00",
+                "parent": "/dst:TorrentBooks",
+            },
+        }
+
+        for name, expected in expected_entries.items():
+            self.assertIn(name, entries, f"Expected entry with name {name} not found.")
+            entry = entries[name]
+            for field, expected_value in expected.items():
+                actual_value = getattr(entry, field)
+                self.assertEqual(
+                    actual_value,
+                    expected_value,
+                    f"Mismatch for {name} in field '{field}': expected {expected_value}, got {actual_value}",
+                )
 
 
+#
 if __name__ == "__main__":
     unittest.main()
