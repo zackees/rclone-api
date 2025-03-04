@@ -143,17 +143,7 @@ class DBRepo:
         Args:
             file: File entry
         """
-        with Session(self.engine) as session:
-            # For efficiency, we use dynamic tables to hold each repo.
-            file_entry = self.FileEntryModel(
-                parent=file.parent,
-                name=file.name,
-                size=file.size,
-                mime_type=file.mime_type,
-                mod_time=file.mod_time,
-            )
-            session.add(file_entry)
-            session.commit()
+        return self.insert_files([file])
 
     def insert_files(self, files: list[FileItem]) -> None:
         """Insert multiple file entries into the table.
@@ -164,11 +154,12 @@ class DBRepo:
 
         file_entries = [
             self.FileEntryModel(
-                parent=file.parent,
+                path=file.path_no_remote,
                 name=file.name,
                 size=file.size,
                 mime_type=file.mime_type,
                 mod_time=file.mod_time,
+                suffix=file.suffix,
             )
             for file in files
         ]
@@ -192,7 +183,10 @@ class DBRepo:
                 size = item.size  # type: ignore
                 mime_type = item.mime_type  # type: ignore
                 mod_time = item.mod_time  # type: ignore
-                parent = item.parent  # type: ignore
+                path = item.path  # type: ignore
+                parent = os.path.dirname(path)
+                if parent == "/" or parent == ".":
+                    parent = ""
                 o = FileItem(
                     remote=self.remote_name,
                     parent=parent,

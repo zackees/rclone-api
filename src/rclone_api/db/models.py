@@ -22,7 +22,8 @@ class FileEntry(SQLModel, ABC):
     """Base file entry model with common fields."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    parent: str
+    path: str = Field(index=True, unique=True)
+    suffix: str = Field(index=True)
     name: str
     size: int
     mime_type: str

@@ -32,6 +32,13 @@ class FileItem:
             return f"{self.remote}/{self.parent}/{self.name}"
 
     @property
+    def path_no_remote(self) -> str:
+        if self.parent == ".":
+            return f"{self.name}"
+        else:
+            return f"{self.parent}/{self.name}"
+
+    @property
     def suffix(self) -> str:
         return self._suffix
 
