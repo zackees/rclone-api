@@ -3,35 +3,16 @@ Database module for rclone_api.
 """
 
 import os
-from dataclasses import dataclass
 from threading import Lock
-from typing import Any, Optional
+from typing import Optional
 
 from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from rclone_api.db.models import RepositoryMeta, create_file_entry_model
+from rclone_api.file import FileItem
 
-
-@dataclass
-class DBFile:
-    parent: str
-    name: str
-    size: int
-    mime_type: str
-    mod_time: str
-
-    # test for equality
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, DBFile):
-            return False
-        return (
-            self.parent == other.parent
-            and self.name == other.name
-            and self.size == other.size
-            and self.mime_type == other.mime_type
-            and self.mod_time == other.mod_time
-        )
+DBFile = FileItem
 
 
 def _db_url_from_env_or_raise() -> str:
@@ -184,6 +165,13 @@ class DBRepo:
                 mime_type = item.mime_type  # type: ignore
                 mod_time = item.mod_time  # type: ignore
                 parent = item.parent  # type: ignore
-                o = DBFile(parent, name, size, mime_type, mod_time)
+                o = DBFile(
+                    remote=self.remote_name,
+                    parent=parent,
+                    name=name,
+                    size=size,
+                    mime_type=mime_type,
+                    mod_time=mod_time,
+                )
                 out.append(o)
         return out

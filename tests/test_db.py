@@ -40,6 +40,7 @@ class RcloneDBTests(unittest.TestCase):
 
         new_files = [
             DBFile(
+                remote="dst:TorrentBooks",  # ignored in db
                 parent="",
                 name="book1.pdf",
                 size=2048,
@@ -47,6 +48,7 @@ class RcloneDBTests(unittest.TestCase):
                 mod_time="2025-03-03T12:00:00",
             ),
             DBFile(
+                remote="dst:TorrentBooks",  # ignored in db
                 parent="",
                 name="book2.epub",
                 size=1024,
