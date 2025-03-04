@@ -3,7 +3,7 @@ Database module for rclone_api.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -17,6 +17,18 @@ class DBFile:
     size: int
     mime_type: str
     mod_time: str
+
+    # test for equality
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, DBFile):
+            return False
+        return (
+            self.parent == other.parent
+            and self.name == other.name
+            and self.size == other.size
+            and self.mime_type == other.mime_type
+            and self.mod_time == other.mod_time
+        )
 
 
 class DB:
@@ -111,11 +123,43 @@ class TableSection:
             session.add(file_entry)
             session.commit()
 
-    def get_files(self):
+    def insert_files(self, files: list[DBFile]) -> None:
+        """Insert multiple file entries into the table.
+
+        Args:
+            files: List of file entries
+        """
+        file_entries = [
+            self.file_entry_model(
+                parent=file.parent,
+                name=file.name,
+                size=file.size,
+                mime_type=file.mime_type,
+                mod_time=file.mod_time,
+            )
+            for file in files
+        ]
+        with Session(self.engine) as session:
+            session.add_all(file_entries)
+            session.commit()
+
+    def get_files(self) -> list[DBFile]:
         """Get all files in the table.
 
         Returns:
             list: List of file entries
         """
+        # with Session(self.engine) as session:
+        #     return session.exec(select(self.file_entry_model)).all()
+        out: list[DBFile] = []
         with Session(self.engine) as session:
-            return session.exec(select(self.file_entry_model)).all()
+            query = session.exec(select(self.file_entry_model)).all()
+            for item in query:
+                name = item.name  # type: ignore
+                size = item.size  # type: ignore
+                mime_type = item.mime_type  # type: ignore
+                mod_time = item.mod_time  # type: ignore
+                parent = item.parent  # type: ignore
+                o = DBFile(parent, name, size, mime_type, mod_time)
+                out.append(o)
+        return out

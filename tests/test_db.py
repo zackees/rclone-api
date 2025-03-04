@@ -36,75 +36,38 @@ class RcloneDBTests(unittest.TestCase):
             "dst:TorrentBooks", "file_entries_dst_torrentbooks"
         )
 
-        # Insert sample data
-        # ts.insert_file(
-        #     parent="",
-        #     name="book1.pdf",
-        #     size=2048,
-        #     mime_type="application/pdf",
-        #     mod_time="2025-03-03T12:00:00",
-        # )
-        # ts.insert_file(
-        #     parent="",
-        #     name="book2.epub",
-        #     size=1024,
-        #     mime_type="application/epub+zip",
-        #     mod_time="2025-03-03T12:05:00",
-        # )
-        ts.insert_file(
+        new_files = [
             DBFile(
                 parent="",
                 name="book1.pdf",
                 size=2048,
                 mime_type="application/pdf",
                 mod_time="2025-03-03T12:00:00",
-            )
-        )
-        ts.insert_file(
+            ),
             DBFile(
                 parent="",
                 name="book2.epub",
                 size=1024,
                 mime_type="application/epub+zip",
                 mod_time="2025-03-03T12:05:00",
-            )
-        )
+            ),
+        ]
+
+        ts.insert_files(new_files)
 
         # Query the data
-        file_entries = ts.get_files()
+        out_file_entries: list[DBFile] = ts.get_files()
 
         # Assert that two file entries exist
         self.assertEqual(
-            len(file_entries), 2, f"Expected 2 file entries, found {len(file_entries)}"
+            len(out_file_entries),
+            2,
+            f"Expected 2 file entries, found {len(out_file_entries)}",
         )
 
-        # Map file names to their entries for easier verification
-        entries = {entry.name: entry for entry in file_entries}  # type: ignore
-        expected_entries = {
-            "book1.pdf": {
-                "size": 2048,
-                "mime_type": "application/pdf",
-                "mod_time": "2025-03-03T12:00:00",
-                "parent": "",
-            },
-            "book2.epub": {
-                "size": 1024,
-                "mime_type": "application/epub+zip",
-                "mod_time": "2025-03-03T12:05:00",
-                "parent": "",
-            },
-        }
-
-        for name, expected in expected_entries.items():
-            self.assertIn(name, entries, f"Expected entry with name {name} not found.")
-            entry = entries[name]
-            for field, expected_value in expected.items():
-                actual_value = getattr(entry, field)
-                self.assertEqual(
-                    actual_value,
-                    expected_value,
-                    f"Mismatch for {name} in field '{field}': expected {expected_value}, got {actual_value}",
-                )
+        for entry in out_file_entries:
+            print(entry)
+            self.assertIn(entry, new_files, f"Unexpected entry: {entry}")
 
 
 #
