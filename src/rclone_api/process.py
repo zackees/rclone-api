@@ -72,6 +72,12 @@ class Process:
 
         atexit.register(exit_cleanup)
 
+    def __enter__(self) -> "Process":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.cleanup()
+
     def cleanup(self) -> None:
         if self.tempdir and self.needs_cleanup:
             try:

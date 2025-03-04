@@ -24,7 +24,7 @@ from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
-from rclone_api.file import File
+from rclone_api.file import File, FileItem
 from rclone_api.group_files import group_files
 from rclone_api.mount import Mount, clean_mount, prepare_mount
 from rclone_api.mount_read_chunker import MultiMountFileChunker
@@ -146,6 +146,34 @@ class Rclone:
         cmd_list: list[str] = ["obscure", password]
         cp = self._run(cmd_list)
         return cp.stdout.strip()
+
+    def ls_stream_files(
+        self,
+        path: str,
+        max_depth: int = -1,
+        fast_list: bool = False,
+    ) -> Generator[FileItem, None, None]:
+        """List files in the given path"""
+        cmd = ["lsjson", path]
+        if max_depth < 0:
+            cmd.append("--recursive")
+        elif max_depth > 0:
+            cmd += ["--max-depth", str(max_depth)]
+        if fast_list:
+            cmd.append("--fast-list")
+        with self._launch_process(cmd, capture=True) as process:
+            for line in process.stdout:
+                linestr = line.decode("utf-8").strip()
+                if linestr.startswith("["):
+                    continue
+                if linestr.endswith(","):
+                    linestr = linestr[:-1]
+                if linestr.endswith("]"):
+                    continue
+                fileitem: FileItem | None = FileItem.from_json_str(linestr)
+                if fileitem is None:
+                    continue
+                yield fileitem
 
     def ls(
         self,

@@ -1,7 +1,44 @@
 import json
+import warnings
+from dataclasses import dataclass
 from pathlib import Path
 
 from rclone_api.rpath import RPath
+
+
+# File is too complex, this is a simple dataclass that can be streamed out.
+@dataclass
+class FileItem:
+    """Remote file dataclass."""
+
+    path: str
+    name: str
+    size: int
+    mime_type: str
+    mod_time: str
+
+    @staticmethod
+    def from_json(data: dict) -> "FileItem | None":
+        try:
+            return FileItem(
+                data["Path"],
+                data["Name"],
+                data["Size"],
+                data["MimeType"],
+                data["ModTime"],
+            )
+        except KeyError:
+            warnings.warn(f"Invalid data: {data}")
+            return None
+
+    @staticmethod
+    def from_json_str(data: str) -> "FileItem | None":
+        try:
+            data_dict = json.loads(data)
+            return FileItem.from_json(data_dict)
+        except json.JSONDecodeError:
+            warnings.warn(f"Invalid JSON data: {data}")
+            return None
 
 
 class File:

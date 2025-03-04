@@ -7,7 +7,7 @@ from .config import Config, Parsed, Section
 from .diff import DiffItem, DiffOption, DiffType
 from .dir import Dir
 from .dir_listing import DirListing
-from .file import File
+from .file import File, FileItem
 from .filelist import FileList
 
 # Import the configure_logging function to make it available at package level
@@ -28,6 +28,7 @@ __all__ = [
     "RPath",
     "DirListing",
     "FileList",
+    "FileItem",
     "Process",
     "DiffItem",
     "DiffType",
