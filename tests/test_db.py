@@ -5,7 +5,7 @@ UUnit test file for the DB class.
 import unittest
 from pathlib import Path
 
-from rclone_api.db import DB
+from rclone_api.db import DB, DBFile
 
 HERE = Path(__file__).parent
 DB_PATH = HERE / "test.db"
@@ -37,19 +37,37 @@ class RcloneDBTests(unittest.TestCase):
         )
 
         # Insert sample data
+        # ts.insert_file(
+        #     parent="",
+        #     name="book1.pdf",
+        #     size=2048,
+        #     mime_type="application/pdf",
+        #     mod_time="2025-03-03T12:00:00",
+        # )
+        # ts.insert_file(
+        #     parent="",
+        #     name="book2.epub",
+        #     size=1024,
+        #     mime_type="application/epub+zip",
+        #     mod_time="2025-03-03T12:05:00",
+        # )
         ts.insert_file(
-            parent="/dst:TorrentBooks",
-            name="book1.pdf",
-            size=2048,
-            mime_type="application/pdf",
-            mod_time="2025-03-03T12:00:00",
+            DBFile(
+                parent="",
+                name="book1.pdf",
+                size=2048,
+                mime_type="application/pdf",
+                mod_time="2025-03-03T12:00:00",
+            )
         )
         ts.insert_file(
-            parent="/dst:TorrentBooks",
-            name="book2.epub",
-            size=1024,
-            mime_type="application/epub+zip",
-            mod_time="2025-03-03T12:05:00",
+            DBFile(
+                parent="",
+                name="book2.epub",
+                size=1024,
+                mime_type="application/epub+zip",
+                mod_time="2025-03-03T12:05:00",
+            )
         )
 
         # Query the data
@@ -67,13 +85,13 @@ class RcloneDBTests(unittest.TestCase):
                 "size": 2048,
                 "mime_type": "application/pdf",
                 "mod_time": "2025-03-03T12:00:00",
-                "parent": "/dst:TorrentBooks",
+                "parent": "",
             },
             "book2.epub": {
                 "size": 1024,
                 "mime_type": "application/epub+zip",
                 "mod_time": "2025-03-03T12:05:00",
-                "parent": "/dst:TorrentBooks",
+                "parent": "",
             },
         }
 

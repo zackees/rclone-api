@@ -2,11 +2,21 @@
 Database module for rclone_api.
 """
 
+from dataclasses import dataclass
 from typing import Optional
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from rclone_api.db.models import RepositoryMeta, create_file_entry_model
+
+
+@dataclass
+class DBFile:
+    parent: str
+    name: str
+    size: int
+    mime_type: str
+    mod_time: str
 
 
 class DB:
@@ -84,25 +94,19 @@ class TableSection:
         self.file_entry_model = create_file_entry_model(self.table_name)
         SQLModel.metadata.create_all(self.engine, tables=[self.file_entry_model.__table__])  # type: ignore
 
-    def insert_file(
-        self, parent: str, name: str, size: int, mime_type: str, mod_time: str
-    ) -> None:
+    def insert_file(self, file: DBFile) -> None:
         """Insert a file entry into the table.
 
         Args:
-            parent: Parent directory
-            name: File name
-            size: File size
-            mime_type: MIME type
-            mod_time: Modification time
+            file: File entry
         """
         with Session(self.engine) as session:
             file_entry = self.file_entry_model(
-                parent=parent,
-                name=name,
-                size=size,
-                mime_type=mime_type,
-                mod_time=mod_time,
+                parent=file.parent,
+                name=file.name,
+                size=file.size,
+                mime_type=file.mime_type,
+                mod_time=file.mod_time,
             )
             session.add(file_entry)
             session.commit()

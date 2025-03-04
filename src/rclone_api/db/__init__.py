@@ -1,3 +1,3 @@
-from .db import DB
+from .db import DB, DBFile
 
-__all__ = ["DB"]
+__all__ = ["DB", "DBFile"]
