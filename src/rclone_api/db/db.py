@@ -11,8 +11,6 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from rclone_api.db.models import RepositoryMeta, create_file_entry_model
 
-load_dotenv()
-
 
 @dataclass
 class DBFile:
@@ -35,6 +33,14 @@ class DBFile:
         )
 
 
+def _db_url_from_env_or_raise() -> str:
+    load_dotenv()
+    db_url = os.getenv("DB_URL")
+    if db_url is None:
+        raise ValueError("DB_URL not set")
+    return db_url
+
+
 def _to_table_name(remote_name: str) -> str:
     return "file_entries_" + remote_name.replace(":", "_").replace(" ", "_").lower()
 
@@ -48,10 +54,7 @@ class DB:
         Args:
             db_path: Path to the database file
         """
-        if db_path_url is None:
-            db_path_url = os.getenv("DB_PATH")
-            if db_path_url is None:
-                raise ValueError("DB path not set")
+        db_path_url = db_path_url or _db_url_from_env_or_raise()
         assert isinstance(db_path_url, str)
         self.db_path_url = db_path_url
         self.engine = create_engine(db_path_url)
