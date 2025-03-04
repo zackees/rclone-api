@@ -153,3 +153,4 @@ chunk_store
 state.json
 database.db
 data.db
+test.db

@@ -148,23 +148,35 @@ class DBRepo:
     def insert_files(self, files: list[FileItem]) -> None:
         """Insert multiple file entries into the table.
 
-        Args:
-            files: List of file entries
-        """
+        On conflict (i.e. if a file with the same path and name exists),
+        update its size, mime_type, mod_time, and suffix.
 
-        file_entries = [
-            self.FileEntryModel(
-                path=file.path_no_remote,
-                name=file.name,
-                size=file.size,
-                mime_type=file.mime_type,
-                mod_time=file.mod_time,
-                suffix=file.suffix,
-            )
-            for file in files
-        ]
+        Ensure that your FileEntryModel has a unique constraint on the
+        (path, name) columns.
+        """
+        from sqlalchemy.dialects.sqlite import insert
+
         with Session(self.engine) as session:
-            session.add_all(file_entries)
+            for file in files:
+                stmt = insert(self.FileEntryModel).values(
+                    path=file.path_no_remote,
+                    name=file.name,
+                    size=file.size,
+                    mime_type=file.mime_type,
+                    mod_time=file.mod_time,
+                    suffix=file.suffix,
+                )
+                # Here we update on conflict based on unique columns "path" and "name".
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["path"],
+                    set_={
+                        "size": file.size,
+                        "mime_type": file.mime_type,
+                        "mod_time": file.mod_time,
+                        "suffix": file.suffix,
+                    },
+                )
+                session.exec(stmt)  # type: ignore
             session.commit()
 
     def get_files(self) -> list[FileItem]:

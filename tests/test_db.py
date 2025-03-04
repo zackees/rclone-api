@@ -59,6 +59,8 @@ class RcloneDBTests(unittest.TestCase):
         ]
 
         repo.insert_files(new_files)
+        # what happens when we do it again?
+        repo.insert_files(new_files)
 
         # Query the data
         out_file_entries: list[DBFile] = repo.get_files()
