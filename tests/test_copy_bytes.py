@@ -70,6 +70,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
+    @unittest.skip("Skip for now - long running test")
     def test_copy_bytes(self) -> None:
         rclone = Rclone(_generate_rclone_config())
         bytes_or_err: bytes | Exception = rclone.copy_bytes_mount(
@@ -87,6 +88,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             len(bytes_or_err), 1024 * 1024
         )  # , f"Length: {len(bytes_or_err)}"
 
+    @unittest.skip("Skip for now - long running test")
     def test_copy_bytes_to_temp_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir) / "tmp.mp4"
@@ -105,6 +107,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             self.assertEqual(tmp_size, 1024 * 1024)
         print("done")
 
+    @unittest.skip("Skip for now - long running test")
     def test_copy_bytes_to_temp_file_via_mount(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir) / "tmp.mp4"

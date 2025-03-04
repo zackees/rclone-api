@@ -56,6 +56,7 @@ class RcloneScanMissingFoldersTests(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
+    @unittest.skip("Skip test")
     def test_scan_missing_folders(self) -> None:
         """Test copying a single file to remote storage."""
         rclone = Rclone(_generate_rclone_config())

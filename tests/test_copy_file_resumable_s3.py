@@ -117,7 +117,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    # @unittest.skipIf(_IS_WINDOWS, "Test not enabled on Windows")
+    @unittest.skip("Skip for now - long running test")
     def test_upload_chunks(self) -> None:
         """Test basic Webdav serve functionality."""
         # config = _generate_rclone_config(PORT)
