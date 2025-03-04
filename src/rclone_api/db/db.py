@@ -100,7 +100,8 @@ class DbRepo:
             ).first()
             if not existing_repo:
                 repo_meta = RepositoryMeta(
-                    repo_name=self.remote_name, file_table_name=self.table_name
+                    repo_name=self.remote_name,
+                    file_table_name=self.table_name
                 )
                 session.add(repo_meta)
                 session.commit()
@@ -116,6 +117,7 @@ class DbRepo:
             file: File entry
         """
         with Session(self.engine) as session:
+            # For efficiency, we use dynamic tables to hold each repo.
             file_entry = self.file_entry_model(
                 parent=file.parent,
                 name=file.name,
