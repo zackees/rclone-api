@@ -32,9 +32,10 @@ def list_files(rclone: Rclone, path: str):
 
     with rclone.ls_stream(path, fast_list=True) as stream:
         for page in stream.files_paged(page_size=100):
-            for file_item in page:
-                print(file_item.path, "", file_item.size, file_item.mod_time)
-                db.add_files([file_item])
+            # for file_item in page:
+            #    print(file_item.path, "", file_item.size, file_item.mod_time)
+            db.add_files(page)
+            break
 
     print("Querying")
     files = db.query_files(path)
