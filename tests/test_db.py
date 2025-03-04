@@ -6,7 +6,8 @@ import os
 import unittest
 from pathlib import Path
 
-from rclone_api.db import DB, DBFile
+from rclone_api import FileItem as DBFile
+from rclone_api.db import DB
 
 HERE = Path(__file__).parent
 DB_PATH = HERE / "test.db"

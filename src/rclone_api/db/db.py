@@ -12,8 +12,6 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from rclone_api.db.models import RepositoryMeta, create_file_entry_model
 from rclone_api.file import FileItem
 
-DBFile = FileItem
-
 
 def _db_url_from_env_or_raise() -> str:
     load_dotenv()
@@ -50,6 +48,22 @@ class DB:
         """Close the database connection and release resources."""
         if hasattr(self, "engine") and self.engine is not None:
             self.engine.dispose()
+
+    def add_files(self, files: list[FileItem]) -> None:
+        """Add files to the database.
+
+        Args:
+            remote_name: Name of the remote
+            files: List of file entries
+        """
+
+        partition: dict[str, list[FileItem]] = {}
+        for file in files:
+            partition.setdefault(file.remote, []).append(file)
+
+        for remote_name, files in partition.items():
+            repo = self.get_or_create_repo(remote_name)
+            repo.insert_files(files)
 
     def get_or_create_repo(self, remote_name: str) -> "DBRepo":
         """Get a table section for a remote.
@@ -110,7 +124,7 @@ class DBRepo:
         self.FileEntryModel = create_file_entry_model(self.table_name)
         SQLModel.metadata.create_all(self.engine, tables=[self.FileEntryModel.__table__])  # type: ignore
 
-    def insert_file(self, file: DBFile) -> None:
+    def insert_file(self, file: FileItem) -> None:
         """Insert a file entry into the table.
 
         Args:
@@ -128,12 +142,13 @@ class DBRepo:
             session.add(file_entry)
             session.commit()
 
-    def insert_files(self, files: list[DBFile]) -> None:
+    def insert_files(self, files: list[FileItem]) -> None:
         """Insert multiple file entries into the table.
 
         Args:
             files: List of file entries
         """
+
         file_entries = [
             self.FileEntryModel(
                 parent=file.parent,
@@ -148,7 +163,7 @@ class DBRepo:
             session.add_all(file_entries)
             session.commit()
 
-    def get_files(self) -> list[DBFile]:
+    def get_files(self) -> list[FileItem]:
         """Get all files in the table.
 
         Returns:
@@ -156,7 +171,7 @@ class DBRepo:
         """
         # with Session(self.engine) as session:
         #     return session.exec(select(self.FileEntryModel)).all()
-        out: list[DBFile] = []
+        out: list[FileItem] = []
         with Session(self.engine) as session:
             query = session.exec(select(self.FileEntryModel)).all()
             for item in query:
@@ -165,7 +180,7 @@ class DBRepo:
                 mime_type = item.mime_type  # type: ignore
                 mod_time = item.mod_time  # type: ignore
                 parent = item.parent  # type: ignore
-                o = DBFile(
+                o = FileItem(
                     remote=self.remote_name,
                     parent=parent,
                     name=name,

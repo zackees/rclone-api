@@ -6,6 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from rclone_api import FileItem, Rclone
+from rclone_api.db import DB
 
 load_dotenv()
 
@@ -27,12 +28,14 @@ class Args:
 
 def list_files(rclone: Rclone, path: str):
     """List files in a remote path."""
+    db = DB()
     files_page: list[FileItem]
 
     for files_page in rclone.ls_stream_files_paged(path, fast_list=True, page_size=100):
         # print(file_item.path, "", file_item.size, file_item.mod_time)
-        for file_item in files_page:
-            print(file_item.path, "", file_item.size, file_item.mod_time)
+        # for file_item in files_page:
+        # print(file_item.path, "", file_item.size, file_item.mod_time)
+        db.add_files(files_page)
 
 
 def _parse_args() -> Args:
