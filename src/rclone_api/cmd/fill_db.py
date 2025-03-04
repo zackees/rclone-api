@@ -1,10 +1,18 @@
 import argparse
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from rclone_api import FileItem, Rclone
 
-DB_URL = "sqlite:///data.db"
+load_dotenv()
+
+
+# DB_URL = "sqlite:///data.db"
+
+DB_URL = os.getenv("DB_URL", None)
 
 
 @dataclass
@@ -37,6 +45,8 @@ def _parse_args() -> Args:
 
 def main() -> int:
     """Main entry point."""
+    if DB_URL is None:
+        raise ValueError("DB_URL not set")
     args = _parse_args()
     path = args.path
     rclone = Rclone(Path(args.config))

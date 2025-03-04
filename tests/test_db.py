@@ -2,6 +2,7 @@
 UUnit test file for the DB class.
 """
 
+import os
 import unittest
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from rclone_api.db import DB, DBFile
 
 HERE = Path(__file__).parent
 DB_PATH = HERE / "test.db"
+
+os.environ["DB_PATH"] = str(DB_PATH)
 
 
 class RcloneDBTests(unittest.TestCase):

@@ -2,12 +2,16 @@
 Database module for rclone_api.
 """
 
+import os
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from rclone_api.db.models import RepositoryMeta, create_file_entry_model
+
+load_dotenv()
 
 
 @dataclass
@@ -38,12 +42,17 @@ def _to_table_name(remote_name: str) -> str:
 class DB:
     """Database class for rclone_api."""
 
-    def __init__(self, db_path_url: str):
+    def __init__(self, db_path_url: str | None = None):
         """Initialize the database.
 
         Args:
             db_path: Path to the database file
         """
+        if db_path_url is None:
+            db_path_url = os.getenv("DB_PATH")
+            if db_path_url is None:
+                raise ValueError("DB path not set")
+        assert isinstance(db_path_url, str)
         self.db_path_url = db_path_url
         self.engine = create_engine(db_path_url)
 
