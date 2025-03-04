@@ -62,7 +62,7 @@ class DB:
 
         # Create the meta table
         SQLModel.metadata.create_all(self.engine)
-        self._cache: dict[str, DbRepo] = {}
+        self._cache: dict[str, DBRepo] = {}
         self._cache_lock = Lock()
 
     def close(self) -> None:
@@ -70,7 +70,7 @@ class DB:
         if hasattr(self, "engine") and self.engine is not None:
             self.engine.dispose()
 
-    def get_or_create_repo(self, remote_name: str) -> "DbRepo":
+    def get_or_create_repo(self, remote_name: str) -> "DBRepo":
         """Get a table section for a remote.
 
         Args:
@@ -78,18 +78,18 @@ class DB:
             table_name: Optional table name, will be derived from remote_name if not provided
 
         Returns:
-            DbRepo: A table section for the remote
+            DBRepo: A table section for the remote
         """
         with self._cache_lock:
             if remote_name in self._cache:
                 return self._cache[remote_name]
             table_name = _to_table_name(remote_name)
-            out = DbRepo(self.engine, remote_name, table_name)
+            out = DBRepo(self.engine, remote_name, table_name)
             self._cache[remote_name] = out
             return out
 
 
-class DbRepo:
+class DBRepo:
     """Table repo remote."""
 
     def __init__(self, engine, remote_name: str, table_name: Optional[str] = None):
