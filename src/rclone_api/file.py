@@ -23,6 +23,7 @@ class FileItem:
     size: int
     mime_type: str
     mod_time: str
+    hash: str | None = None
 
     @property
     def path(self) -> str:

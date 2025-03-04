@@ -28,6 +28,7 @@ class FileEntry(SQLModel, ABC):
     size: int
     mime_type: str
     mod_time: str
+    hash: Optional[str] = Field(default=None)
 
     @abstractmethod
     def table_name(self) -> str:
