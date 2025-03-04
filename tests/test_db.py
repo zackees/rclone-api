@@ -36,7 +36,7 @@ class RcloneDBTests(unittest.TestCase):
     def test_table(self) -> None:
         """Test table section functionality."""
         # Create a table section
-        ts = self.db.get_table("dst:TorrentBooks")
+        repo = self.db.get_or_create_repo("dst:TorrentBooks")
 
         new_files = [
             DBFile(
@@ -55,10 +55,10 @@ class RcloneDBTests(unittest.TestCase):
             ),
         ]
 
-        ts.insert_files(new_files)
+        repo.insert_files(new_files)
 
         # Query the data
-        out_file_entries: list[DBFile] = ts.get_files()
+        out_file_entries: list[DBFile] = repo.get_files()
 
         # Assert that two file entries exist
         self.assertEqual(

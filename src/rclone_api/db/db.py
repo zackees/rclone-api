@@ -4,6 +4,7 @@ Database module for rclone_api.
 
 import os
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, Optional
 
 from dotenv import load_dotenv
@@ -61,13 +62,15 @@ class DB:
 
         # Create the meta table
         SQLModel.metadata.create_all(self.engine)
+        self._cache: dict[str, DbRepo] = {}
+        self._cache_lock = Lock()
 
     def close(self) -> None:
         """Close the database connection and release resources."""
         if hasattr(self, "engine") and self.engine is not None:
             self.engine.dispose()
 
-    def get_table(self, remote_name: str) -> "DbRepo":
+    def get_or_create_repo(self, remote_name: str) -> "DbRepo":
         """Get a table section for a remote.
 
         Args:
@@ -77,8 +80,13 @@ class DB:
         Returns:
             DbRepo: A table section for the remote
         """
-        table_name = _to_table_name(remote_name)
-        return DbRepo(self.engine, remote_name, table_name)
+        with self._cache_lock:
+            if remote_name in self._cache:
+                return self._cache[remote_name]
+            table_name = _to_table_name(remote_name)
+            out = DbRepo(self.engine, remote_name, table_name)
+            self._cache[remote_name] = out
+            return out
 
 
 class DbRepo:
