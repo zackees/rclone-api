@@ -100,15 +100,14 @@ class DbRepo:
             ).first()
             if not existing_repo:
                 repo_meta = RepositoryMeta(
-                    repo_name=self.remote_name,
-                    file_table_name=self.table_name
+                    repo_name=self.remote_name, file_table_name=self.table_name
                 )
                 session.add(repo_meta)
                 session.commit()
 
         # Dynamically create the file entry model and its table.
-        self.file_entry_model = create_file_entry_model(self.table_name)
-        SQLModel.metadata.create_all(self.engine, tables=[self.file_entry_model.__table__])  # type: ignore
+        self.FileEntryModel = create_file_entry_model(self.table_name)
+        SQLModel.metadata.create_all(self.engine, tables=[self.FileEntryModel.__table__])  # type: ignore
 
     def insert_file(self, file: DBFile) -> None:
         """Insert a file entry into the table.
@@ -118,7 +117,7 @@ class DbRepo:
         """
         with Session(self.engine) as session:
             # For efficiency, we use dynamic tables to hold each repo.
-            file_entry = self.file_entry_model(
+            file_entry = self.FileEntryModel(
                 parent=file.parent,
                 name=file.name,
                 size=file.size,
@@ -135,7 +134,7 @@ class DbRepo:
             files: List of file entries
         """
         file_entries = [
-            self.file_entry_model(
+            self.FileEntryModel(
                 parent=file.parent,
                 name=file.name,
                 size=file.size,
@@ -155,10 +154,10 @@ class DbRepo:
             list: List of file entries
         """
         # with Session(self.engine) as session:
-        #     return session.exec(select(self.file_entry_model)).all()
+        #     return session.exec(select(self.FileEntryModel)).all()
         out: list[DBFile] = []
         with Session(self.engine) as session:
-            query = session.exec(select(self.file_entry_model)).all()
+            query = session.exec(select(self.FileEntryModel)).all()
             for item in query:
                 name = item.name  # type: ignore
                 size = item.size  # type: ignore
