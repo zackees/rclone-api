@@ -31,6 +31,10 @@ class DBFile:
         )
 
 
+def _to_table_name(remote_name: str) -> str:
+    return "file_entries_" + remote_name.replace(":", "_").replace(" ", "_").lower()
+
+
 class DB:
     """Database class for rclone_api."""
 
@@ -51,9 +55,7 @@ class DB:
         if hasattr(self, "engine") and self.engine is not None:
             self.engine.dispose()
 
-    def get_table_section(
-        self, remote_name: str, table_name: Optional[str] = None
-    ) -> "TableSection":
+    def get_table_section(self, remote_name: str) -> "TableSection":
         """Get a table section for a remote.
 
         Args:
@@ -63,6 +65,7 @@ class DB:
         Returns:
             TableSection: A table section for the remote
         """
+        table_name = _to_table_name(remote_name)
         return TableSection(self.engine, remote_name, table_name)
 
 

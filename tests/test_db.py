@@ -32,9 +32,7 @@ class RcloneDBTests(unittest.TestCase):
     def test_table_section(self) -> None:
         """Test table section functionality."""
         # Create a table section
-        ts = self.db.get_table_section(
-            "dst:TorrentBooks", "file_entries_dst_torrentbooks"
-        )
+        ts = self.db.get_table_section("dst:TorrentBooks")
 
         new_files = [
             DBFile(
