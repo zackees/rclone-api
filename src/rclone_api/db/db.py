@@ -173,16 +173,6 @@ class DBRepo:
                     mod_time=file.mod_time,
                     suffix=file.suffix,
                 )
-                # # Here we update on conflict based on unique columns "path" and "name".
-                # stmt = stmt.on_conflict_do_update(
-                #     index_elements=["path"],
-                #     set_={
-                #         "size": file.size,
-                #         "mime_type": file.mime_type,
-                #         "mod_time": file.mod_time,
-                #         "suffix": file.suffix,
-                #     },
-                # )
                 session.exec(stmt_insert)  # type: ignore
             session.commit()
 
@@ -202,26 +192,29 @@ class DBRepo:
             session.commit()
 
     def get_exists(self, files: list[FileItem]) -> set[FileItem]:
-        """Get file ids from the table.
+        """Get file entries from the table that exist among the given files.
 
         Args:
             files: List of file entries
 
         Returns:
-            set: Set of file ids
+            Set of FileItem instances whose 'path_no_remote' exists in the table.
         """
-        out: set[FileItem] = set()
-        # query using the path value
+        # Extract unique paths from the input files.
+        paths = {file.path_no_remote for file in files}
+
         with Session(self.engine) as session:
-            for file in files:
-                query = session.exec(
-                    select(self.FileEntryModel).where(
-                        self.FileEntryModel.path == file.path_no_remote
-                    )
-                ).first()
-                if query:
-                    out.add(file)
-        return out
+            # Execute a single query to fetch all file paths in the table that match the input paths.
+            result = session.exec(
+                select(self.FileEntryModel.path).where(
+                    self.FileEntryModel.path.in_(paths)  # type: ignore
+                )
+            ).all()
+            # Convert the result to a set for fast membership tests.
+            existing_paths = set(result)
+
+        # Return the set of FileItem objects that have a path in the existing_paths.
+        return {file for file in files if file.path_no_remote in existing_paths}
 
     def get_files(self) -> list[FileItem]:
         """Get all files in the table.
