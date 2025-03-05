@@ -224,7 +224,14 @@ class Rclone:
         max_depth: int = -1,
         fast_list: bool = False,
     ) -> FilesStream:
-        """List files in the given path"""
+        """
+        List files in the given path
+
+        Args:
+            src: Remote path to list
+            max_depth: Maximum recursion depth (-1 for unlimited)
+            fast_list: Use fast list (only use when getting THE entire data repository from the root/bucket, or it's small)
+        """
         cmd = ["lsjson", path, "--files-only"]
         recurse = max_depth < 0 or max_depth > 1
         if recurse:
@@ -243,7 +250,16 @@ class Rclone:
         max_depth: int = -1,
         fast_list: bool = False,
     ) -> None:
-        """Save files to a database (sqlite, mysql, postgres)"""
+        """
+        Save files to a database (sqlite, mysql, postgres)
+
+        Args:
+            src: Remote path to list, this will be used to populate an entire table, so always use the root-most path.
+            db_url: Database URL, like sqlite:///data.db or mysql://user:pass@localhost/db or postgres://user:pass@localhost/db
+            max_depth: Maximum depth to traverse (-1 for unlimited)
+            fast_list: Use fast list (only use when getting THE entire data repository from the root/bucket)
+
+        """
         from rclone_api.db import DB
 
         db = DB(db_url)
