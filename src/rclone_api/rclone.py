@@ -234,47 +234,21 @@ class Rclone:
             cmd.append("--fast-list")
         streamer = FilesStream(path, self._launch_process(cmd, capture=True))
         return streamer
-        # with self._launch_process(cmd, capture=True) as process:
-        #     for line in process.stdout:
-        #         linestr = line.decode("utf-8").strip()
-        #         if linestr.startswith("["):
-        #             continue
-        #         if linestr.endswith(","):
-        #             linestr = linestr[:-1]
-        #         if linestr.endswith("]"):
-        #             continue
-        #         fileitem: FileItem | None = FileItem.from_json_str(path, linestr)
-        #         if fileitem is None:
-        #             continue
-        #         yield fileitem
-        #     process.wait()
-        #     process.stdout.close()
 
-    # def ls_stream_files_paged(
-    #     self,
-    #     path: str,
-    #     max_depth: int = -1,
-    #     fast_list: bool = False,
-    #     page_size: int = 1000,
-    # ) -> Generator[list[FileItem], None, None]:
-    #     """List files in the given path"""
-    #     # Note that if you want to break early and have the process killed, then please use
-    #     # from contextlib import closing to wrap the generator.
-    #     # example:
-    #     #   with closing(rclone.ls_stream_files_paged(...)) as pages:
-    #     #       for page in pages:
-    #     #           print(page)
-    #     #           break
-    #     page: list[FileItem] = []
-    #     for fileitem in self.ls_stream_files(
-    #         path, max_depth=max_depth, fast_list=fast_list
-    #     ):
-    #         page.append(fileitem)
-    #         if len(page) >= page_size:
-    #             yield page
-    #             page = []
-    #     if len(page) > 0:
-    #         yield page
+    def save_to_db(
+        self,
+        src: str,
+        db_url: str,
+        max_depth: int = -1,
+        fast_list: bool = False,
+    ) -> None:
+        """Save files to a database (sqlite, mysql, postgres)"""
+        from rclone_api.db import DB
+
+        db = DB(db_url)
+        with self.ls_stream(src, max_depth, fast_list) as stream:
+            for page in stream.files_paged(page_size=10000):
+                db.add_files(page)
 
     def ls(
         self,

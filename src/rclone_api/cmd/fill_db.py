@@ -1,18 +1,26 @@
 import argparse
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from rclone_api import Rclone
-from rclone_api.db import DB
 
-load_dotenv()
+# load_dotenv()
 
 
 # DB_URL = "sqlite:///data.db"
 
 # os.environ["DB_URL"] = "sqlite:///data.db"
+
+
+def _db_url_from_env_or_raise() -> str:
+    load_dotenv()
+    db_url = os.getenv("DB_URL")
+    if db_url is None:
+        raise ValueError("DB_URL not set")
+    return db_url
 
 
 @dataclass
@@ -25,22 +33,11 @@ class Args:
             raise FileNotFoundError(f"Config file not found: {self.config}")
 
 
-def list_files(rclone: Rclone, path: str):
+def fill_db(rclone: Rclone, path: str):
     """List files in a remote path."""
-    db = DB()
-
-    with rclone.ls_stream(path, fast_list=True) as stream:
-        for page in stream.files_paged(page_size=10000):
-            # for file_item in page:
-            #    print(file_item.path, "", file_item.size, file_item.mod_time)
-            db.add_files(page)
-            break
-
-    print("Querying")
-    files = db.query_files(path)
-    for file in files:
-        print(file.path, "", file.size, file.mod_time)
-    print()
+    # db = DB(_db_url_from_env_or_raise())
+    db_url = _db_url_from_env_or_raise()
+    rclone.save_to_db(src=path, db_url=db_url, fast_list=True)
 
 
 def _parse_args() -> Args:
@@ -58,7 +55,7 @@ def main() -> int:
     args = _parse_args()
     path = args.path
     rclone = Rclone(Path(args.config))
-    list_files(rclone, path)
+    fill_db(rclone, path)
     return 0
 
 

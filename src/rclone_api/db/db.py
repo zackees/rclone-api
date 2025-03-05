@@ -6,19 +6,10 @@ import os
 from threading import Lock
 from typing import Optional
 
-from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from rclone_api.db.models import RepositoryMeta, create_file_entry_model
 from rclone_api.file import FileItem
-
-
-def _db_url_from_env_or_raise() -> str:
-    load_dotenv()
-    db_url = os.getenv("DB_URL")
-    if db_url is None:
-        raise ValueError("DB_URL not set")
-    return db_url
 
 
 def _to_table_name(remote_name: str) -> str:
@@ -31,14 +22,12 @@ def _to_table_name(remote_name: str) -> str:
 class DB:
     """Database class for rclone_api."""
 
-    def __init__(self, db_path_url: str | None = None):
+    def __init__(self, db_path_url: str):
         """Initialize the database.
 
         Args:
             db_path: Path to the database file
         """
-        db_path_url = db_path_url or _db_url_from_env_or_raise()
-        assert isinstance(db_path_url, str)
         self.db_path_url = db_path_url
         self.engine = create_engine(db_path_url)
 
