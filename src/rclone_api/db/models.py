@@ -5,6 +5,7 @@ Database models for rclone_api.
 from abc import ABC, abstractmethod
 from typing import Optional, Type
 
+from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -25,7 +26,7 @@ class FileEntry(SQLModel, ABC):
     path: str = Field(index=True, unique=True)
     suffix: str = Field(index=True)
     name: str
-    size: int
+    size: int = Field(sa_column=Column(BigInteger))
     mime_type: str
     mod_time: str
     hash: Optional[str] = Field(default=None)

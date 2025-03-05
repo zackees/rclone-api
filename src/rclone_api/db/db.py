@@ -22,7 +22,10 @@ def _db_url_from_env_or_raise() -> str:
 
 
 def _to_table_name(remote_name: str) -> str:
-    return "file_entries_" + remote_name.replace(":", "_").replace(" ", "_").lower()
+    return (
+        "files_"
+        + remote_name.replace(":", "_").replace(" ", "_").replace("/", "_").lower()
+    )
 
 
 class DB:
@@ -117,10 +120,11 @@ class DBRepo:
 
         # If table_name is not provided, derive one from the remote name.
         if table_name is None:
-            table_name = (
-                "file_entries_"
-                + remote_name.replace(":", "_").replace(" ", "_").lower()
-            )
+            # table_name = (
+            #     "file_entries_"
+            #     + remote_name.replace(":", "_").replace(" ", "_").replace("/", "_").lower()
+            # )
+            table_name = _to_table_name(remote_name)
         self.table_name = table_name
 
         # Check if repository exists in RepositoryMeta; if not, create a new entry.

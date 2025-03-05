@@ -1,5 +1,4 @@
 import argparse
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,15 +27,10 @@ class Args:
 
 def list_files(rclone: Rclone, path: str):
     """List files in a remote path."""
-
-    DB_URL = os.getenv("DB_URL")
-    print(f"DB_URL: {DB_URL}")
-
     db = DB()
-    # db.drop_all()
 
     with rclone.ls_stream(path, fast_list=True) as stream:
-        for page in stream.files_paged(page_size=100):
+        for page in stream.files_paged(page_size=10000):
             # for file_item in page:
             #    print(file_item.path, "", file_item.size, file_item.mod_time)
             db.add_files(page)
@@ -73,5 +67,5 @@ if __name__ == "__main__":
 
     cwd = Path(".").absolute()
     print(f"cwd: {cwd}")
-    sys.argv.append("dst:TorrentBooks")
+    sys.argv.append("dst:TorrentBooks/meta")
     main()
