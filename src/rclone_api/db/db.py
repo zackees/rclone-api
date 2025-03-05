@@ -44,6 +44,10 @@ class DB:
         self._cache: dict[str, DBRepo] = {}
         self._cache_lock = Lock()
 
+    def drop_all(self) -> None:
+        """Drop all tables in the database."""
+        SQLModel.metadata.drop_all(self.engine)
+
     def close(self) -> None:
         """Close the database connection and release resources."""
         if hasattr(self, "engine") and self.engine is not None:
@@ -154,11 +158,14 @@ class DBRepo:
         Ensure that your FileEntryModel has a unique constraint on the
         (path, name) columns.
         """
-        from sqlalchemy.dialects.sqlite import insert
+        from sqlmodel import insert, update
+
+        needs_update: set[FileItem] = self.get_exists(files)
+        is_new = set(files) - needs_update
 
         with Session(self.engine) as session:
-            for file in files:
-                stmt = insert(self.FileEntryModel).values(
+            for file in is_new:
+                stmt_insert = insert(self.FileEntryModel).values(
                     path=file.path_no_remote,
                     name=file.name,
                     size=file.size,
@@ -166,18 +173,55 @@ class DBRepo:
                     mod_time=file.mod_time,
                     suffix=file.suffix,
                 )
-                # Here we update on conflict based on unique columns "path" and "name".
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["path"],
-                    set_={
-                        "size": file.size,
-                        "mime_type": file.mime_type,
-                        "mod_time": file.mod_time,
-                        "suffix": file.suffix,
-                    },
-                )
-                session.exec(stmt)  # type: ignore
+                # # Here we update on conflict based on unique columns "path" and "name".
+                # stmt = stmt.on_conflict_do_update(
+                #     index_elements=["path"],
+                #     set_={
+                #         "size": file.size,
+                #         "mime_type": file.mime_type,
+                #         "mod_time": file.mod_time,
+                #         "suffix": file.suffix,
+                #     },
+                # )
+                session.exec(stmt_insert)  # type: ignore
             session.commit()
+
+        with Session(self.engine) as session:
+            for file in needs_update:
+                stmt_update = (
+                    update(self.FileEntryModel)
+                    .where(self.FileEntryModel.path == file.path_no_remote)  # type: ignore
+                    .values(
+                        size=file.size,
+                        mime_type=file.mime_type,
+                        mod_time=file.mod_time,
+                        suffix=file.suffix,
+                    )
+                )
+                session.exec(stmt_update)  # type: ignore
+            session.commit()
+
+    def get_exists(self, files: list[FileItem]) -> set[FileItem]:
+        """Get file ids from the table.
+
+        Args:
+            files: List of file entries
+
+        Returns:
+            set: Set of file ids
+        """
+        out: set[FileItem] = set()
+        # query using the path value
+        with Session(self.engine) as session:
+            for file in files:
+                query = session.exec(
+                    select(self.FileEntryModel).where(
+                        self.FileEntryModel.path == file.path_no_remote
+                    )
+                ).first()
+                if query:
+                    out.add(file)
+        return out
 
     def get_files(self) -> list[FileItem]:
         """Get all files in the table.

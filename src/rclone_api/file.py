@@ -80,6 +80,10 @@ class FileItem:
             warnings.warn(f"Invalid JSON data: {data}")
             return None
 
+    # hasher for set membership
+    def __hash__(self) -> int:
+        return hash(self.path_no_remote)
+
 
 class File:
     """Remote file dataclass."""
