@@ -52,7 +52,7 @@ def _parse_args() -> Args:
     return Args(
         config=tmp.config,
         path=tmp.path,
-        db_url=tmp.db_url if tmp.db_url is not None else _db_url_from_env_or_raise(),
+        db_url=tmp.db if tmp.db is not None else _db_url_from_env_or_raise(),
     )
 
 
