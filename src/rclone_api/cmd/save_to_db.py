@@ -16,7 +16,7 @@ from rclone_api import Rclone
 
 
 def _db_url_from_env_or_raise() -> str:
-    load_dotenv()
+    load_dotenv(Path(".env"))
     db_url = os.getenv("DB_URL")
     if db_url is None:
         raise ValueError("DB_URL not set")
@@ -27,6 +27,7 @@ def _db_url_from_env_or_raise() -> str:
 class Args:
     config: Path
     path: str
+    db_url: str
 
     def __post_init__(self):
         if not self.config.exists():
@@ -45,9 +46,14 @@ def _parse_args() -> Args:
     parser.add_argument(
         "--config", help="Path to rclone config file", type=Path, default="rclone.conf"
     )
+    parser.add_argument("db-url", help="Database URL", type=str, default=None)
     parser.add_argument("path", help="Remote path to list")
     tmp = parser.parse_args()
-    return Args(config=tmp.config, path=tmp.path)
+    return Args(
+        config=tmp.config,
+        path=tmp.path,
+        db_url=tmp.db_url if tmp.db_url is not None else _db_url_from_env_or_raise(),
+    )
 
 
 def main() -> int:
