@@ -150,46 +150,73 @@ class DBRepo:
         return self.insert_files([file])
 
     def insert_files(self, files: list[FileItem]) -> None:
-        """Insert multiple file entries into the table.
-
-        On conflict (i.e. if a file with the same path and name exists),
-        update its size, mime_type, mod_time, and suffix.
-
-        Ensure that your FileEntryModel has a unique constraint on the
-        (path, name) columns.
         """
-        from sqlmodel import insert, update
+        Insert multiple file entries into the table.
 
-        needs_update: set[FileItem] = self.get_exists(files)
-        is_new = set(files) - needs_update
+        Three bulk operations are performed:
+        1. Select: Determine which files already exist.
+        2. Insert: Bulk-insert new file entries.
+        3. Update: Bulk-update existing file entries.
 
+        The FileEntryModel must define a unique constraint on (path, name) and have a primary key "id".
+        """
+        # Step 1: Bulk select existing records.
+        # get_exists() returns a set of FileItem objects (based on path_no_remote and name) that already exist.
+        existing_files = self.get_exists(files)
+
+        # Determine which files need to be updated vs. inserted.
+        needs_update = existing_files
+        is_new = set(files) - existing_files
+
+        # Step 2: Bulk insert new rows.
+        new_values = [
+            {
+                "path": file.path_no_remote,
+                "name": file.name,
+                "size": file.size,
+                "mime_type": file.mime_type,
+                "mod_time": file.mod_time,
+                "suffix": file.suffix,
+            }
+            for file in is_new
+        ]
         with Session(self.engine) as session:
-            for file in is_new:
-                stmt_insert = insert(self.FileEntryModel).values(
-                    path=file.path_no_remote,
-                    name=file.name,
-                    size=file.size,
-                    mime_type=file.mime_type,
-                    mod_time=file.mod_time,
-                    suffix=file.suffix,
+            if new_values:
+                session.bulk_insert_mappings(self.FileEntryModel, new_values)  # type: ignore
+                session.commit()
+
+        # Step 3: Bulk update existing rows.
+        # First, query the database for the primary keys of rows that match the unique keys in needs_update.
+        with Session(self.engine) as session:
+            # Collect all unique paths from files needing update.
+            update_paths = [file.path_no_remote for file in needs_update]
+            # Query for existing rows matching any of these paths.
+            db_entries = session.exec(
+                select(self.FileEntryModel).where(
+                    self.FileEntryModel.path.in_(update_paths)  # type: ignore
                 )
-                session.exec(stmt_insert)  # type: ignore
-            session.commit()
+            ).all()
 
-        with Session(self.engine) as session:
+            # Build a mapping from the unique key (path, name) to the primary key (id).
+            id_map = {(entry.path, entry.name): entry.id for entry in db_entries}
+
+            # Prepare bulk update mappings.
+            update_values = []
             for file in needs_update:
-                stmt_update = (
-                    update(self.FileEntryModel)
-                    .where(self.FileEntryModel.path == file.path_no_remote)  # type: ignore
-                    .values(
-                        size=file.size,
-                        mime_type=file.mime_type,
-                        mod_time=file.mod_time,
-                        suffix=file.suffix,
+                key = (file.path_no_remote, file.name)
+                if key in id_map:
+                    update_values.append(
+                        {
+                            "id": id_map[key],
+                            "size": file.size,
+                            "mime_type": file.mime_type,
+                            "mod_time": file.mod_time,
+                            "suffix": file.suffix,
+                        }
                     )
-                )
-                session.exec(stmt_update)  # type: ignore
-            session.commit()
+            if update_values:
+                session.bulk_update_mappings(self.FileEntryModel, update_values)  # type: ignore
+                session.commit()
 
     def get_exists(self, files: list[FileItem]) -> set[FileItem]:
         """Get file entries from the table that exist among the given files.
