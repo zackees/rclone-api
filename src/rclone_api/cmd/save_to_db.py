@@ -46,7 +46,7 @@ def _parse_args() -> Args:
     parser.add_argument(
         "--config", help="Path to rclone config file", type=Path, default="rclone.conf"
     )
-    parser.add_argument("db-url", help="Database URL", type=str, default=None)
+    parser.add_argument("--db", help="Database URL", type=str, default=None)
     parser.add_argument("path", help="Remote path to list")
     tmp = parser.parse_args()
     return Args(
