@@ -29,10 +29,19 @@ class DB:
             db_path: Path to the database file
         """
         self.db_path_url = db_path_url
-        self.engine = create_engine(db_path_url)
 
-        # Create the meta table
-        SQLModel.metadata.create_all(self.engine)
+        # When running multiple commands in parallel, the database connection may fail once
+        # when the database is first populated.
+        retries = 2
+        for _ in range(retries):
+            try:
+                self.engine = create_engine(db_path_url)
+                SQLModel.metadata.create_all(self.engine)
+                break
+            except Exception as e:
+                print(f"Failed to connect to database. Retrying... {e}")
+        else:
+            raise Exception("Failed to connect to database.")
         self._cache: dict[str, DBRepo] = {}
         self._cache_lock = Lock()
 
