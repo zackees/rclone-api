@@ -225,11 +225,12 @@ class Rclone:
         fast_list: bool = False,
     ) -> FilesStream:
         """List files in the given path"""
-        cmd = ["lsjson", path]
-        if max_depth < 0:
-            cmd.append("--recursive")
-        elif max_depth > 0:
-            cmd += ["--max-depth", str(max_depth)]
+        cmd = ["lsjson", path, "--files-only"]
+        recurse = max_depth < 0 or max_depth > 1
+        if recurse:
+            cmd.append("-R")
+            if max_depth > 1:
+                cmd += ["--max-depth", str(max_depth)]
         if fast_list:
             cmd.append("--fast-list")
         streamer = FilesStream(path, self._launch_process(cmd, capture=True))
