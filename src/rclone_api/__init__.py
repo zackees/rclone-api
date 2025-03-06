@@ -9,6 +9,7 @@ from .dir import Dir
 from .dir_listing import DirListing
 from .file import File, FileItem
 from .filelist import FileList
+from .http_server import HttpServer
 
 # Import the configure_logging function to make it available at package level
 from .log import configure_logging, setup_default_logging
@@ -45,6 +46,7 @@ __all__ = [
     "SizeSuffix",
     "configure_logging",
     "log",
+    "HttpServer",
 ]
 
 setup_default_logging()

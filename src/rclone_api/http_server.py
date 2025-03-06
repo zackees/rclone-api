@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 
-from rclone_api import Process
+from rclone_api.process import Process
 
 
 class HttpServer:
