@@ -25,31 +25,39 @@ _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 
 
 def upload_task(
-    info: UploadInfo, chunk: bytes, part_number: int, retries: int
+    info: UploadInfo, chunk: FilePart, part_number: int, retries: int
 ) -> FinishedPiece:
-    assert len(chunk) > 0
+    file_or_err: Path | Exception = chunk.get_file()
+    if isinstance(file_or_err, Exception):
+        raise file_or_err
+    file: Path = file_or_err
+    size = os.path.getsize(file)
     retries = retries + 1  # Add one for the initial attempt
     for retry in range(retries):
         try:
             if retry > 0:
                 locked_print(f"Retrying part {part_number} for {info.src_file_path}")
             locked_print(
-                f"Uploading part {part_number} for {info.src_file_path} of size {len(chunk)}"
+                f"Uploading part {part_number} for {info.src_file_path} of size {size}"
             )
-            part = info.s3_client.upload_part(
-                Bucket=info.bucket_name,
-                Key=info.object_name,
-                PartNumber=part_number,
-                UploadId=info.upload_id,
-                Body=chunk,
-            )
-            out: FinishedPiece = FinishedPiece(
-                etag=part["ETag"], part_number=part_number
-            )
+
+            with open(file, "rb") as f:
+                part = info.s3_client.upload_part(
+                    Bucket=info.bucket_name,
+                    Key=info.object_name,
+                    PartNumber=part_number,
+                    UploadId=info.upload_id,
+                    Body=f,
+                )
+                out: FinishedPiece = FinishedPiece(
+                    etag=part["ETag"], part_number=part_number
+                )
+            chunk.dispose()
             return out
         except Exception as e:
             if retry == retries - 1:
                 locked_print(f"Error uploading part {part_number}: {e}")
+                chunk.dispose()
                 raise e
             else:
                 locked_print(f"Error uploading part {part_number}: {e}, retrying")
@@ -72,7 +80,7 @@ def handle_upload(
 
         part: FinishedPiece = upload_task(
             info=upload_info,
-            chunk=fp.load(),
+            chunk=fp,
             part_number=part_number,
             retries=upload_info.retries,
         )
@@ -83,7 +91,7 @@ def handle_upload(
         warnings.warn(msg)
         return e
     finally:
-        fp.close()
+        fp.dispose()
 
 
 def prepare_upload_file_multipart(

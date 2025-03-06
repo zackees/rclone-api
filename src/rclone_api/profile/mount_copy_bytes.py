@@ -142,7 +142,7 @@ def _run_profile(
         filepart_or_err = future.result()
         if isinstance(filepart_or_err, Exception):
             assert False, f"Error: {filepart_or_err}"
-        filepart_or_err.close()
+        filepart_or_err.dispose()
     futures.clear()
 
     start = time.time()

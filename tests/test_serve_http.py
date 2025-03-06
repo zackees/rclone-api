@@ -69,12 +69,6 @@ class RcloneServeHttpTester(unittest.TestCase):
         try:
             # Start the mount process
             http_server = self.rclone.serve_http(remote_path)
-
-            # url = "http://localhost:8080"
-            # response = httpx.get(url)
-            # print(f"Response: {response}")
-            # print("done")
-
             content: bytes | Exception = http_server.get("first.txt").result()
             print(f"Content: {str(content)}")
             self.assertIsInstance(content, bytes)

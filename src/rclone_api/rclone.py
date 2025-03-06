@@ -1096,7 +1096,7 @@ class Rclone:
                 shutil.move(payload, outfile)
                 return bytes(0)
             finally:
-                fp.close()
+                fp.dispose()
 
         except Exception as e:
             warnings.warn(f"Error copying bytes: {e}")

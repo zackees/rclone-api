@@ -305,6 +305,9 @@ class FilePart:
             self.payload.write_bytes(payload)
         _add_for_cleanup(self.payload)
 
+    def get_file(self) -> Path | Exception:
+        return self.payload
+
     @property
     def size(self) -> int:
         with self._lock:
@@ -337,7 +340,7 @@ class FilePart:
     def is_error(self) -> bool:
         return isinstance(self.payload, Exception)
 
-    def close(self) -> None:
+    def dispose(self) -> None:
         with self._lock:
             if isinstance(self.payload, Exception):
                 warnings.warn(
@@ -352,4 +355,4 @@ class FilePart:
                     warnings.warn(f"Cannot close file part because of error: {e}")
 
     def __del__(self):
-        self.close()
+        self.dispose()
