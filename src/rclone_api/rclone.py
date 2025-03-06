@@ -1334,6 +1334,27 @@ class Rclone:
             raise ValueError("NFS serve process failed to start")
         return proc
 
+    def serve_http(
+        self,
+        src: str,
+        addr: str = "localhost:8080",
+        other_args: list[str] | None = None,
+    ) -> Process:
+        """Serve a remote or directory via HTTP.
+
+        Args:
+            src: Remote or directory to serve
+            addr: Network address and port to serve on (default: localhost:8080)
+        """
+        cmd_list: list[str] = ["serve", "http", "--addr", addr, src]
+        if other_args:
+            cmd_list += other_args
+        proc = self._launch_process(cmd_list)
+        time.sleep(2)
+        if proc.poll() is not None:
+            raise ValueError("HTTP serve process failed to start")
+        return proc
+
     def size_files(
         self,
         src: str,
