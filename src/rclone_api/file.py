@@ -12,12 +12,40 @@ def _intern(s: str) -> str:
     return _STRING_INTERNER.setdefault(s, s)
 
 
+_SUFFIX_LARGEST_SIZE = len("torrents") + 2
+
+
+def _suffix_clean_bad_parts(suffix: list[str]) -> list[str]:
+    """Remove any bad parts from the suffix list."""
+    out = []
+    for part in suffix:
+        if part in ["", ""]:
+            continue
+        if " " in part:
+            # split on spaces
+            continue
+        if "--" in part:
+            # split on --
+            parts = part.split("--")
+            parts = [x.strip() for x in parts if x.strip()]
+            out.extend(parts)
+        out.append(part)
+
+    out, tmp = [], out
+    for part in tmp:
+        if len(part) > _SUFFIX_LARGEST_SIZE:
+            continue
+        out.append(part)
+    return out
+
+
 def _get_suffix(name: str, chop_compressed_suffixes: bool = True) -> str:
     # name.sql.gz -> sql.gz
     try:
         parts = name.split(".")
         if len(parts) == 1:
             return ""
+        parts = _suffix_clean_bad_parts(parts)
         last_part = parts[-1]
         if chop_compressed_suffixes:
             if last_part == "gz" and len(parts) > 2:
@@ -62,7 +90,7 @@ class FileItem:
             return f"{self.parent}/{self.name}"
 
     @property
-    def suffix(self) -> str:
+    def real_suffix(self) -> str:
         return self._suffix
 
     def __post_init__(self):

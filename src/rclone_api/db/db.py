@@ -178,7 +178,7 @@ class DBRepo:
                 "size": file.size,
                 "mime_type": file.mime_type,
                 "mod_time": file.mod_time,
-                "suffix": file.suffix,
+                "suffix": file.real_suffix,
             }
             for file in is_new
         ]
@@ -213,7 +213,7 @@ class DBRepo:
                             "size": file.size,
                             "mime_type": file.mime_type,
                             "mod_time": file.mod_time,
-                            "suffix": file.suffix,
+                            "suffix": file.real_suffix,
                         }
                     )
             if update_values:
