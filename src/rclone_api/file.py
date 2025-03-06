@@ -71,6 +71,7 @@ class FileItem:
     mime_type: str
     mod_time: str
     hash: str | None = None
+    id: int | None = None
 
     @property
     def path(self) -> str:

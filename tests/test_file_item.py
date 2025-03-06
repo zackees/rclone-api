@@ -44,6 +44,18 @@ class RcloneTestFileItem(unittest.TestCase):
         )
         self.assertEqual(file_item.real_suffix, "pdf")
 
+    def test_weird_suffix2(self) -> None:
+        name = "acb86a1f632adb2be7cac60d76c3c85b.cbz"
+        file_item = FileItem(
+            remote="remote",
+            parent="parent",
+            name=name,
+            size=1,
+            mime_type="mime_type",
+            mod_time="mod_time",
+        )
+        self.assertEqual(file_item.real_suffix, "cbz")
+
 
 if __name__ == "__main__":
     unittest.main()
