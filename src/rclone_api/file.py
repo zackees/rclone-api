@@ -12,6 +12,14 @@ def _intern(s: str) -> str:
     return _STRING_INTERNER.setdefault(s, s)
 
 
+def _get_suffix(name: str) -> str:
+    # name.sql.gz -> .sql.gz
+    parts = name.split(".")
+    if len(parts) == 1:
+        return ""
+    return "." + parts[-1]
+
+
 # File is too complex, this is a simple dataclass that can be streamed out.
 @dataclass
 class FileItem:
@@ -47,7 +55,7 @@ class FileItem:
         self.parent = _intern(self.parent)
         self.mime_type = _intern(self.mime_type)
         self.remote = _intern(self.remote)
-        self._suffix = _intern(Path(self.name).suffix)
+        self._suffix = _intern(_get_suffix(self.name))
 
     @staticmethod
     def from_json(remote: str, data: dict) -> "FileItem | None":
