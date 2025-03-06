@@ -115,7 +115,9 @@ class _OnCompleteHandler:
 
         # done_part_numbers.add(part_number)
         # queue_upload.put(fp)
-        self.part_number_tracker.add_finished_part_number(part_number)
+        self.part_number_tracker.add_finished_part_number(
+            part_number
+        )  # in memory database, not persistant to resume.json
         self.queue_upload.put(fp)
 
 
