@@ -26,6 +26,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File, FileItem
 from rclone_api.group_files import group_files
+from rclone_api.http_server import HttpServer
 from rclone_api.mount import Mount, clean_mount, prepare_mount
 from rclone_api.mount_read_chunker import MultiMountFileChunker
 from rclone_api.process import Process
@@ -1338,8 +1339,9 @@ class Rclone:
         self,
         src: str,
         addr: str = "localhost:8080",
+        threads: int = 16,
         other_args: list[str] | None = None,
-    ) -> Process:
+    ) -> HttpServer:
         """Serve a remote or directory via HTTP.
 
         Args:
@@ -1353,7 +1355,10 @@ class Rclone:
         time.sleep(2)
         if proc.poll() is not None:
             raise ValueError("HTTP serve process failed to start")
-        return proc
+        out: HttpServer = HttpServer(
+            url=f"http://{addr}", process=proc, max_workers=threads
+        )
+        return out
 
     def size_files(
         self,

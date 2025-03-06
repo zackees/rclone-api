@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api import Config, Process, Rclone
+from rclone_api import Config, Rclone
 from rclone_api.http_server import HttpServer
 
 load_dotenv()
@@ -64,24 +64,22 @@ class RcloneServeHttpTester(unittest.TestCase):
     def test_server_http(self) -> None:
         """Test mounting a remote bucket."""
         remote_path = f"dst:{self.bucket_name}"
-        process: Process | None = None
         http_server: HttpServer | None = None
 
         try:
             # Start the mount process
-            process = self.rclone.serve_http(remote_path)
-            http_server = HttpServer(process=process, url="http://localhost:8080")
+            http_server = self.rclone.serve_http(remote_path)
 
             # url = "http://localhost:8080"
             # response = httpx.get(url)
             # print(f"Response: {response}")
             # print("done")
 
-            content: bytes | Exception = http_server.get("first.txt")
+            content: bytes | Exception = http_server.get("first.txt").result()
             print(f"Content: {str(content)}")
             self.assertIsInstance(content, bytes)
 
-            content = http_server.get("first.txt")
+            content = http_server.get("first.txt").result()
             print(content)
             print("done")
 
@@ -89,19 +87,7 @@ class RcloneServeHttpTester(unittest.TestCase):
             self.fail(f"Mount operation failed: {str(e)}")
         finally:
             # Cleanup will happen in tearDown
-            if process:
-                if process.poll() is None:
-                    process.kill()
-                stdout = process.stdout
-                if stdout:
-                    # stdout is a buffered reader
-                    for line in stdout:
-                        print(line)
-                stderr = process.stderr
-                if stderr:
-                    for line in stderr:
-                        print(line)
-                process.kill()
+            pass
 
 
 if __name__ == "__main__":
