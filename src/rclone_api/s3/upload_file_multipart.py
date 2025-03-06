@@ -61,25 +61,29 @@ def handle_upload(
     upload_info: UploadInfo, fp: FilePart | EndOfStream
 ) -> FinishedPiece | Exception | EndOfStream:
     if isinstance(fp, EndOfStream):
-        return fp
-    assert isinstance(fp.extra, S3FileInfo)
-    extra: S3FileInfo = fp.extra
-    part_number = extra.part_number
-    print(f"Handling upload for {part_number}, size {fp.size}")
+        eos: EndOfStream = fp
+        return eos
+    part_number: int | None = None
     try:
+        assert isinstance(fp.extra, S3FileInfo)
+        extra: S3FileInfo = fp.extra
+        part_number = extra.part_number
+        print(f"Handling upload for {part_number}, size {fp.size}")
+
         part: FinishedPiece = upload_task(
             info=upload_info,
             chunk=fp.load(),
             part_number=part_number,
             retries=upload_info.retries,
         )
-        fp.close()
         return part
     except Exception as e:
         stacktrace = traceback.format_exc()
         msg = f"Error uploading part {part_number}: {e}\n{stacktrace}"
         warnings.warn(msg)
         return e
+    finally:
+        fp.close()
 
 
 def prepare_upload_file_multipart(
