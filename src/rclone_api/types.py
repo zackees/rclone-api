@@ -1,3 +1,4 @@
+import atexit
 import os
 import re
 import time
@@ -267,6 +268,26 @@ class EndOfStream:
     pass
 
 
+_CLEANUP_LIST: list[Path] = []
+
+
+def _add_for_cleanup(path: Path) -> None:
+    _CLEANUP_LIST.append(path)
+
+
+def _on_exit_cleanup() -> None:
+    paths = list(_CLEANUP_LIST)
+    for path in paths:
+        try:
+            if path.exists():
+                path.unlink()
+        except Exception as e:
+            warnings.warn(f"Cannot cleanup {path}: {e}")
+
+
+atexit.register(_on_exit_cleanup)
+
+
 class FilePart:
     def __init__(self, payload: bytes | Exception, extra: Any) -> None:
         from rclone_api.util import random_str
@@ -280,8 +301,9 @@ class FilePart:
         self.payload = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
         with _TMP_DIR_ACCESS_LOCK:
             if not self.payload.parent.exists():
-                self.payload.parent.mkdir(parents=True)
+                self.payload.parent.mkdir(parents=True, exist_ok=True)
             self.payload.write_bytes(payload)
+        _add_for_cleanup(self.payload)
 
     @property
     def size(self) -> int:

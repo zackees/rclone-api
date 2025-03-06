@@ -115,8 +115,9 @@ class MultiMountFileChunker:
                 self._release_mount(mount)
 
                 if isinstance(bytes_or_err, Exception):
+                    err: Exception = bytes_or_err
                     logger.warning(f"Fetch task returned exception: {bytes_or_err}")
-                    return FilePart(payload=bytes_or_err, extra=extra)
+                    return FilePart(payload=err, extra=extra)
                 logger.debug(f"Successfully fetched {size} bytes from offset {offset}")
                 out = FilePart(payload=bytes_or_err, extra=extra)
                 return out
