@@ -19,7 +19,7 @@ class RcloneTestFileItem(unittest.TestCase):
             mime_type="mime_type",
             mod_time="mod_time",
         )
-        self.assertEqual(file_item.suffix, "sql.gz")
+        self.assertEqual(file_item.suffix, "sql")
 
 
 if __name__ == "__main__":
