@@ -14,10 +14,17 @@ def _intern(s: str) -> str:
 
 def _get_suffix(name: str) -> str:
     # name.sql.gz -> .sql.gz
-    parts = name.split(".")
-    if len(parts) == 1:
-        return ""
-    return "." + parts[-1]
+    try:
+        parts = name.split(".")
+        if len(parts) == 1:
+            return ""
+        return ".".join(parts[1:])
+    except IndexError:
+        warnings.warn(f"Invalid name: {name} for normal suffix extraction")
+        suffix = Path(name).suffix
+        if suffix.startswith("."):
+            return suffix[1:]
+        return suffix
 
 
 # File is too complex, this is a simple dataclass that can be streamed out.
