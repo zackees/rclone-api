@@ -32,6 +32,18 @@ class RcloneTestFileItem(unittest.TestCase):
         )
         self.assertEqual(file_item.real_suffix, "sql")
 
+    def test_weird_suffix(self) -> None:
+        name = r"%28sici%291096-911x%28199809%2931%3A3%3C170%3A%3Aaid-mpo8%3E3.0.co%3B2-8.pdf"
+        file_item: FileItem = FileItem(
+            remote="remote",
+            parent="parent",
+            name=name,
+            size=1,
+            mime_type="mime_type",
+            mod_time="mod_time",
+        )
+        self.assertEqual(file_item.real_suffix, "pdf")
+
 
 if __name__ == "__main__":
     unittest.main()

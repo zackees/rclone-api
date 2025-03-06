@@ -50,10 +50,7 @@ def _get_suffix(name: str, chop_compressed_suffixes: bool = True) -> str:
         if chop_compressed_suffixes:
             if last_part == "gz" and len(parts) > 2:
                 parts = parts[:-1]
-        if len(parts) > 2:
-            # grab the last two parts
-            return ".".join(parts[-2:])
-        return ".".join(parts[1:])
+        return ".".join(parts[-1:])
     except IndexError:
         warnings.warn(f"Invalid name: {name} for normal suffix extraction")
         suffix = Path(name).suffix
