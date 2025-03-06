@@ -67,34 +67,6 @@ def _to_rclone_conf(config: Config | Path) -> Config:
         return config
 
 
-# class closing(AbstractContextManager):
-#     """Context to automatically close something at the end of a block.
-
-#     Code like this:
-
-#         with closing(<module>.open(<arguments>)) as f:
-#             <block>
-
-#     is equivalent to this:
-
-#         f = <module>.open(<arguments>)
-#         try:
-#             <block>
-#         finally:
-#             f.close()
-
-#     """
-#     def __init__(self, thing):
-#         self.thing = thing
-#     def __enter__(self):
-#         return self.thing
-#     def __exit__(self, *exc_info):
-#         self.thing.close()
-
-
-# Process
-
-
 class FilesStream:
 
     def __init__(self, path: str, process: Process) -> None:
@@ -109,8 +81,9 @@ class FilesStream:
         self.process.__exit__(*exc_info)
 
     def files(self) -> Generator[FileItem, None, None]:
+        line: bytes
         for line in self.process.stdout:
-            linestr = line.decode("utf-8").strip()
+            linestr: str = line.decode("utf-8").strip()
             if linestr.startswith("["):
                 continue
             if linestr.endswith(","):
@@ -1343,7 +1316,7 @@ class Rclone:
             allow_other: Allow other users to access the share
 
         Returns:
-            Process: The running NFS server process
+            Process: The running webdev server process
 
         Raises:
             ValueError: If the NFS server fails to start
