@@ -27,12 +27,13 @@ class Range:
         }
 
 
+_range = range
+
+
 class HttpServer:
     """HTTP server configuration."""
 
-    def __init__(
-        self, url: str, subpath: str, process: Process, max_workers: int = 1
-    ) -> None:
+    def __init__(self, url: str, subpath: str, process: Process) -> None:
         self.url = url
         self.subpath = subpath
         self.process: Process | None = process
@@ -100,27 +101,30 @@ class HttpServer:
         self,
         src_path: str,
         dst_path: Path,
-        chunk_size: int = 8 * 1024 * 1024,
+        chunk_size: int = 32 * 1024 * 1024,
         n_threads: int = 16,
+        range: Range | None = None,
     ) -> Path | Exception:
         """Copy file from src to dst."""
 
         finished: list[Path] = []
         errors: list[Exception] = []
 
+        if range is None:
+            sz = self.size(src_path)
+            if isinstance(sz, Exception):
+                return sz
+            range = Range(0, sz)
+
         with ThreadPoolExecutor(max_workers=n_threads) as executor:
-            file_size = self.size(src_path)
-            if isinstance(file_size, Exception):
-                return file_size
             try:
                 futures: list[Future[Path | Exception]] = []
-                for start in range(0, file_size, chunk_size):
-                    end = min(start + chunk_size, file_size)
+                for start in _range(range.start, range.end, chunk_size):
+                    end = min(start + chunk_size, range.end)
                     r = Range(start=start, end=end)
 
                     def task(r: Range = r) -> Path | Exception:
                         dst = dst_path.with_suffix(f".{r.start}")
-                        # print(f"Downloading {r.start}-{r.end} to {dst}")
                         out = self.download(src_path, dst, r)
                         if isinstance(out, Exception):
                             warnings.warn(f"Failed to download chunked: {out}")
@@ -128,7 +132,6 @@ class HttpServer:
 
                     fut = executor.submit(task, r)
                     futures.append(fut)
-
                 for fut in futures:
                     result = fut.result()
                     if isinstance(result, Exception):

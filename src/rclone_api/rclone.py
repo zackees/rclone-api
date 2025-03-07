@@ -1348,7 +1348,6 @@ class Rclone:
         self,
         src: str,
         addr: str = "localhost:8080",
-        threads: int = 16,
         other_args: list[str] | None = None,
     ) -> HttpServer:
         """Serve a remote or directory via HTTP.
@@ -1366,7 +1365,7 @@ class Rclone:
         if proc.poll() is not None:
             raise ValueError("HTTP serve process failed to start")
         out: HttpServer = HttpServer(
-            url=f"http://{addr}", subpath=subpath, process=proc, max_workers=threads
+            url=f"http://{addr}", subpath=subpath, process=proc
         )
         return out
 

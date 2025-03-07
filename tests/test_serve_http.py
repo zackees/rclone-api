@@ -6,6 +6,7 @@ import atexit
 import os
 import shutil
 import subprocess
+import time
 import unittest
 from pathlib import Path
 
@@ -86,7 +87,7 @@ class RcloneServeHttpTester(unittest.TestCase):
         remote_path = f"dst:{self.bucket_name}"
         http_server: HttpServer | None = None
         try:
-            with self.rclone.serve_http(remote_path, threads=16) as http_server:
+            with self.rclone.serve_http(remote_path) as http_server:
                 resource_url = "zachs_video/internaly_ai_alignment.mp4"
                 expected_size = 73936110
 
@@ -104,8 +105,12 @@ class RcloneServeHttpTester(unittest.TestCase):
                 _CLEANUP.extend([Path("zachs_video"), dst1, dst2])
 
                 # out1 = http_server.copy_chunked(resource_url, dst1).result()
+                start = time.time()
                 out1 = http_server.download(resource_url, dst1)
+                print(f"(1) Time taken: {time.time() - start}")
+                start = time.time()
                 out2 = http_server.download_multi_threaded(resource_url, dst2)
+                print(f"(2) Time taken: {time.time() - start}")
 
                 assert not isinstance(out1, Exception)
                 assert not isinstance(out2, Exception)
@@ -125,9 +130,6 @@ class RcloneServeHttpTester(unittest.TestCase):
                                 break
                             bad_index += 1
                         print("bad index: ", bad_index)
-
-                # out1 = f1.result()
-                # out2 = f2.result()
 
                 self.assertIsInstance(out1, Path)
                 self.assertIsInstance(out2, Path)
@@ -153,69 +155,6 @@ class RcloneServeHttpTester(unittest.TestCase):
 
                 self.assertEqual(hash1, hash2)
                 print("Done")
-
-        except subprocess.CalledProcessError as e:
-            self.fail(f"Mount operation failed: {str(e)}")
-        finally:
-            # Cleanup will happen in tearDown
-            pass
-
-    @unittest.skip("Skip for now")
-    def test_download_chunked(self) -> None:
-        """Test mounting a remote bucket."""
-        remote_path = f"dst:{self.bucket_name}"
-        http_server: HttpServer | None = None
-
-        try:
-            # ls_result = self.rclone.ls(f"dst:{self.bucket_name}", max_depth=3)
-            # print(f"Remotes: {ls_result}")
-            http_server = self.rclone.serve_http(remote_path, threads=1)
-            content: bytes | Exception = http_server.get("first.txt")
-            print(f"Content: {str(content)}")
-            self.assertIsInstance(content, bytes)
-
-            content = http_server.get("first.txt")
-            print(content)
-            print("done")
-
-            resource_url = "zachs_video/internaly_ai_alignment.mp4"
-
-            dst1 = self.mount_point / Path("zachs_video/internaly_ai_alignment.mp4.1")
-            #  dst2 = self.mount_point / Path("zachs_video/internaly_ai_alignment.mp4.2")
-
-            # out1 = http_server.copy_chunked(
-            #     resource_url, dst1
-            # ).result()
-
-            # out2 = http_server.copy(
-            #     resource_url, dst2
-            # ).result()
-
-            out1 = http_server.download_multi_threaded(resource_url, dst1)
-            # f2 = http_server.copy(resource_url, dst2)
-
-            # out1 = f1.result()
-            # out2 = f2.result()
-
-            self.assertIsInstance(out1, Path)
-            # self.assertIsInstance(out2, Path)
-
-            # def hash_bytes(fp: Path) -> str:
-            #     import hashlib
-            #     sha256 = hashlib.sha256()
-            #     with open(fp, "rb") as f:
-            #         while (chunk := f.read(4096)):
-            #             sha256.update(chunk)
-            #     return sha256.hexdigest()
-
-            # hash1 = hash_bytes(dst1)
-            # hash2 = hash_bytes(dst2)
-
-            # print(dst1.absolute())
-            # print(dst2.absolute())
-
-            # self.assertEqual(hash1, hash2)
-            print("Done")
 
         except subprocess.CalledProcessError as e:
             self.fail(f"Mount operation failed: {str(e)}")
