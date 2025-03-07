@@ -149,6 +149,10 @@ def upload_runner(
     queue_upload: Queue[FilePart | EndOfStream],
     cancel_chunker_event: Event,
 ) -> None:
+    # import semaphre
+    import threading
+
+    semaphore = threading.Semaphore(upload_threads)
     with ThreadPoolExecutor(max_workers=upload_threads) as executor:
         try:
             while True:
@@ -159,9 +163,12 @@ def upload_runner(
                 def task(upload_info=upload_info, file_chunk=file_chunk):
                     return handle_upload(upload_info, file_chunk)
 
+                semaphore.acquire()
+
                 fut = executor.submit(task)
 
                 def done_cb(fut=fut):
+                    semaphore.release()
                     result = fut.result()
                     if isinstance(result, Exception):
                         warnings.warn(f"Error uploading part: {result}, skipping")
@@ -233,7 +240,7 @@ def upload_file_multipart(
         )
         return upload_state
 
-    work_que_max = upload_threads // 2 + 2
+    work_que_max = 1
 
     new_state = make_new_state()
     loaded_state = get_upload_state()
