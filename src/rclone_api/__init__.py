@@ -9,7 +9,7 @@ from .dir import Dir
 from .dir_listing import DirListing
 from .file import File, FileItem
 from .filelist import FileList
-from .http_server import HttpServer
+from .http_server import HttpFetcher, HttpServer, Range
 
 # Import the configure_logging function to make it available at package level
 from .log import configure_logging, setup_default_logging
@@ -47,6 +47,8 @@ __all__ = [
     "configure_logging",
     "log",
     "HttpServer",
+    "Range",
+    "HttpFetcher",
 ]
 
 setup_default_logging()

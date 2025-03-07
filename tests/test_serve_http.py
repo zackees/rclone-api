@@ -87,7 +87,9 @@ class RcloneServeHttpTester(unittest.TestCase):
         remote_path = f"dst:{self.bucket_name}"
         http_server: HttpServer | None = None
         try:
-            with self.rclone.serve_http(remote_path) as http_server:
+            with self.rclone.serve_http(
+                remote_path, addr="localhost:8081"
+            ) as http_server:
                 resource_url = "zachs_video/internaly_ai_alignment.mp4"
                 expected_size = 73936110
 
@@ -168,7 +170,9 @@ class RcloneServeHttpTester(unittest.TestCase):
         remote_path = f"dst:{self.bucket_name}"
         http_server: HttpServer | None = None
         try:
-            with self.rclone.serve_http(remote_path) as http_server:
+            with self.rclone.serve_http(
+                src=remote_path, addr="localhost:8082"
+            ) as http_server:
                 resource_url = "zachs_video/internaly_ai_alignment.mp4"
                 expected_size = 73936110
 

@@ -11,10 +11,11 @@ import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
+from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Generator
+from typing import Any, Callable, Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
@@ -39,6 +40,7 @@ from rclone_api.s3.types import (
     S3UploadTarget,
 )
 from rclone_api.types import (
+    FilePart,
     ListingOption,
     ModTimeStrategy,
     Order,
@@ -796,8 +798,10 @@ class Rclone:
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
         mount_log: Path | None = None,
+        use_http_fetcher: bool = True,  # else use mount fetcher
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
+        from rclone_api.http_server import HttpFetcher, HttpServer
         from rclone_api.s3.api import S3Client
         from rclone_api.s3.create import S3Credentials
         from rclone_api.util import S3PathInfo, split_s3_path
@@ -892,18 +896,46 @@ class Rclone:
             endpoint_url=section.endpoint(),
         )
 
-        chunk_fetcher: MultiMountFileChunker = self.get_multi_mount_file_chunker(
-            src=src_path.as_posix(),
-            chunk_size=chunk_size,
-            threads=read_threads,
-            mount_log=mount_log,
-            direct_io=True,
-        )
+        @dataclass
+        class Fetcher:
+            fetch: Callable[[int, int, Any], Future[FilePart]]
+            shutdown: Callable[[], None]
 
+        def get_fetcher() -> Fetcher:
+            if use_http_fetcher:
+                import random
+
+                port = random.randint(10000, 20000)
+                http_server: HttpServer = self.serve_http(
+                    src=src_path.parent.as_posix(), addr=f"localhost:{port}"
+                )
+                chunk_fetcher: HttpFetcher = http_server.get_fetcher(
+                    path=src_path.name,
+                    n_threads=read_threads,
+                )
+                # return chunk_fetcher.fetch
+                return Fetcher(fetch=chunk_fetcher.fetch, shutdown=http_server.shutdown)
+            else:
+                # Use the mount fetcher, which relies on FUSE which has problems in Docker/Windows/MacOS
+                mount_fetcher: MultiMountFileChunker = (
+                    self.get_multi_mount_file_chunker(
+                        src=src_path.as_posix(),
+                        chunk_size=chunk_size,
+                        threads=read_threads,
+                        mount_log=mount_log,
+                        direct_io=True,
+                    )
+                )
+                # return chunk_fetcher.fetch
+                return Fetcher(
+                    fetch=mount_fetcher.fetch, shutdown=mount_fetcher.shutdown
+                )
+
+        fetcher = get_fetcher()
         client = S3Client(s3_creds)
         upload_config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
             chunk_size=chunk_size.as_int(),
-            chunk_fetcher=chunk_fetcher.fetch,
+            chunk_fetcher=fetcher.fetch,
             max_write_threads=write_threads,
             retries=retries,
             resume_path_json=save_state_json,
@@ -937,7 +969,8 @@ class Rclone:
             traceback.print_exc()
             raise
         finally:
-            chunk_fetcher.shutdown()
+            fetcher.shutdown()
+            fetcher.shutdown()
 
     def get_multi_mount_file_chunker(
         self,

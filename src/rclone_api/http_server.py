@@ -46,8 +46,8 @@ class HttpServer:
         return f"{self.url}/{path}"
         # return f"{self.url}/{self.subpath}/{path}"
 
-    def get_fetcher(self, path: str, executor: ThreadPoolExecutor) -> "HttpFetcher":
-        return HttpFetcher(self, path, executor)
+    def get_fetcher(self, path: str, n_threads: int = 16) -> "HttpFetcher":
+        return HttpFetcher(self, path, n_threads=n_threads)
 
     def get(self, path: str) -> bytes | Exception:
         """Get bytes from the server."""
@@ -179,30 +179,30 @@ class HttpServer:
                         warnings.warn(f"Failed to delete file {f}: {ee}")
                 return e
 
-    def close(self) -> None:
-        """Close the server."""
-
-        if self.process:
-            if self.process.poll() is None:
-                self.process.kill()
-            self.process = None
-
     def __enter__(self) -> "HttpServer":
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self.close()
+        self.shutdown()
+
+    def shutdown(self) -> None:
+        """Shutdown the server."""
         if self.process:
             self.process.terminate()
+            if self.process.stdout:
+                self.process.stdout.close()
+            if self.process.stderr:
+                self.process.stderr.close()
 
 
 class HttpFetcher:
-    def __init__(
-        self, server: "HttpServer", path: str, executor: ThreadPoolExecutor
-    ) -> None:
+    def __init__(self, server: "HttpServer", path: str, n_threads: int) -> None:
         self.server = server
         self.path = path
-        self.executor = executor
+        self.executor = ThreadPoolExecutor(max_workers=n_threads)
+        from threading import Semaphore
+
+        self.semaphore = Semaphore(n_threads)
 
     def fetch(
         self, offset: int | SizeSuffix, size: int | SizeSuffix, extra: Any
@@ -215,12 +215,19 @@ class HttpFetcher:
         def task() -> FilePart:
             from rclone_api.util import random_str
 
-            range = Range(offset, offset + size)
-            dst = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
-            out = self.server.download(self.path, dst, range)
-            if isinstance(out, Exception):
-                raise out
-            return FilePart(payload=dst, extra=extra)
+            try:
+                range = Range(offset, offset + size)
+                dst = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
+                out = self.server.download(self.path, dst, range)
+                if isinstance(out, Exception):
+                    raise out
+                return FilePart(payload=dst, extra=extra)
+            finally:
+                self.semaphore.release()
 
+        self.semaphore.acquire()
         fut = self.executor.submit(task)
         return fut
+
+    def shutdown(self) -> None:
+        self.executor.shutdown(wait=True)
