@@ -806,8 +806,25 @@ class Rclone:
         from rclone_api.s3.create import S3Credentials
         from rclone_api.util import S3PathInfo, split_s3_path
 
-        other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
+        src_path = Path(src)
+        name = src_path.name
+        src_parent_path = Path(src).parent.as_posix()
+
+        size_result: SizeResult = self.size_files(src_parent_path, [name])
+        target_size = SizeSuffix(size_result.total_size)
+
         chunk_size = chunk_size or SizeSuffix("64M")
+        MAX_CHUNKS = 10000
+        min_chunk_size = size_result.total_size // (MAX_CHUNKS - 1)
+        if min_chunk_size > chunk_size:
+            warnings.warn(
+                f"Chunk size {chunk_size} is too small for file size {size_result.total_size}, setting to {min_chunk_size}"
+            )
+            chunk_size = SizeSuffix(min_chunk_size)
+
+        other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
+
+        # BEGIN MOUNT SPECIFIC CONFIG
         unit_chunk_size = chunk_size / read_threads
         tmp_mount_dir = self._get_tmp_mount_dir()
         vfs_read_chunk_size = unit_chunk_size
@@ -832,18 +849,16 @@ class Rclone:
         # --vfs-cache-max-size
         other_args += ["--vfs-cache-max-size", vfs_disk_space_total_size.as_str()]
         mount_path = tmp_mount_dir / "RCLONE_API_DYNAMIC_MOUNT"
-        src_path = Path(src)
-        name = src_path.name
+        ## END MOUNT SPECIFIC CONFIG
 
-        src_parent_path = Path(src).parent.as_posix()
-        size_result: SizeResult = self.size_files(src_parent_path, [name])
+        # size_result: SizeResult = self.size_files(os.path.dirname(src), [name])
 
-        target_size = SizeSuffix(size_result.total_size)
         if target_size < SizeSuffix("5M"):
             # fallback to normal copy
             completed_proc = self.copy_to(src, dst, check=True)
             if completed_proc.ok:
                 return MultiUploadResult.UPLOADED_FRESH
+
         if size_result.total_size <= 0:
             raise ValueError(
                 f"File {src} has size {size_result.total_size}, is this a directory?"
