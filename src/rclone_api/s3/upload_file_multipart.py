@@ -25,7 +25,10 @@ _MIN_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
 
 
 def upload_task(
-    info: UploadInfo, chunk: FilePart, part_number: int, retries: int
+    info: UploadInfo,
+    chunk: FilePart,
+    part_number: int,
+    retries: int,
 ) -> FinishedPiece:
     file_or_err: Path | Exception = chunk.get_file()
     if isinstance(file_or_err, Exception):
@@ -137,6 +140,40 @@ def _abort_previous_upload(upload_state: UploadState) -> None:
             )
         except Exception as e:
             locked_print(f"Error aborting previous upload: {e}")
+
+
+def upload_runner(
+    upload_state: UploadState,
+    upload_info: UploadInfo,
+    upload_threads: int,
+    queue_upload: Queue[FilePart | EndOfStream],
+    cancel_chunker_event: Event,
+) -> None:
+    with ThreadPoolExecutor(max_workers=upload_threads) as executor:
+        try:
+            while True:
+                file_chunk: FilePart | EndOfStream = queue_upload.get()
+                if isinstance(file_chunk, EndOfStream):
+                    break
+
+                def task(upload_info=upload_info, file_chunk=file_chunk):
+                    return handle_upload(upload_info, file_chunk)
+
+                fut = executor.submit(task)
+
+                def done_cb(fut=fut):
+                    result = fut.result()
+                    if isinstance(result, Exception):
+                        warnings.warn(f"Error uploading part: {result}, skipping")
+                        return
+                    # upload_state.finished_parts.put(result)
+                    upload_state.add_finished(result)
+
+                fut.add_done_callback(done_cb)
+        except Exception:
+            cancel_chunker_event.set()
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise
 
 
 def upload_file_multipart(
@@ -265,32 +302,13 @@ def upload_file_multipart(
     try:
         thread_chunker = Thread(target=chunker_task, daemon=True)
         thread_chunker.start()
-
-        with ThreadPoolExecutor(max_workers=upload_threads) as executor:
-            try:
-                while True:
-                    file_chunk: FilePart | EndOfStream = queue_upload.get()
-                    if isinstance(file_chunk, EndOfStream):
-                        break
-
-                    def task(upload_info=upload_info, file_chunk=file_chunk):
-                        return handle_upload(upload_info, file_chunk)
-
-                    fut = executor.submit(task)
-
-                    def done_cb(fut=fut):
-                        result = fut.result()
-                        if isinstance(result, Exception):
-                            warnings.warn(f"Error uploading part: {result}, skipping")
-                            return
-                        # upload_state.finished_parts.put(result)
-                        upload_state.add_finished(result)
-
-                    fut.add_done_callback(done_cb)
-            except Exception:
-                cancel_chunker_event.set()
-                executor.shutdown(wait=False, cancel_futures=True)
-                raise
+        upload_runner(
+            upload_state=upload_state,
+            upload_info=upload_info,
+            upload_threads=upload_threads,
+            queue_upload=queue_upload,
+            cancel_chunker_event=cancel_chunker_event,
+        )
         # upload_state.finished_parts.put(None)  # Signal the end of the queue
         upload_state.add_finished(EndOfStream())
         thread_chunker.join()

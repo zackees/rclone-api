@@ -189,6 +189,8 @@ def file_chunker(
             )
             fut.add_done_callback(callback.on_complete)
             # wait until the queue_upload queue can accept the next chunk
+            qsize = queue_upload.qsize()
+            print(f"queue_upload_size: {qsize}")
             while queue_upload.full():
                 time.sleep(0.1)
     except Exception as e:

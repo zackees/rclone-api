@@ -299,6 +299,7 @@ class FilePart:
             self.payload = payload
             return
         if isinstance(payload, bytes):
+            print(f"Creating file part with payload: {len(payload)}")
             self.payload = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
             with _TMP_DIR_ACCESS_LOCK:
                 if not self.payload.parent.exists():
@@ -306,7 +307,9 @@ class FilePart:
                 self.payload.write_bytes(payload)
             _add_for_cleanup(self.payload)
         if isinstance(payload, Path):
+            print("Adopting payload: ", payload)
             self.payload = payload
+            _add_for_cleanup(self.payload)
 
     def get_file(self) -> Path | Exception:
         return self.payload
@@ -344,18 +347,26 @@ class FilePart:
         return isinstance(self.payload, Exception)
 
     def dispose(self) -> None:
+        print("Disposing file part")
         with self._lock:
             if isinstance(self.payload, Exception):
                 warnings.warn(
                     f"Cannot close file part because the payload represents an error: {self.payload}"
                 )
+                print("Cannot close file part because the payload represents an error")
                 return
             if self.payload.exists():
+                print(f"File part {self.payload} exists")
                 try:
+                    print(f"Unlinking file part {self.payload}")
                     self.payload.unlink()
                     print(f"File part {self.payload} deleted")
                 except Exception as e:
                     warnings.warn(f"Cannot close file part because of error: {e}")
+            else:
+                warnings.warn(
+                    f"Cannot close file part because it does not exist: {self.payload}"
+                )
 
     def __del__(self):
         self.dispose()
