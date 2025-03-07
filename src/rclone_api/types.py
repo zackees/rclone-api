@@ -289,7 +289,7 @@ atexit.register(_on_exit_cleanup)
 
 
 class FilePart:
-    def __init__(self, payload: bytes | Exception, extra: Any) -> None:
+    def __init__(self, payload: Path | bytes | Exception, extra: Any) -> None:
         from rclone_api.util import random_str
 
         self.extra = extra
@@ -298,12 +298,15 @@ class FilePart:
         if isinstance(payload, Exception):
             self.payload = payload
             return
-        self.payload = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
-        with _TMP_DIR_ACCESS_LOCK:
-            if not self.payload.parent.exists():
-                self.payload.parent.mkdir(parents=True, exist_ok=True)
-            self.payload.write_bytes(payload)
-        _add_for_cleanup(self.payload)
+        if isinstance(payload, bytes):
+            self.payload = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
+            with _TMP_DIR_ACCESS_LOCK:
+                if not self.payload.parent.exists():
+                    self.payload.parent.mkdir(parents=True, exist_ok=True)
+                self.payload.write_bytes(payload)
+            _add_for_cleanup(self.payload)
+        if isinstance(payload, Path):
+            self.payload = payload
 
     def get_file(self) -> Path | Exception:
         return self.payload

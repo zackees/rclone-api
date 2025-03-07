@@ -7,10 +7,12 @@ import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import httpx
 
 from rclone_api.process import Process
+from rclone_api.types import FilePart, SizeSuffix, get_chunk_tmpdir
 
 _TIMEOUT = 10 * 60  # 10 minutes
 
@@ -43,6 +45,9 @@ class HttpServer:
         path = Path(path).as_posix()
         return f"{self.url}/{path}"
         # return f"{self.url}/{self.subpath}/{path}"
+
+    def get_fetcher(self, path: str, executor: ThreadPoolExecutor) -> "HttpFetcher":
+        return HttpFetcher(self, path, executor)
 
     def get(self, path: str) -> bytes | Exception:
         """Get bytes from the server."""
@@ -189,3 +194,33 @@ class HttpServer:
         self.close()
         if self.process:
             self.process.terminate()
+
+
+class HttpFetcher:
+    def __init__(
+        self, server: "HttpServer", path: str, executor: ThreadPoolExecutor
+    ) -> None:
+        self.server = server
+        self.path = path
+        self.executor = executor
+
+    def fetch(
+        self, offset: int | SizeSuffix, size: int | SizeSuffix, extra: Any
+    ) -> Future[FilePart]:
+        if isinstance(offset, SizeSuffix):
+            offset = offset.as_int()
+        if isinstance(size, SizeSuffix):
+            size = size.as_int()
+
+        def task() -> FilePart:
+            from rclone_api.util import random_str
+
+            range = Range(offset, offset + size)
+            dst = get_chunk_tmpdir() / f"{random_str(12)}.chunk"
+            out = self.server.download(self.path, dst, range)
+            if isinstance(out, Exception):
+                raise out
+            return FilePart(payload=dst, extra=extra)
+
+        fut = self.executor.submit(task)
+        return fut
