@@ -122,7 +122,7 @@ def _run_profile(
 
     chunk_size = size
 
-    filechunker: MultiMountFileChunker = rclone.get_multi_mount_file_chunker(
+    filechunker: MultiMountFileChunker = rclone.impl.get_multi_mount_file_chunker(
         src=src_file,
         chunk_size=chunk_size,
         threads=transfers,

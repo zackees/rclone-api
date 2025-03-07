@@ -17,7 +17,7 @@ class RPath:
         mod_time: str,
         is_dir: bool,
     ) -> None:
-        from rclone_api.rclone import Rclone
+        from rclone_api.rclone_impl import RcloneImpl
 
         self.remote = remote
         self.path = path
@@ -26,13 +26,13 @@ class RPath:
         self.mime_type = mime_type
         self.mod_time = mod_time
         self.is_dir = is_dir
-        self.rclone: Rclone | None = None
+        self.rclone: RcloneImpl | None = None
 
     def set_rclone(self, rclone: Any) -> None:
         """Set the rclone object."""
-        from rclone_api.rclone import Rclone
+        from rclone_api.rclone_impl import RcloneImpl
 
-        assert isinstance(rclone, Rclone)
+        assert isinstance(rclone, RcloneImpl)
         self.rclone = rclone
 
     @staticmethod

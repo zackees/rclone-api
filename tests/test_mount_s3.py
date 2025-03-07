@@ -70,7 +70,7 @@ class RcloneMountS3Tests(unittest.TestCase):
 
         try:
             # Start the mount process
-            mount = self.rclone.mount_s3(remote_path, self.mount_point)
+            mount = self.rclone.impl.mount_s3(remote_path, self.mount_point)
             process = mount.process
             assert process
             self.assertIsNone(

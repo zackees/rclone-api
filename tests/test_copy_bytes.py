@@ -73,7 +73,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
     @unittest.skip("Skip for now - long running test")
     def test_copy_bytes(self) -> None:
         rclone = Rclone(_generate_rclone_config())
-        bytes_or_err: bytes | Exception = rclone.copy_bytes_mount(
+        bytes_or_err: bytes | Exception = rclone.impl.copy_bytes_mount(
             src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
             offset=0,
             length=1024 * 1024,
@@ -113,7 +113,7 @@ class RcloneCopyBytesTester(unittest.TestCase):
             tmp = Path(tmpdir) / "tmp.mp4"
             log = Path(tmpdir) / "log.txt"
             rclone = Rclone(_generate_rclone_config())
-            bytes_or_err: bytes | Exception = rclone.copy_bytes_mount(
+            bytes_or_err: bytes | Exception = rclone.impl.copy_bytes_mount(
                 src="dst:rclone-api-unit-test/zachs_video/breaking_ai_mind.mp4",
                 offset=0,
                 length=1024 * 1024,

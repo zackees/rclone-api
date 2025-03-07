@@ -10,7 +10,6 @@ import time
 import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from contextlib import contextmanager
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
@@ -25,7 +24,8 @@ from rclone_api.deprecated import deprecated
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
-from rclone_api.file import File, FileItem
+from rclone_api.file import File
+from rclone_api.file_stream import FilesStream
 from rclone_api.group_files import group_files
 from rclone_api.http_server import HttpServer
 from rclone_api.mount import Mount, clean_mount, prepare_mount
@@ -70,51 +70,7 @@ def _to_rclone_conf(config: Config | Path) -> Config:
         return config
 
 
-class FilesStream:
-
-    def __init__(self, path: str, process: Process) -> None:
-        self.path = path
-        self.process = process
-
-    def __enter__(self) -> "FilesStream":
-        self.process.__enter__()
-        return self
-
-    def __exit__(self, *exc_info):
-        self.process.__exit__(*exc_info)
-
-    def files(self) -> Generator[FileItem, None, None]:
-        line: bytes
-        for line in self.process.stdout:
-            linestr: str = line.decode("utf-8").strip()
-            if linestr.startswith("["):
-                continue
-            if linestr.endswith(","):
-                linestr = linestr[:-1]
-            if linestr.endswith("]"):
-                continue
-            fileitem: FileItem | None = FileItem.from_json_str(self.path, linestr)
-            if fileitem is None:
-                continue
-            yield fileitem
-
-    def files_paged(
-        self, page_size: int = 1000
-    ) -> Generator[list[FileItem], None, None]:
-        page: list[FileItem] = []
-        for fileitem in self.files():
-            page.append(fileitem)
-            if len(page) >= page_size:
-                yield page
-                page = []
-        if len(page) > 0:
-            yield page
-
-    def __iter__(self) -> Generator[FileItem, None, None]:
-        return self.files()
-
-
-class Rclone:
+class RcloneImpl:
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
     ) -> None:
@@ -1250,45 +1206,6 @@ class Rclone:
             cache_dir_delete_on_exit=cache_dir_delete_on_exit,
         )
         return mount
-
-    @contextmanager
-    def scoped_mount(
-        self,
-        src: Remote | Dir | str,
-        outdir: Path,
-        allow_writes: bool | None = None,
-        use_links: bool | None = None,
-        vfs_cache_mode: str | None = None,
-        verbose: bool | None = None,
-        log: Path | None = None,
-        cache_dir: Path | None = None,
-        cache_dir_delete_on_exit: bool | None = None,
-        other_args: list[str] | None = None,
-    ) -> Generator[Mount, None, None]:
-        """Like mount, but can be used in a context manager."""
-        error_happened = False
-        mount: Mount = self.mount(
-            src,
-            outdir,
-            allow_writes=allow_writes,
-            use_links=use_links,
-            vfs_cache_mode=vfs_cache_mode,
-            verbose=verbose,
-            cache_dir=cache_dir,
-            cache_dir_delete_on_exit=cache_dir_delete_on_exit,
-            log=log,
-            other_args=other_args,
-        )
-        try:
-            yield mount
-        except Exception as e:
-            error_happened = True
-            stack_trace = traceback.format_exc()
-            warnings.warn(f"Error in scoped_mount: {e}\n\nStack Trace:\n{stack_trace}")
-            raise
-        finally:
-            if not error_happened or (not allow_writes):
-                mount.close()
 
     # Settings optimized for s3.
     def mount_s3(
