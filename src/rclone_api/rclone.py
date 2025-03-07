@@ -831,9 +831,9 @@ class Rclone:
         vfs_read_chunk_size_limit = chunk_size
         vfs_read_chunk_streams = read_threads
         vfs_disk_space_total_size = chunk_size
-        assert (
-            chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
-        ), f"chunk_size {chunk_size} must be a multiple of vfs_read_chunk_size {vfs_read_chunk_size}"
+        # assert (
+        #     chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
+        # ), f"chunk_size {chunk_size} must be a multiple of vfs_read_chunk_size {vfs_read_chunk_size}"
         other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
         other_args += [
             "--vfs-read-chunk-size-limit",
