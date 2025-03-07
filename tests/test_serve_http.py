@@ -2,7 +2,9 @@
 Unit test file for testing rclone mount functionality.
 """
 
+import atexit
 import os
+import shutil
 import subprocess
 import unittest
 from pathlib import Path
@@ -13,6 +15,22 @@ from rclone_api import Config, Rclone
 from rclone_api.http_server import HttpServer
 
 load_dotenv()
+
+_CLEANUP: list[Path] = []
+
+
+def _cleanup() -> None:
+    for p in _CLEANUP:
+        if p.exists():
+            # p.unlink()
+            if p.is_dir():
+
+                shutil.rmtree(p, ignore_errors=True)
+            else:
+                p.unlink()
+
+
+atexit.register(_cleanup)
 
 
 def _generate_rclone_config() -> Config:
@@ -51,6 +69,7 @@ class RcloneServeHttpTester(unittest.TestCase):
 
         self.bucket_name = os.getenv("BUCKET_NAME")
         self.mount_point = Path("test_tmp_serve_http")
+        _CLEANUP.append(self.mount_point)
         # Create mount point directory if it doesn't exist
         # self.mount_point.mkdir(exist_ok=True)
         # make parents
@@ -81,6 +100,8 @@ class RcloneServeHttpTester(unittest.TestCase):
                 dst2 = self.mount_point / Path(
                     "zachs_video/internaly_ai_alignment.mp4.2"
                 )
+
+                _CLEANUP.extend([Path("zachs_video"), dst1, dst2])
 
                 # out1 = http_server.copy_chunked(resource_url, dst1).result()
                 out1 = http_server.download(resource_url, dst1)
