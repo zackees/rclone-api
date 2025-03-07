@@ -436,7 +436,8 @@ class Rclone:
         addr: str = "localhost:8080",
         other_args: list[str] | None = None,
     ) -> HttpServer:
-        """Serve a remote or directory via HTTP.
+        """Serve a remote or directory via HTTP. The returned HttpServer has a client which can be used to
+        fetch files or parts.
 
         Args:
             src: Remote or directory to serve

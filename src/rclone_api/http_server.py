@@ -19,14 +19,13 @@ _TIMEOUT = 10 * 60  # 10 minutes
 
 @dataclass
 class Range:
-    start: int
-    end: int
+    start: int  # inclusive
+    end: int  # exclusive (not like http byte range which is inclusive)
 
     def to_header(self) -> dict[str, str]:
-        val = f"bytes={self.start}-{self.end-1}"
-        return {
-            "Range": val,
-        }
+        last = self.end - 1
+        val = f"bytes={self.start}-{last}"
+        return {"Range": val}
 
 
 _range = range
@@ -49,10 +48,10 @@ class HttpServer:
     def get_fetcher(self, path: str, n_threads: int = 16) -> "HttpFetcher":
         return HttpFetcher(self, path, n_threads=n_threads)
 
-    def get(self, path: str) -> bytes | Exception:
+    def get(self, path: str, range: Range | None = None) -> bytes | Exception:
         """Get bytes from the server."""
         with tempfile.TemporaryFile() as file:
-            self.download(path, Path(file.name), None)
+            self.download(path, Path(file.name), range)
             file.seek(0)
             return file.read()
 
