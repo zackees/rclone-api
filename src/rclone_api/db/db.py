@@ -70,14 +70,14 @@ class DB:
             repo = self.get_or_create_repo(remote_name)
             repo.insert_files(files)
 
-    def query_files(self, remote_name: str) -> list[FileItem]:
+    def query_all_files(self, remote_name: str) -> list[FileItem]:
         """Query files from the database.
 
         Args:
             remote_name: Name of the remote
         """
         repo = self.get_or_create_repo(remote_name)
-        files = repo.get_files()
+        files = repo.get_all_files()
         out: list[FileItem] = []
         for file in files:
             out.append(file)
@@ -245,7 +245,7 @@ class DBRepo:
         # Return the set of FileItem objects that have a path in the existing_paths.
         return {file for file in files if file.path_no_remote in existing_paths}
 
-    def get_files(self) -> list[FileItem]:
+    def get_all_files(self) -> list[FileItem]:
         """Get all files in the table.
 
         Returns:

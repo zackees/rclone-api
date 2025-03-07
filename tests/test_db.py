@@ -64,7 +64,7 @@ class RcloneDBTests(unittest.TestCase):
         repo.insert_files(new_files)
 
         # Query the data
-        out_file_entries: list[DBFile] = repo.get_files()
+        out_file_entries: list[DBFile] = repo.get_all_files()
 
         # Assert that two file entries exist
         self.assertEqual(
