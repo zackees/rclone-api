@@ -317,7 +317,8 @@ class FilePart:
         from rclone_api.util import random_str
 
         stacktrace = traceback.format_stack()
-        self.stacktrace = stacktrace
+        stacktrace_str = "".join(stacktrace)
+        self.stacktrace = stacktrace_str
         _FILEPARTS.append(self)
 
         self.extra = extra
@@ -399,3 +400,7 @@ class FilePart:
 
     def __del__(self):
         self.dispose()
+
+    def __repr__(self):
+        payload_str = "err" if self.is_error() else f"{SizeSuffix(self.n_bytes())}"
+        return f"FilePart(payload={payload_str}, extra={self.extra})"
