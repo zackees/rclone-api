@@ -184,6 +184,9 @@ def file_chunker(
             logger.info(
                 f"Reading chunk {curr_part_number} of {num_parts} for {file_path}"
             )
+            logger.debug(
+                f"Fetching part {curr_part_number} with offset {offset} and size {fetch_size}"
+            )
             fut = fetcher(
                 offset, fetch_size, S3FileInfo(upload_info.upload_id, curr_part_number)
             )

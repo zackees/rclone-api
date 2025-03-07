@@ -6,7 +6,7 @@ import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 from typing import Any
 
 
@@ -288,9 +288,37 @@ def _on_exit_cleanup() -> None:
 atexit.register(_on_exit_cleanup)
 
 
+_FILEPARTS: list["FilePart"] = []
+
+
+class ListFileParts(Thread):
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.start()
+
+    def run(self):
+        while True:
+            print("File parts:")
+            for part in _FILEPARTS:
+                print(part)
+                print(part.stacktrace)
+                print("\n")
+            print("\n\n")
+            time.sleep(5)
+
+
+dbg_thread = ListFileParts()
+
+
 class FilePart:
     def __init__(self, payload: Path | bytes | Exception, extra: Any) -> None:
+        import traceback
+
         from rclone_api.util import random_str
+
+        stacktrace = traceback.format_stack()
+        self.stacktrace = stacktrace
+        _FILEPARTS.append(self)
 
         self.extra = extra
         self._lock = Lock()
@@ -347,6 +375,7 @@ class FilePart:
         return isinstance(self.payload, Exception)
 
     def dispose(self) -> None:
+        _FILEPARTS.remove(self)
         print("Disposing file part")
         with self._lock:
             if isinstance(self.payload, Exception):
