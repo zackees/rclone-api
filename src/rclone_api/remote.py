@@ -16,3 +16,6 @@ class Remote:
 
     def __str__(self) -> str:
         return f"{self.name}:"
+
+    def __repr__(self) -> str:
+        return f"Remote({self.name!r})"

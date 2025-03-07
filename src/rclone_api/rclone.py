@@ -243,7 +243,7 @@ class Rclone:
 
     def ls(
         self,
-        path: Dir | Remote | str,
+        path: Dir | Remote | str | None = None,
         max_depth: int | None = None,
         glob: str | None = None,
         order: Order = Order.NORMAL,
@@ -258,6 +258,15 @@ class Rclone:
         Returns:
             List of File objects found at the path
         """
+
+        if path is None:
+            # list remotes instead
+            list_remotes: list[Remote] = self.listremotes()
+            dirs: list[Dir] = [Dir(remote) for remote in list_remotes]
+            for d in dirs:
+                d.path.path = ""
+            rpaths = [d.path for d in dirs]
+            return DirListing(rpaths)
 
         if isinstance(path, str):
             path = Dir(
@@ -1348,6 +1357,7 @@ class Rclone:
             src: Remote or directory to serve
             addr: Network address and port to serve on (default: localhost:8080)
         """
+        _, subpath = src.split(":", 1)  # might not work on local paths.
         cmd_list: list[str] = ["serve", "http", "--addr", addr, src]
         if other_args:
             cmd_list += other_args
@@ -1356,7 +1366,7 @@ class Rclone:
         if proc.poll() is not None:
             raise ValueError("HTTP serve process failed to start")
         out: HttpServer = HttpServer(
-            url=f"http://{addr}", process=proc, max_workers=threads
+            url=f"http://{addr}", subpath=subpath, process=proc, max_workers=threads
         )
         return out
 
