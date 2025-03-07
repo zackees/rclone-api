@@ -1,12 +1,13 @@
 import atexit
 import os
 import re
+import threading
 import time
 import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from threading import Lock, Thread
+from threading import Lock
 from typing import Any
 
 
@@ -290,24 +291,33 @@ atexit.register(_on_exit_cleanup)
 
 _FILEPARTS: list["FilePart"] = []
 
-
-class ListFileParts(Thread):
-    def __init__(self):
-        super().__init__(daemon=True)
-        self.start()
-
-    def run(self):
-        while True:
-            print("File parts:")
-            for part in _FILEPARTS:
-                print(part)
-                print(part.stacktrace)
-                print("\n")
-            print("\n\n")
-            time.sleep(5)
+_FILEPARTS_LOCK = Lock()
 
 
-dbg_thread = ListFileParts()
+def _add_filepart(part: "FilePart") -> None:
+    with _FILEPARTS_LOCK:
+        if part not in _FILEPARTS:
+            _FILEPARTS.append(part)
+
+
+def _remove_filepart(part: "FilePart") -> None:
+    with _FILEPARTS_LOCK:
+        if part in _FILEPARTS:
+            _FILEPARTS.remove(part)
+
+
+def run_debug_parts():
+    while True:
+        print("\nAlive file parts:")
+        for part in list(_FILEPARTS):
+            print(part)
+            # print(part.stacktrace)
+        print("\n\n")
+        time.sleep(60)
+
+
+dbg_thread = threading.Thread(target=run_debug_parts)
+dbg_thread.start()
 
 
 class FilePart:
@@ -319,7 +329,8 @@ class FilePart:
         stacktrace = traceback.format_stack()
         stacktrace_str = "".join(stacktrace)
         self.stacktrace = stacktrace_str
-        _FILEPARTS.append(self)
+        # _FILEPARTS.append(self)
+        _add_filepart(self)
 
         self.extra = extra
         self._lock = Lock()
@@ -376,7 +387,8 @@ class FilePart:
         return isinstance(self.payload, Exception)
 
     def dispose(self) -> None:
-        _FILEPARTS.remove(self)
+        # _FILEPARTS.remove(self)
+        _remove_filepart(self)
         print("Disposing file part")
         with self._lock:
             if isinstance(self.payload, Exception):
