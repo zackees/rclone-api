@@ -31,7 +31,7 @@ def _parse_args() -> Args:
     parser.add_argument("dst", help="Destination file")
     parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
     parser.add_argument(
-        "--config", help="Path to rclone config file", type=Path, required=True
+        "--config", help="Path to rclone config file", type=Path, required=False
     )
     parser.add_argument(
         "--chunk-size",
@@ -60,8 +60,14 @@ def _parse_args() -> Args:
     )
 
     args = parser.parse_args()
+    config: Path | None = args.config
+    if config is None:
+        config = Path("rclone.conf")
+        if not config.exists():
+            raise FileNotFoundError(f"Config file not found: {config}")
+    assert config is not None
     out = Args(
-        config_path=Path(args.config),
+        config_path=config,
         src=args.src,
         dst=args.dst,
         chunk_size=SizeSuffix(args.chunk_size),
@@ -94,21 +100,20 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    import os
     import sys
 
-    here = Path(__file__).parent
-    project_root = here.parent.parent.parent
-    print(f"project_root: {project_root}")
-    os.chdir(str(project_root))
-    cwd = Path(__file__).parent
-    print(f"cwd: {cwd}")
+    # here = Path(__file__).parent
+    # project_root = here.parent.parent.parent
+    # print(f"project_root: {project_root}")
+    # os.chdir(str(project_root))
+    # cwd = Path(__file__).parent
+    # print(f"cwd: {cwd}")
     sys.argv.append("--config")
     sys.argv.append("rclone.conf")
     sys.argv.append(
-        "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"
+        "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     sys.argv.append(
-        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst.torrent"
+        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     main()

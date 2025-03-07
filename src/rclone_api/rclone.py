@@ -815,7 +815,7 @@ class Rclone:
 
         chunk_size = chunk_size or SizeSuffix("64M")
         MAX_CHUNKS = 10000
-        min_chunk_size = size_result.total_size // (MAX_CHUNKS - 1)
+        min_chunk_size = SizeSuffix(size_result.total_size // (MAX_CHUNKS - 1))
         if min_chunk_size > chunk_size:
             warnings.warn(
                 f"Chunk size {chunk_size} is too small for file size {size_result.total_size}, setting to {min_chunk_size}"
