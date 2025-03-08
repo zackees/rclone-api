@@ -344,8 +344,7 @@ class Rclone:
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
-        mount_log: Path | None = None,
-        use_http_fetcher: bool = True,  # else use mount fetcher
+        backend_log: Path | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         return self.impl.copy_file_resumable_s3(
@@ -358,8 +357,7 @@ class Rclone:
             retries=retries,
             verbose=verbose,
             max_chunks_before_suspension=max_chunks_before_suspension,
-            mount_log=mount_log,
-            use_http_fetcher=use_http_fetcher,
+            backend_log=backend_log,
         )
 
     def copy_bytes(

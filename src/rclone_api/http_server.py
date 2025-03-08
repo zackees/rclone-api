@@ -7,6 +7,7 @@ import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Semaphore
 from typing import Any
 
 import httpx
@@ -199,11 +200,11 @@ class HttpFetcher:
         self.server = server
         self.path = path
         self.executor = ThreadPoolExecutor(max_workers=n_threads)
-        from threading import Semaphore
-
+        # Semaphore throttles the number of concurrent fetches
+        # TODO this is kind of a hack.
         self.semaphore = Semaphore(n_threads)
 
-    def fetch(
+    def bytes_fetcher(
         self, offset: int | SizeSuffix, size: int | SizeSuffix, extra: Any
     ) -> Future[FilePart]:
         if isinstance(offset, SizeSuffix):

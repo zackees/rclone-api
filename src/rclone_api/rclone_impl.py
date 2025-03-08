@@ -753,8 +753,7 @@ class RcloneImpl:
         retries: int = 3,
         verbose: bool | None = None,
         max_chunks_before_suspension: int | None = None,
-        mount_log: Path | None = None,
-        use_http_fetcher: bool = True,  # else use mount fetcher
+        backend_log: Path | None = None,
     ) -> MultiUploadResult:
         """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
         from rclone_api.http_server import HttpFetcher, HttpServer
@@ -777,37 +776,6 @@ class RcloneImpl:
                 f"Chunk size {chunk_size} is too small for file size {size_result.total_size}, setting to {min_chunk_size}"
             )
             chunk_size = SizeSuffix(min_chunk_size)
-
-        other_args: list[str] = ["--no-modtime", "--vfs-read-wait", "1s"]
-
-        # BEGIN MOUNT SPECIFIC CONFIG
-        unit_chunk_size = chunk_size / read_threads
-        tmp_mount_dir = self._get_tmp_mount_dir()
-        vfs_read_chunk_size = unit_chunk_size
-        vfs_read_chunk_size_limit = chunk_size
-        vfs_read_chunk_streams = read_threads
-        vfs_disk_space_total_size = chunk_size
-        # assert (
-        #     chunk_size.as_int() % vfs_read_chunk_size.as_int() == 0
-        # ), f"chunk_size {chunk_size} must be a multiple of vfs_read_chunk_size {vfs_read_chunk_size}"
-        other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
-        other_args += [
-            "--vfs-read-chunk-size-limit",
-            vfs_read_chunk_size_limit.as_str(),
-        ]
-        other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
-        other_args += [
-            "--vfs-disk-space-total-size",
-            vfs_disk_space_total_size.as_str(),
-        ]
-        other_args += ["--read-only"]
-        other_args += ["--direct-io"]
-        # --vfs-cache-max-size
-        other_args += ["--vfs-cache-max-size", vfs_disk_space_total_size.as_str()]
-        mount_path = tmp_mount_dir / "RCLONE_API_DYNAMIC_MOUNT"
-        ## END MOUNT SPECIFIC CONFIG
-
-        # size_result: SizeResult = self.size_files(os.path.dirname(src), [name])
 
         if target_size < SizeSuffix("5M"):
             # fallback to normal copy
@@ -873,34 +841,22 @@ class RcloneImpl:
             shutdown: Callable[[], None]
 
         def get_fetcher() -> Fetcher:
-            if use_http_fetcher:
-                import random
+            import random
 
-                port = random.randint(10000, 20000)
-                http_server: HttpServer = self.serve_http(
-                    src=src_path.parent.as_posix(), addr=f"localhost:{port}"
-                )
-                chunk_fetcher: HttpFetcher = http_server.get_fetcher(
-                    path=src_path.name,
-                    n_threads=read_threads,
-                )
-                # return chunk_fetcher.fetch
-                return Fetcher(fetch=chunk_fetcher.fetch, shutdown=http_server.shutdown)
-            else:
-                # Use the mount fetcher, which relies on FUSE which has problems in Docker/Windows/MacOS
-                mount_fetcher: MultiMountFileChunker = (
-                    self.get_multi_mount_file_chunker(
-                        src=src_path.as_posix(),
-                        chunk_size=chunk_size,
-                        threads=read_threads,
-                        mount_log=mount_log,
-                        direct_io=True,
-                    )
-                )
-                # return chunk_fetcher.fetch
-                return Fetcher(
-                    fetch=mount_fetcher.fetch, shutdown=mount_fetcher.shutdown
-                )
+            port = random.randint(10000, 20000)
+            http_server: HttpServer = self.serve_http(
+                src=src_path.parent.as_posix(),
+                addr=f"localhost:{port}",
+                serve_http_log=backend_log,
+            )
+            chunk_fetcher: HttpFetcher = http_server.get_fetcher(
+                path=src_path.name,
+                n_threads=read_threads,
+            )
+            # return chunk_fetcher.fetch
+            return Fetcher(
+                fetch=chunk_fetcher.bytes_fetcher, shutdown=http_server.shutdown
+            )
 
         fetcher = get_fetcher()
         client = S3Client(s3_creds)
@@ -913,17 +869,13 @@ class RcloneImpl:
             max_chunks_before_suspension=max_chunks_before_suspension,
         )
 
-        src_file = mount_path / name
-
         print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
         print(f"Source: {src_path}")
         print(f"bucket_name: {bucket_name}")
         print(f"upload_config: {upload_config}")
 
-        # get the file size
-
         upload_target = S3UploadTarget(
-            src_file=src_file,
+            src_file=src_path,
             src_file_size=size_result.total_size,
             bucket_name=bucket_name,
             s3_key=s3_key,
@@ -1313,6 +1265,7 @@ class RcloneImpl:
         self,
         src: str,
         addr: str = "localhost:8080",
+        serve_http_log: Path | None = None,
         other_args: list[str] | None = None,
     ) -> HttpServer:
         """Serve a remote or directory via HTTP.
@@ -1323,9 +1276,12 @@ class RcloneImpl:
         """
         _, subpath = src.split(":", 1)  # might not work on local paths.
         cmd_list: list[str] = ["serve", "http", "--addr", addr, src]
+        if serve_http_log:
+            cmd_list += ["--log-file", str(serve_http_log)]
+            cmd_list += ["-vvvv"]
         if other_args:
             cmd_list += other_args
-        proc = self._launch_process(cmd_list)
+        proc = self._launch_process(cmd_list, log=serve_http_log)
         time.sleep(2)
         if proc.poll() is not None:
             raise ValueError("HTTP serve process failed to start")
