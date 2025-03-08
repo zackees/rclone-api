@@ -39,6 +39,10 @@ class UploadPart:
         self.dispose()
 
 
+def _gen_name(part_number: int, offset: SizeSuffix, end: SizeSuffix) -> str:
+    return f"part.{part_number:05d}_{offset.as_int()}-{end.as_int()}"
+
+
 def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
     try:
         if upload_part.exception is not None:
@@ -320,7 +324,8 @@ def copy_file_parts(
                         offset: SizeSuffix = SizeSuffix(range.start)
                         length: SizeSuffix = SizeSuffix(range.end - range.start)
                         end = offset + length
-                        part_dst = f"{dst_dir}/part.{part_number:05d}_{offset.as_int()}-{end.as_int()}"
+                        suffix = _gen_name(part_number, offset, end)
+                        part_dst = f"{dst_dir}/{suffix}"
 
                         def _read_task(
                             src_name=src_name,
