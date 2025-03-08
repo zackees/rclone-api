@@ -22,7 +22,7 @@ from .process import Process
 from .remote import Remote
 from .rpath import RPath
 from .s3.types import MultiUploadResult
-from .types import ListingOption, Order, SizeResult, SizeSuffix
+from .types import ListingOption, Order, PartInfo, SizeResult, SizeSuffix
 
 setup_default_logging()
 
@@ -492,4 +492,5 @@ __all__ = [
     "HttpServer",
     "Range",
     "HttpFetcher",
+    "PartInfo",
 ]

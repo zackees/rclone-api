@@ -5,7 +5,6 @@ Unit test file for testing rclone mount functionality.
 import tempfile
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
 from pathlib import Path
 from threading import Semaphore
 from typing import Any
@@ -14,20 +13,9 @@ import httpx
 
 from rclone_api.file_part import FilePart
 from rclone_api.process import Process
-from rclone_api.types import SizeSuffix, get_chunk_tmpdir
+from rclone_api.types import Range, SizeSuffix, get_chunk_tmpdir
 
 _TIMEOUT = 10 * 60  # 10 minutes
-
-
-@dataclass
-class Range:
-    start: int  # inclusive
-    end: int  # exclusive (not like http byte range which is inclusive)
-
-    def to_header(self) -> dict[str, str]:
-        last = self.end - 1
-        val = f"bytes={self.start}-{last}"
-        return {"Range": val}
 
 
 _range = range
@@ -125,8 +113,13 @@ class HttpServer:
         with ThreadPoolExecutor(max_workers=n_threads) as executor:
             try:
                 futures: list[Future[Path | Exception]] = []
-                for start in _range(range.start, range.end, chunk_size):
-                    end = min(start + chunk_size, range.end)
+                start: int
+                for start in _range(
+                    range.start.as_int(), range.end.as_int(), chunk_size
+                ):
+                    end = min(
+                        SizeSuffix(start + chunk_size).as_int(), range.end.as_int()
+                    )
                     r = Range(start=start, end=end)
 
                     def task(r: Range = r) -> Path | Exception:

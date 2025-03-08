@@ -2,6 +2,7 @@
 Unit test file.
 """
 
+import _thread
 import os
 import random
 import subprocess
@@ -9,11 +10,10 @@ import time
 import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Generator
+from typing import Callable, Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
@@ -24,7 +24,6 @@ from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_proce
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
-from rclone_api.file_part import FilePart
 from rclone_api.file_stream import FilesStream
 from rclone_api.group_files import group_files
 from rclone_api.http_server import HttpServer
@@ -42,6 +41,8 @@ from rclone_api.types import (
     ListingOption,
     ModTimeStrategy,
     Order,
+    PartInfo,
+    Range,
     SizeResult,
     SizeSuffix,
 )
@@ -430,7 +431,7 @@ class RcloneImpl:
         verbose = get_verbose(verbose)
         src = src if isinstance(src, str) else str(src.path)
         dst = dst if isinstance(dst, str) else str(dst.path)
-        cmd_list: list[str] = ["copyto", src, dst]
+        cmd_list: list[str] = ["copyto", src, dst, "--s3-no-check-bucket"]
         if other_args is not None:
             cmd_list += other_args
         cp = self._run(cmd_list, check=check)
@@ -465,6 +466,7 @@ class RcloneImpl:
         low_level_retries = low_level_retries or 10
         retries = retries or 3
         other_args = other_args or []
+        other_args.append("--s3-no-check-bucket")
         checkers = checkers or 1000
         transfers = transfers or 32
         verbose = get_verbose(verbose)
@@ -620,6 +622,7 @@ class RcloneImpl:
         cmd_list += ["--checkers", str(checkers)]
         cmd_list += ["--transfers", str(transfers)]
         cmd_list += ["--low-level-retries", str(low_level_retries)]
+        cmd_list.append("--s3-no-check-bucket")
         if multi_thread_streams is not None:
             cmd_list += ["--multi-thread-streams", str(multi_thread_streams)]
         if other_args:
@@ -740,6 +743,73 @@ class RcloneImpl:
         except subprocess.CalledProcessError:
             return False
 
+    def copy_file_parts(
+        self,
+        src: str,  # src:/Bucket/path/myfile.large.zst
+        dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/
+        part_infos: list[PartInfo],
+        threads: int = 1,
+    ) -> Exception | None:
+        """Copy parts of a file from source to destination."""
+        if dst_dir.endswith("/"):
+            dst_dir = dst_dir[:-1]
+        tasks: list[Callable[[], Exception | None]] = []
+        part_info: PartInfo
+        for part_info in part_infos:
+            part_number: int = part_info.part_number
+            range: Range = part_info.range
+            offset: SizeSuffix = SizeSuffix(range.start)
+            length: SizeSuffix = SizeSuffix(range.end - range.start)
+
+            def task(offset=offset, length=length) -> Exception | None:
+                try:
+                    with TemporaryDirectory() as tmpdir:
+                        outchunk: Path = Path(tmpdir) / "outchunk"
+                        err = self.copy_bytes(src, offset, length, outchunk)
+                        if isinstance(err, Exception):
+                            raise err
+
+                        offset_int = offset.as_int()
+                        end_int = (offset + length).as_int()
+                        part_dst: str = (
+                            f"{dst_dir}/{offset_int}-{end_int}.part.{part_number:05d}"
+                        )
+                        # self.copy(src.as_posix(), dst_dir.as_posix())
+                        self.copy_to(outchunk.as_posix(), part_dst)
+                        return None
+                except KeyboardInterrupt as ke:
+                    _thread.interrupt_main()
+                    return Exception(ke)
+                except SystemExit as se:
+                    _thread.interrupt_main()
+                    return Exception(se)
+                except Exception as e:
+                    return e
+
+            tasks.append(task)
+
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            curr_task: Callable[[], Exception | None]
+            for curr_task in tasks:
+                err = curr_task()
+                if isinstance(err, Exception):
+                    executor.shutdown(wait=True, cancel_futures=True)
+                    return err
+
+        return None
+
+    def size_file(self, src: str) -> SizeSuffix | Exception:
+        """Get the size of a file or directory."""
+        src_parent = os.path.dirname(src)
+        src_name = os.path.basename(src)
+        out: SizeResult = self.size_files(src_parent, [src_name])
+        one_file = len(out.file_sizes) == 1
+        if not one_file:
+            return Exception(
+                f"More than one result returned, is this is a directory? {out}"
+            )
+        return SizeSuffix(out.total_size)
+
     def copy_file_resumable_s3(
         self,
         src: str,
@@ -833,34 +903,21 @@ class RcloneImpl:
             endpoint_url=section.endpoint(),
         )
 
-        @dataclass
-        class Fetcher:
-            fetch: Callable[[int, int, Any], Future[FilePart]]
-            shutdown: Callable[[], None]
+        port = random.randint(10000, 20000)
+        http_server: HttpServer = self.serve_http(
+            src=src_path.parent.as_posix(),
+            addr=f"localhost:{port}",
+            serve_http_log=backend_log,
+        )
+        chunk_fetcher: HttpFetcher = http_server.get_fetcher(
+            path=src_path.name,
+            n_threads=read_threads,
+        )
 
-        def get_fetcher() -> Fetcher:
-            import random
-
-            port = random.randint(10000, 20000)
-            http_server: HttpServer = self.serve_http(
-                src=src_path.parent.as_posix(),
-                addr=f"localhost:{port}",
-                serve_http_log=backend_log,
-            )
-            chunk_fetcher: HttpFetcher = http_server.get_fetcher(
-                path=src_path.name,
-                n_threads=read_threads,
-            )
-            # return chunk_fetcher.fetch
-            return Fetcher(
-                fetch=chunk_fetcher.bytes_fetcher, shutdown=http_server.shutdown
-            )
-
-        fetcher = get_fetcher()
         client = S3Client(s3_creds)
         upload_config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
             chunk_size=chunk_size.as_int(),
-            chunk_fetcher=fetcher.fetch,
+            chunk_fetcher=chunk_fetcher.bytes_fetcher,
             max_write_threads=write_threads,
             retries=retries,
             resume_path_json=save_state_json,
@@ -890,8 +947,7 @@ class RcloneImpl:
             traceback.print_exc()
             raise
         finally:
-            fetcher.shutdown()
-            fetcher.shutdown()
+            chunk_fetcher.shutdown()
 
     def copy_bytes(
         self,
@@ -929,7 +985,7 @@ class RcloneImpl:
         # convert src to str, also dst
         src = convert_to_str(src)
         dst = convert_to_str(dst)
-        cmd_list: list[str] = ["copy", src, dst]
+        cmd_list: list[str] = ["copy", src, dst, "--s3-no-check-bucket"]
         if args is not None:
             cmd_list += args
         cp = self._run(cmd_list)
@@ -939,7 +995,7 @@ class RcloneImpl:
         self, src: Remote, dst: Remote, args: list[str] | None = None
     ) -> CompletedProcess:
         """Copy a remote to another remote."""
-        cmd_list: list[str] = ["copy", str(src), str(dst)]
+        cmd_list: list[str] = ["copy", str(src), str(dst), "--s3-no-check-bucket"]
         if args is not None:
             cmd_list += args
         # return self._run(cmd_list)

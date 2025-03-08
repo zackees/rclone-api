@@ -1,6 +1,5 @@
 import atexit
 import os
-import threading
 import time
 import warnings
 from pathlib import Path
@@ -95,8 +94,8 @@ def run_debug_parts():
         time.sleep(60)
 
 
-dbg_thread = threading.Thread(target=run_debug_parts)
-dbg_thread.start()
+# dbg_thread = threading.Thread(target=run_debug_parts)
+# dbg_thread.start()
 
 
 class FilePart:

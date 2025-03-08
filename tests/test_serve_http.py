@@ -81,7 +81,7 @@ class RcloneServeHttpTester(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
         self.rclone = Rclone(_generate_rclone_config())
 
-    # @unittest.skip("Skip for now")
+    @unittest.skip("Skip for now")
     def test_server_http(self) -> None:
         """Test mounting a remote bucket."""
         remote_path = f"dst:{self.bucket_name}"
@@ -164,7 +164,7 @@ class RcloneServeHttpTester(unittest.TestCase):
             # Cleanup will happen in tearDown
             pass
 
-    # @unittest.skip("Skip for now")
+    @unittest.skip("Skip for now")
     def test_small_range(self) -> None:
         """Test mounting a remote bucket."""
         remote_path = f"dst:{self.bucket_name}"

@@ -160,13 +160,24 @@ class SizeSuffix:
         other_int = SizeSuffix(other)
         return SizeSuffix(self._size * other_int._size)
 
+    # multiply when int is on the left
+    def __rmul__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        return self.__mul__(other)
+
     def __add__(self, other: "int | SizeSuffix") -> "SizeSuffix":
         other_int = SizeSuffix(other)
         return SizeSuffix(self._size + other_int._size)
 
+    def __radd__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        return self.__add__(other)
+
     def __sub__(self, other: "int | SizeSuffix") -> "SizeSuffix":
         other_int = SizeSuffix(other)
         return SizeSuffix(self._size - other_int._size)
+
+    def __rsub__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        return SizeSuffix(other_int._size - self._size)
 
     def __truediv__(self, other: "int | SizeSuffix") -> "SizeSuffix":
         other_int = SizeSuffix(other)
@@ -174,6 +185,13 @@ class SizeSuffix:
             raise ZeroDivisionError("Division by zero is undefined")
         # Use floor division to maintain integer arithmetic.
         return SizeSuffix(self._size // other_int._size)
+
+    def __rtruediv__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        if self._size == 0:
+            raise ZeroDivisionError("Division by zero is undefined")
+        # Use floor division to maintain integer arithmetic.
+        return SizeSuffix(other_int._size // self._size)
 
     # support / division
     def __floordiv__(self, other: "int | SizeSuffix") -> "SizeSuffix":
@@ -183,41 +201,54 @@ class SizeSuffix:
         # Use floor division to maintain integer arithmetic.
         return SizeSuffix(self._size // other_int._size)
 
+    def __rfloordiv__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        if self._size == 0:
+            raise ZeroDivisionError("Division by zero is undefined")
+        # Use floor division to maintain integer arithmetic.
+        return SizeSuffix(other_int._size // self._size)
+
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SizeSuffix):
+        if not isinstance(other, SizeSuffix) and not isinstance(other, int):
             return False
-        return self._size == other._size
+        return self._size == SizeSuffix(other)._size
 
     def __ne__(self, other: object) -> bool:
-        if not isinstance(other, SizeSuffix):
-            return True
-        return self._size != other._size
+        return not self.__ne__(other)
 
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, SizeSuffix):
-            return False
-        return self._size < other._size
+    def __lt__(self, other: "int | SizeSuffix") -> bool:
+        # if not isinstance(other, SizeSuffix):
+        #     return False
+        # return self._size < other._size
+        return self._size < SizeSuffix(other)._size
 
-    def __le__(self, other: object) -> bool:
-        if not isinstance(other, SizeSuffix):
-            return False
-        return self._size <= other._size
+    def __le__(self, other: "int | SizeSuffix") -> bool:
+        # if not isinstance(other, SizeSuffix):
+        #     return False
+        # return self._size <= other._size
+        return self._size < SizeSuffix(other)._size
 
-    def __gt__(self, other: object) -> bool:
-        if not isinstance(other, SizeSuffix):
-            return False
-        return self._size > other._size
+    def __gt__(self, other: "int | SizeSuffix") -> bool:
+        return self._size > SizeSuffix(other)._size
 
-    def __ge__(self, other: object) -> bool:
-        if not isinstance(other, SizeSuffix):
-            return False
-        return self._size >= other._size
+    def __ge__(self, other: "int | SizeSuffix") -> bool:
+        return self._size >= SizeSuffix(other)._size
 
     def __hash__(self) -> int:
         return hash(self._size)
 
     def __int__(self) -> int:
         return self._size
+
+    def __iadd__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        self._size += other_int._size
+        return self
+
+    def __isub__(self, other: "int | SizeSuffix") -> "SizeSuffix":
+        other_int = SizeSuffix(other)
+        self._size -= other_int._size
+        return self
 
 
 _TMP_DIR_ACCESS_LOCK = Lock()
@@ -263,3 +294,28 @@ def get_chunk_tmpdir() -> Path:
 
 class EndOfStream:
     pass
+
+
+class Range:
+    def __init__(self, start: int | SizeSuffix, end: int | SizeSuffix):
+        self.start: SizeSuffix = SizeSuffix(start)  # inclusive
+        self.end: SizeSuffix = SizeSuffix(
+            end
+        )  # exclusive (not like http byte range which is inclusive)
+
+    def to_header(self) -> dict[str, str]:
+        last = self.end - 1
+        val = f"bytes={self.start.as_int()}-{last.as_int()}"
+        return {"Range": val}
+
+
+@dataclass
+class PartInfo:
+    part_number: int
+    range: Range
+
+    def __post_init__(self):
+        assert self.part_number >= 0
+        assert self.part_number <= 10000
+        assert self.range.start >= 0
+        assert self.range.end > self.range.start

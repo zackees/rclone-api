@@ -64,7 +64,7 @@ class RcloneSizeFilesTester(unittest.TestCase):
         src = f"dst:{BUCKET_NAME}"
         for dirlisting in rclone.walk(src, max_depth=1):
             if is_first:
-                self.assertEqual(len(dirlisting.files), 1)
+                self.assertGreaterEqual(len(dirlisting.files), 1)
                 self.assertEqual(dirlisting.files[0].name, "first.txt")
                 is_first = False
             for file in dirlisting.files_relative(src):

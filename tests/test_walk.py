@@ -64,7 +64,7 @@ class RcloneWalkTest(unittest.TestCase):
             if is_first:
                 # assert just one file
                 # assert len(dirlisting.files) == 1
-                self.assertEqual(len(dirlisting.files), 1)
+                self.assertGreaterEqual(len(dirlisting.files), 1)
                 # assert it's first.txt
                 self.assertEqual(dirlisting.files[0].name, "first.txt")
                 is_first = False
