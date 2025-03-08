@@ -19,6 +19,8 @@ class RPath:
     ) -> None:
         from rclone_api.rclone_impl import RcloneImpl
 
+        if path.endswith("/"):
+            path = path[:-1]
         self.remote = remote
         self.path = path
         self.name = name

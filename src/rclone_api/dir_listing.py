@@ -42,7 +42,7 @@ class DirListing:
     def __str__(self) -> str:
         n_files = len(self.files)
         n_dirs = len(self.dirs)
-        msg = f"Files: {n_files}\n"
+        msg = f"\nFiles: {n_files}\n"
         if n_files > 0:
             for f in self.files:
                 msg += f"  {f}\n"
