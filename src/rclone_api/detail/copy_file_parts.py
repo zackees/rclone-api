@@ -248,6 +248,36 @@ class InfoJson:
         return self.to_json_str()
 
 
+def collapse_runs(numbers: list[int]) -> list[str]:
+    if not numbers:
+        return []
+
+    runs = []
+    start = numbers[0]
+    prev = numbers[0]
+
+    for num in numbers[1:]:
+        if num == prev + 1:
+            # Continue current run
+            prev = num
+        else:
+            # End current run
+            if start == prev:
+                runs.append(str(start))
+            else:
+                runs.append(f"{start}-{prev}")
+            start = num
+            prev = num
+
+    # Append the final run
+    if start == prev:
+        runs.append(str(start))
+    else:
+        runs.append(f"{start}-{prev}")
+
+    return runs
+
+
 def copy_file_parts(
     self: RcloneImpl,
     src: str,  # src:/Bucket/path/myfile.large.zst
@@ -297,7 +327,9 @@ def copy_file_parts(
     first_part_number = part_infos[0].part_number
     last_part_number = part_infos[-1].part_number
 
-    print(f"all_numbers_already_done: {sorted(list(all_numbers_already_done))}")
+    print(
+        f"all_numbers_already_done: {collapse_runs(sorted(list(all_numbers_already_done)))}"
+    )
 
     filtered_part_infos: list[PartInfo] = []
     for part_info in part_infos:
@@ -306,7 +338,7 @@ def copy_file_parts(
     part_infos = filtered_part_infos
 
     remaining_part_numbers: list[int] = [p.part_number for p in part_infos]
-    print(f"remaining_part_numbers: {remaining_part_numbers}")
+    print(f"remaining_part_numbers: {collapse_runs(remaining_part_numbers)}")
 
     if len(part_infos) == 0:
         return Exception(f"No parts to copy for {src}")
