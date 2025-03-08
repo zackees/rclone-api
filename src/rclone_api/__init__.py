@@ -390,6 +390,18 @@ class Rclone:
         """Copy a remote to another remote."""
         return self.impl.copy_remote(src=src, dst=dst, args=args)
 
+    def copy_file_parts(
+        self,
+        src: str,  # src:/Bucket/path/myfile.large.zst
+        dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/**.part.{part_number:05d}
+        part_infos: list[PartInfo],
+        threads: int = 1,  # Number of reader and writer threads to use
+    ) -> Exception | None:
+        """Copy a file in parts."""
+        return self.impl.copy_file_parts(
+            src=src, dst_dir=dst_dir, part_infos=part_infos, threads=threads
+        )
+
     def mount(
         self,
         src: Remote | Dir | str,

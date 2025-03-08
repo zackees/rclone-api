@@ -134,7 +134,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             size=src_size, target_chunk_size=src_size / 9
         )
 
-        rclone.impl.copy_file_parts(
+        rclone.copy_file_parts(
             src=src_file,
             dst_dir=dst_dir,
             part_infos=part_infos,

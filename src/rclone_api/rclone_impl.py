@@ -824,7 +824,7 @@ class RcloneImpl:
             except Exception as e:
                 return UploadPart(chunk=outchunk, dst_part=part_dst, exception=e)
 
-        finished_tasks: list[UploadPart | Exception] = []
+        finished_tasks: list[UploadPart] = []
 
         with self.serve_http(src_dir) as http_server:
             with TemporaryDirectory() as tmp_dir:
@@ -868,6 +868,11 @@ class RcloneImpl:
                             read_fut.add_done_callback(queue_upload_task)
                             semaphore.acquire()  # If we are back filled, we will wait here
 
+        exceptions: list[Exception] = [
+            t.exception for t in finished_tasks if t.exception is not None
+        ]
+        if len(exceptions) > 0:
+            return Exception(f"Failed to copy parts: {exceptions}", exceptions)
         return None
 
     def size_file(self, src: str) -> SizeSuffix | Exception:
