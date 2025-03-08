@@ -755,50 +755,55 @@ class RcloneImpl:
             dst_dir = dst_dir[:-1]
         tasks: list[Callable[[], Exception | None]] = []
         part_info: PartInfo
-        # parent_
+        src_dir = os.path.dirname(src)
+        src_name = os.path.basename(src)
+        http_server: HttpServer
 
-        # self.serve_http(os.path.dirname(src))
+        with self.serve_http(src_dir, addr="localhost:8080") as http_server:
+            for part_info in part_infos:
+                part_number: int = part_info.part_number
+                range: Range = part_info.range
+                offset: SizeSuffix = SizeSuffix(range.start)
+                length: SizeSuffix = SizeSuffix(range.end - range.start)
 
-        for part_info in part_infos:
-            part_number: int = part_info.part_number
-            range: Range = part_info.range
-            offset: SizeSuffix = SizeSuffix(range.start)
-            length: SizeSuffix = SizeSuffix(range.end - range.start)
+                def task(offset=offset, length=length) -> Exception | None:
+                    try:
+                        range = Range(offset.as_int(), (offset + length).as_int())
+                        with TemporaryDirectory() as tmpdir:
+                            outchunk: Path = Path(tmpdir) / "outchunk"
+                            err = http_server.download(
+                                path=src_name,
+                                range=range,
+                                dst=outchunk,
+                            )
+                            if isinstance(err, Exception):
+                                raise err
+                            offset_int = offset.as_int()
+                            end_int = (offset + length).as_int()
+                            part_dst: str = (
+                                f"{dst_dir}/{offset_int}-{end_int}.part.{part_number:05d}"
+                            )
+                            self.copy_to(outchunk.as_posix(), part_dst)
+                            outchunk.unlink()
+                            return None
+                    except KeyboardInterrupt as ke:
+                        _thread.interrupt_main()
+                        return Exception(ke)
+                    except SystemExit as se:
+                        _thread.interrupt_main()
+                        return Exception(se)
+                    except Exception as e:
+                        return e
 
-            def task(offset=offset, length=length) -> Exception | None:
-                try:
-                    with TemporaryDirectory() as tmpdir:
-                        outchunk: Path = Path(tmpdir) / "outchunk"
-                        err = self.copy_bytes(src, offset, length, outchunk)
-                        if isinstance(err, Exception):
-                            raise err
+                tasks.append(task)
 
-                        offset_int = offset.as_int()
-                        end_int = (offset + length).as_int()
-                        part_dst: str = (
-                            f"{dst_dir}/{offset_int}-{end_int}.part.{part_number:05d}"
-                        )
-                        # self.copy(src.as_posix(), dst_dir.as_posix())
-                        self.copy_to(outchunk.as_posix(), part_dst)
-                        return None
-                except KeyboardInterrupt as ke:
-                    _thread.interrupt_main()
-                    return Exception(ke)
-                except SystemExit as se:
-                    _thread.interrupt_main()
-                    return Exception(se)
-                except Exception as e:
-                    return e
-
-            tasks.append(task)
-
-        with ThreadPoolExecutor(max_workers=threads) as executor:
-            curr_task: Callable[[], Exception | None]
-            for curr_task in tasks:
-                err = curr_task()
-                if isinstance(err, Exception):
-                    executor.shutdown(wait=True, cancel_futures=True)
-                    return err
+            with ThreadPoolExecutor(max_workers=threads) as executor:
+                curr_task: Callable[[], Exception | None]
+                for curr_task in tasks:
+                    err = curr_task()
+                    if isinstance(err, Exception):
+                        executor.shutdown(wait=True, cancel_futures=True)
+                        return err
 
         return None
 
