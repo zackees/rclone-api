@@ -783,6 +783,25 @@ class RcloneImpl:
                 return Exception(f"Failed to write bytes to {dst}", completed_proc)
         return None
 
+    def read_bytes(self, src: str) -> bytes | Exception:
+        """Read bytes from a file."""
+        with TemporaryDirectory() as tmpdir:
+            tmpfile = Path(tmpdir) / "file.bin"
+            completed_proc = self.copy_to(src, str(tmpfile), check=True)
+            if completed_proc.returncode != 0:
+                return Exception(f"Failed to read bytes from {src}", completed_proc)
+            return tmpfile.read_bytes()
+
+    def read_text(self, src: str) -> str | Exception:
+        """Read text from a file."""
+        data = self.read_bytes(src)
+        if isinstance(data, Exception):
+            return data
+        try:
+            return data.decode("utf-8")
+        except UnicodeDecodeError as e:
+            return Exception(f"Failed to decode text from {src}", e)
+
     def size_file(self, src: str) -> SizeSuffix | Exception:
         """Get the size of a file or directory."""
         src_parent = os.path.dirname(src)
