@@ -755,6 +755,10 @@ class RcloneImpl:
             dst_dir = dst_dir[:-1]
         tasks: list[Callable[[], Exception | None]] = []
         part_info: PartInfo
+        # parent_
+
+        # self.serve_http(os.path.dirname(src))
+
         for part_info in part_infos:
             part_number: int = part_info.part_number
             range: Range = part_info.range

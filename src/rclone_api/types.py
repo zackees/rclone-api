@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -309,10 +310,60 @@ class Range:
         return {"Range": val}
 
 
+_MAX_PART_NUMBER = 10000
+
+
+def _create_part_infos(
+    src_size: int | SizeSuffix, target_chunk_size: int | SizeSuffix
+) -> list["PartInfo"]:
+    # now break it up into 10 parts
+    src_size = SizeSuffix(src_size)
+    target_chunk_size = SizeSuffix(target_chunk_size)
+    min_chunk_size = src_size // (_MAX_PART_NUMBER - 1)  # overriden
+    # chunk_size = max(min_chunk_size, target_chunk_size)
+    if min_chunk_size > target_chunk_size:
+        warnings.warn(
+            f"min_chunk_size: {min_chunk_size} is greater than target_chunk_size: {target_chunk_size}, adjusting target_chunk_size to min_chunk_size"
+        )
+        chunk_size = SizeSuffix(min_chunk_size)
+    else:
+        chunk_size = SizeSuffix(target_chunk_size)
+
+    part_infos: list[PartInfo] = []
+    curr_offset: int = 0
+    part_number: int = 0
+    while True:
+        part_number += 1
+        done = False
+        end = curr_offset + chunk_size
+        if end > src_size:
+            done = True
+            chunk_size = src_size - curr_offset
+        range: Range = Range(start=curr_offset, end=curr_offset + chunk_size)
+        part_info = PartInfo(
+            part_number=part_number,
+            range=range,
+        )
+        part_infos.append(part_info)
+        curr_offset += chunk_size.as_int()
+        if curr_offset >= src_size:
+            break
+        if done:
+            break
+    return part_infos
+
+
 @dataclass
 class PartInfo:
     part_number: int
     range: Range
+
+    @staticmethod
+    def split_parts(
+        size: int | SizeSuffix, target_chunk_size: int | SizeSuffix
+    ) -> list["PartInfo"]:
+        out = _create_part_infos(size, target_chunk_size)
+        return out
 
     def __post_init__(self):
         assert self.part_number >= 0

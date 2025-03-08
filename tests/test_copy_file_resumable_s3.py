@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rclone_api import PartInfo, Range, Rclone, SizeSuffix
+from rclone_api import PartInfo, Rclone, SizeSuffix
 
 _HERE = Path(__file__).parent
 _PROJECT_ROOT = _HERE.parent
@@ -130,31 +130,9 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         assert isinstance(src_size, SizeSuffix)
 
         print(f"src_size: {src_size}")
-
-        # now break it up into 10 parts
-        chunk_size = src_size / 10
-
-        part_infos: list[PartInfo] = []
-        curr_offset: int = 0
-        part_number: int = 0
-        while True:
-            part_number += 1
-            done = False
-            end = curr_offset + chunk_size
-            if end > src_size:
-                done = True
-                chunk_size = src_size - curr_offset
-            range: Range = Range(start=curr_offset, end=curr_offset + chunk_size)
-            part_info = PartInfo(
-                part_number=part_number,
-                range=range,
-            )
-            part_infos.append(part_info)
-            curr_offset += chunk_size.as_int()
-            if curr_offset >= src_size:
-                break
-            if done:
-                break
+        part_infos: list[PartInfo] = PartInfo.split_parts(
+            size=src_size, target_chunk_size=src_size / 9
+        )
 
         rclone.impl.copy_file_parts(
             src=src_file,
