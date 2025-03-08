@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 import subprocess
 import warnings
@@ -21,6 +22,25 @@ _PRINT_LOCK = Lock()
 def locked_print(*args, **kwargs):
     with _PRINT_LOCK:
         print(*args, **kwargs)
+
+
+def port_is_free(port: int) -> bool:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("localhost", port)) != 0
+
+
+def find_free_port() -> int:
+    tries = 20
+    port = random.randint(10000, 20000)
+    while tries > 0:
+        if port_is_free(port):
+            return port
+        tries -= 1
+        port = random.randint(10000, 20000)
+    warnings.warn(f"Failed to find a free port, so using {port}")
+    return port
 
 
 def to_path(item: Dir | Remote | str, rclone: Any) -> RPath:

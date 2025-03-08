@@ -47,6 +47,7 @@ from rclone_api.types import (
     SizeSuffix,
 )
 from rclone_api.util import (
+    find_free_port,
     get_check,
     get_rclone_exe,
     get_verbose,
@@ -759,7 +760,7 @@ class RcloneImpl:
         src_name = os.path.basename(src)
         http_server: HttpServer
 
-        with self.serve_http(src_dir, addr="localhost:8080") as http_server:
+        with self.serve_http(src_dir) as http_server:
             for part_info in part_infos:
                 part_number: int = part_info.part_number
                 range: Range = part_info.range
@@ -1179,7 +1180,7 @@ class RcloneImpl:
     def serve_http(
         self,
         src: str,
-        addr: str = "localhost:8080",
+        addr: str | None = None,
         serve_http_log: Path | None = None,
         other_args: list[str] | None = None,
     ) -> HttpServer:
@@ -1189,6 +1190,7 @@ class RcloneImpl:
             src: Remote or directory to serve
             addr: Network address and port to serve on (default: localhost:8080)
         """
+        addr = addr or f"localhost:{find_free_port()}"
         _, subpath = src.split(":", 1)  # might not work on local paths.
         cmd_list: list[str] = ["serve", "http", "--addr", addr, src]
         if serve_http_log:
