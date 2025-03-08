@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from rclone_api.dir_listing import DirListing
 from rclone_api.http_server import HttpServer
 from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.types import (
@@ -83,6 +84,17 @@ def read_task(
         return UploadPart(chunk=outchunk, dst_part=part_dst, exception=e)
 
 
+def _fetch_all_names(
+    self: RcloneImpl,
+    src: str,
+) -> list[str]:
+    dl: DirListing = self.ls(src)
+    files = dl.files
+    filenames: list[str] = [f.name for f in files]
+    filtered: list[str] = [f for f in filenames if f.startswith("part.")]
+    return filtered
+
+
 def _get_info_json(self: RcloneImpl, src: str, src_info: str) -> dict:
     from rclone_api.file import File
 
@@ -94,6 +106,7 @@ def _get_info_json(self: RcloneImpl, src: str, src_info: str) -> dict:
     new_data = {
         "new": True,
         "created": now.isoformat(),
+        "src": src,
         "src_modtime": src_stat.mod_time(),
         "size": src_stat.size,
         "chunksize": None,
@@ -129,12 +142,13 @@ def _save_info_json(self: RcloneImpl, src: str, data: dict) -> None:
     # hash
 
     h = hashlib.md5()
-    data_vals = [
-        data.get("src_modtime", ""),
-        data.get("size", ""),
-        data.get("chunksize_int", ""),
+    tmp = [
+        data.get("src"),
+        data.get("src_modtime"),
+        data.get("size"),
+        data.get("chunksize_int"),
     ]
-    data_vals = [str(v) for v in data_vals]
+    data_vals: list[str] = [str(v) for v in tmp]
     str_data = "".join(data_vals)
     h.update(str_data.encode("utf-8"))
     data["hash"] = h.hexdigest()
@@ -155,6 +169,19 @@ class InfoJson:
 
     def save(self) -> None:
         _save_info_json(self.rclone, self.src_info, self.data)
+
+    def print(self) -> None:
+        self.rclone.print(self.src_info)
+
+    def fetch_all_finished(self) -> list[str]:
+        parent_path = os.path.dirname(self.src_info)
+        out = _fetch_all_names(self.rclone, parent_path)
+        return out
+
+    def fetch_all_finished_part_numbers(self) -> list[int]:
+        names = self.fetch_all_finished()
+        part_numbers = [int(name.split("_")[0].split(".")[1]) for name in names]
+        return part_numbers
 
     @property
     def new(self) -> bool:
@@ -209,18 +236,6 @@ class InfoJson:
     def __str__(self):
         return self.to_json_str()
 
-    # @property
-    # def size(self) -> int:
-    #     return int(self.data["size"])
-
-    # @property
-    # def is_new(self) -> bool:
-    #     return self.data.get("new", False)
-
-    # @property
-    # def created(self) -> datetime:
-    #     return datetime.fromisoformat(self.data["created"])
-
 
 def copy_file_parts(
     self: RcloneImpl,
@@ -232,24 +247,49 @@ def copy_file_parts(
     """Copy parts of a file from source to destination."""
     if dst_dir.endswith("/"):
         dst_dir = dst_dir[:-1]
+    src_size = self.size_file(src)
+    if isinstance(src_size, Exception):
+        return src_size
 
     part_info: PartInfo
     src_dir = os.path.dirname(src)
     src_name = os.path.basename(src)
     http_server: HttpServer
 
+    full_part_infos: list[PartInfo] | Exception = PartInfo.split_parts(
+        src_size, SizeSuffix("96MB")
+    )
+    if isinstance(full_part_infos, Exception):
+        return full_part_infos
+    assert isinstance(full_part_infos, list)
+
     if part_infos is None:
         src_size = self.size_file(src)
         if isinstance(src_size, Exception):
             return src_size
-        part_infos = PartInfo.split_parts(src_size, SizeSuffix("96MB"))
+        part_infos = full_part_infos.copy()
 
+    all_part_numbers: list[int] = [p.part_number for p in part_infos]
     src_info_json = f"{dst_dir}/info.json"
     info_json = InfoJson(self, src, src_info_json)
 
     if not info_json.load():
         print(f"New: {src_info_json}")
         # info_json.save()
+
+    all_numbers_already_done: set[int] = set(
+        info_json.fetch_all_finished_part_numbers()
+    )
+    print(f"all_numbers_already_done: {sorted(list(all_numbers_already_done))}")
+
+    filtered_part_infos: list[PartInfo] = []
+    for part_info in part_infos:
+        if part_info.part_number not in all_numbers_already_done:
+            filtered_part_infos.append(part_info)
+    part_infos = filtered_part_infos
+
+    remaining_part_numbers: list[int] = [p.part_number for p in part_infos]
+    print(f"remaining_part_numbers: {remaining_part_numbers}")
 
     if len(part_infos) == 0:
         return Exception(f"No parts to copy for {src}")
@@ -259,6 +299,10 @@ def copy_file_parts(
     info_json.first_part = part_infos[0].part_number
     info_json.last_part = part_infos[-1].part_number
     info_json.save()
+
+    # We are now validated
+    info_json.load()
+    info_json.print()
 
     print(info_json)
 
@@ -276,7 +320,7 @@ def copy_file_parts(
                         offset: SizeSuffix = SizeSuffix(range.start)
                         length: SizeSuffix = SizeSuffix(range.end - range.start)
                         end = offset + length
-                        part_dst = f"{dst_dir}/part.{part_number:05d}.{offset.as_int()}-{end.as_int()}"
+                        part_dst = f"{dst_dir}/part.{part_number:05d}_{offset.as_int()}-{end.as_int()}"
 
                         def _read_task(
                             src_name=src_name,
@@ -305,7 +349,7 @@ def copy_file_parts(
                             upload_fut: Future[UploadPart] = upload_executor.submit(
                                 upload_task, self, upload_part
                             )
-                            # SEMAPHORE!!!
+                            # SEMAPHORE RELEASE!!!
                             upload_fut.add_done_callback(
                                 lambda _: write_semaphore.release()
                             )
@@ -314,6 +358,7 @@ def copy_file_parts(
                             )
 
                         read_fut.add_done_callback(queue_upload_task)
+                        # SEMAPHORE ACQUIRE!!!
                         # If we are back filled on the writers, then we stall.
                         write_semaphore.acquire()
 
@@ -322,4 +367,11 @@ def copy_file_parts(
     ]
     if len(exceptions) > 0:
         return Exception(f"Failed to copy parts: {exceptions}", exceptions)
+
+    finished_parts: list[int] = info_json.fetch_all_finished_part_numbers()
+    print(f"finished_names: {finished_parts}")
+
+    diff_set = set(all_part_numbers).symmetric_difference(set(finished_parts))
+    all_part_numbers_done = len(diff_set) == 0
+    print(f"all_part_numbers_done: {all_part_numbers_done}")
     return None

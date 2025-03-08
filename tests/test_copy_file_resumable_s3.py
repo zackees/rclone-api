@@ -140,6 +140,13 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             part_infos=part_infos,
         )
 
+        # Second time should go fast.
+        rclone.copy_file_parts(
+            src=src_file,
+            dst_dir=dst_dir,
+            part_infos=part_infos,
+        )
+
         rclone.impl.write_text(
             text="Hello, World!",
             dst=f"{dst_dir}/hello.txt",

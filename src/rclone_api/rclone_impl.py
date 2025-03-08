@@ -264,6 +264,17 @@ class RcloneImpl:
             random.shuffle(paths)
         return DirListing(paths)
 
+    def print(self, path: str) -> Exception | None:
+        """Print the contents of a file."""
+        try:
+            text_or_err = self.read_text(path)
+            if isinstance(text_or_err, Exception):
+                return text_or_err
+            print(text_or_err)
+        except Exception as e:
+            return e
+        return None
+
     def stat(self, src: str) -> File | Exception:
         """Get the status of a file or directory."""
         dirlist: DirListing = self.ls(src)

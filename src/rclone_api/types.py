@@ -379,3 +379,11 @@ class PartInfo:
         assert self.part_number <= 10000
         assert self.range.start >= 0
         assert self.range.end > self.range.start
+
+    @property
+    def name(self) -> str:
+        partnumber = f"{self.part_number:05d}"
+        offset = self.range.start.as_int()
+        end = SizeSuffix(self.range.end._size).as_int()
+        dst_name = f"part.{partnumber}_{offset}-{end}"
+        return dst_name
