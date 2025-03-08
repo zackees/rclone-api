@@ -8,7 +8,6 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from rclone_api.dir_listing import DirListing
 from rclone_api.http_server import HttpServer
@@ -249,6 +248,8 @@ def copy_file_parts(
     threads: int = 1,
 ) -> Exception | None:
     """Copy parts of a file from source to destination."""
+    from rclone_api.util import random_str
+
     if dst_dir.endswith("/"):
         dst_dir = dst_dir[:-1]
     src_size = self.size_file(src)
@@ -311,65 +312,72 @@ def copy_file_parts(
     print(info_json)
 
     finished_tasks: list[UploadPart] = []
+    tmp_dir = str(Path("chunks") / random_str(12))
+    import atexit
+    import shutil
+
+    atexit.register(lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
 
     with self.serve_http(src_dir) as http_server:
-        with TemporaryDirectory() as tmp_dir:
-            tmpdir: Path = Path(tmp_dir)
-            write_semaphore = threading.Semaphore(threads)
-            with ThreadPoolExecutor(max_workers=threads) as upload_executor:
-                with ThreadPoolExecutor(max_workers=threads) as read_executor:
-                    for part_info in part_infos:
-                        part_number: int = part_info.part_number
-                        range: Range = part_info.range
-                        offset: SizeSuffix = SizeSuffix(range.start)
-                        length: SizeSuffix = SizeSuffix(range.end - range.start)
-                        end = offset + length
-                        suffix = _gen_name(part_number, offset, end)
-                        part_dst = f"{dst_dir}/{suffix}"
+        tmpdir: Path = Path(tmp_dir)
+        write_semaphore = threading.Semaphore(threads)
+        with ThreadPoolExecutor(max_workers=threads) as upload_executor:
+            with ThreadPoolExecutor(max_workers=threads) as read_executor:
+                for part_info in part_infos:
+                    part_number: int = part_info.part_number
+                    range: Range = part_info.range
+                    offset: SizeSuffix = SizeSuffix(range.start)
+                    length: SizeSuffix = SizeSuffix(range.end - range.start)
+                    end = offset + length
+                    suffix = _gen_name(part_number, offset, end)
+                    part_dst = f"{dst_dir}/{suffix}"
 
-                        def _read_task(
+                    def _read_task(
+                        src_name=src_name,
+                        http_server=http_server,
+                        tmpdir=tmpdir,
+                        offset=offset,
+                        length=length,
+                        part_dst=part_dst,
+                    ) -> UploadPart:
+                        return read_task(
                             src_name=src_name,
                             http_server=http_server,
                             tmpdir=tmpdir,
                             offset=offset,
                             length=length,
                             part_dst=part_dst,
-                        ) -> UploadPart:
-                            return read_task(
-                                src_name=src_name,
-                                http_server=http_server,
-                                tmpdir=tmpdir,
-                                offset=offset,
-                                length=length,
-                                part_dst=part_dst,
-                            )
+                        )
 
-                        read_fut: Future[UploadPart] = read_executor.submit(_read_task)
+                    read_fut: Future[UploadPart] = read_executor.submit(_read_task)
 
-                        # Releases the semaphore when the write task is done
-                        def queue_upload_task(
-                            read_fut=read_fut,
-                        ) -> None:
-                            upload_part = read_fut.result()
-                            upload_fut: Future[UploadPart] = upload_executor.submit(
-                                upload_task, self, upload_part
-                            )
-                            # SEMAPHORE RELEASE!!!
-                            upload_fut.add_done_callback(
-                                lambda _: write_semaphore.release()
-                            )
-                            upload_fut.add_done_callback(
-                                lambda fut: finished_tasks.append(fut.result())
-                            )
+                    # Releases the semaphore when the write task is done
+                    def queue_upload_task(
+                        read_fut=read_fut,
+                    ) -> None:
+                        upload_part = read_fut.result()
+                        upload_fut: Future[UploadPart] = upload_executor.submit(
+                            upload_task, self, upload_part
+                        )
+                        # SEMAPHORE RELEASE!!!
+                        upload_fut.add_done_callback(
+                            lambda _: write_semaphore.release()
+                        )
+                        upload_fut.add_done_callback(
+                            lambda fut: finished_tasks.append(fut.result())
+                        )
 
-                        read_fut.add_done_callback(queue_upload_task)
-                        # SEMAPHORE ACQUIRE!!!
-                        # If we are back filled on the writers, then we stall.
-                        write_semaphore.acquire()
+                    read_fut.add_done_callback(queue_upload_task)
+                    # SEMAPHORE ACQUIRE!!!
+                    # If we are back filled on the writers, then we stall.
+                    write_semaphore.acquire()
 
     exceptions: list[Exception] = [
         t.exception for t in finished_tasks if t.exception is not None
     ]
+
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
     if len(exceptions) > 0:
         return Exception(f"Failed to copy parts: {exceptions}", exceptions)
 
