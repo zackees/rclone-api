@@ -11,12 +11,11 @@ from typing import Any, Callable
 from botocore.client import BaseClient
 
 from rclone_api.mount_read_chunker import FilePart
-from rclone_api.s3.chunk_task import S3FileInfo, file_chunker
-from rclone_api.s3.chunk_types import (
-    FinishedPiece,
-    UploadInfo,
-    UploadState,
-)
+from rclone_api.s3.chunk_task import file_chunker
+from rclone_api.s3.multipart.file_info import S3FileInfo
+from rclone_api.s3.multipart.finished_piece import FinishedPiece
+from rclone_api.s3.multipart.upload_info import UploadInfo
+from rclone_api.s3.multipart.upload_state import UploadState
 from rclone_api.s3.types import MultiUploadResult
 from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print
@@ -199,12 +198,6 @@ def upload_file_multipart(
 ) -> MultiUploadResult:
     """Upload a file to the bucket using multipart upload with customizable chunk size."""
     file_size = file_size if file_size is not None else os.path.getsize(str(file_path))
-    # if chunk_size > file_size:
-    #     warnings.warn(
-    #         f"Chunk size {chunk_size} is greater than file size {file_size}, using file size"
-    #     )
-    #     chunk_size = file_size
-
     if chunk_size < _MIN_UPLOAD_CHUNK_SIZE:
         raise ValueError(
             f"Chunk size {chunk_size} is less than minimum upload chunk size {_MIN_UPLOAD_CHUNK_SIZE}"

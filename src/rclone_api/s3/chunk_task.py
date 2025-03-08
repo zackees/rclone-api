@@ -7,27 +7,11 @@ from threading import Event, Lock
 from typing import Any, Callable
 
 from rclone_api.mount_read_chunker import FilePart
-from rclone_api.s3.chunk_types import S3FileInfo, UploadState
+from rclone_api.s3.multipart.file_info import S3FileInfo
+from rclone_api.s3.multipart.upload_state import UploadState
 from rclone_api.types import EndOfStream
 
 logger = logging.getLogger(__name__)  # noqa
-
-
-# def _get_file_size(file_path: Path, timeout: int = 60) -> int:
-#     sleep_time = timeout / 60 if timeout > 0 else 1
-#     start = time.time()
-#     while True:
-#         expired = time.time() - start > timeout
-#         try:
-#             time.sleep(sleep_time)
-#             if file_path.exists():
-#                 return file_path.stat().st_size
-#         except FileNotFoundError as e:
-#             if expired:
-#                 print(f"File not found: {file_path}, exception is {e}")
-#                 raise
-#         if expired:
-#             raise TimeoutError(f"File {file_path} not found after {timeout} seconds")
 
 
 class _ShouldStopChecker:
