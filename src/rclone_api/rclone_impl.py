@@ -10,10 +10,11 @@ import time
 import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Callable, Generator
+from typing import Generator
 
 from rclone_api import Dir
 from rclone_api.completed_process import CompletedProcess
@@ -754,57 +755,118 @@ class RcloneImpl:
         """Copy parts of a file from source to destination."""
         if dst_dir.endswith("/"):
             dst_dir = dst_dir[:-1]
-        tasks: list[Callable[[], Exception | None]] = []
+
         part_info: PartInfo
         src_dir = os.path.dirname(src)
         src_name = os.path.basename(src)
         http_server: HttpServer
 
+        @dataclass
+        class UploadPart:
+            chunk: Path
+            dst_part: str
+            exception: Exception | None = None
+            finished: bool = False
+
+            def dispose(self):
+                try:
+                    if self.chunk.exists():
+                        self.chunk.unlink()
+                    self.finished = True
+                except Exception as e:
+                    warnings.warn(f"Failed to delete file {self.chunk}: {e}")
+
+            def __del__(self):
+                self.dispose()
+
+        def upload_task(upload_part: UploadPart) -> UploadPart:
+            try:
+                if upload_part.exception is not None:
+                    return upload_part
+                self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
+                return upload_part
+            except Exception as e:
+                upload_part.exception = e
+                return upload_part
+            finally:
+                upload_part.dispose()
+
+        def read_task(
+            http_server: HttpServer,
+            tmpdir: Path,
+            offset: SizeSuffix,
+            length: SizeSuffix,
+        ) -> UploadPart:
+            outchunk: Path = (
+                tmpdir / f"{offset.as_int()}-{(offset + length).as_int()}.chunk"
+            )
+            offset_int = offset.as_int()
+            end_int = (offset + length).as_int()
+            range = Range(offset.as_int(), (offset + length).as_int())
+            part_dst: str = f"{dst_dir}/{offset_int}-{end_int}.part.{part_number:05d}"
+            try:
+                err = http_server.download(
+                    path=src_name,
+                    range=range,
+                    dst=outchunk,
+                )
+                if isinstance(err, Exception):
+                    out = UploadPart(chunk=outchunk, dst_part="", exception=err)
+                    out.dispose()
+                    return out
+                return UploadPart(chunk=outchunk, dst_part=part_dst)
+            except KeyboardInterrupt as ke:
+                _thread.interrupt_main()
+                raise ke
+            except SystemExit as se:
+                _thread.interrupt_main()
+                raise se
+            except Exception as e:
+                return UploadPart(chunk=outchunk, dst_part=part_dst, exception=e)
+
+        finished_tasks: list[UploadPart | Exception] = []
+
         with self.serve_http(src_dir) as http_server:
-            for part_info in part_infos:
-                part_number: int = part_info.part_number
-                range: Range = part_info.range
-                offset: SizeSuffix = SizeSuffix(range.start)
-                length: SizeSuffix = SizeSuffix(range.end - range.start)
+            with TemporaryDirectory() as tmp_dir:
+                tmpdir: Path = Path(tmp_dir)
+                import threading
 
-                def task(offset=offset, length=length) -> Exception | None:
-                    try:
-                        range = Range(offset.as_int(), (offset + length).as_int())
-                        with TemporaryDirectory() as tmpdir:
-                            outchunk: Path = Path(tmpdir) / "outchunk"
-                            err = http_server.download(
-                                path=src_name,
-                                range=range,
-                                dst=outchunk,
-                            )
-                            if isinstance(err, Exception):
-                                raise err
-                            offset_int = offset.as_int()
-                            end_int = (offset + length).as_int()
-                            part_dst: str = (
-                                f"{dst_dir}/{offset_int}-{end_int}.part.{part_number:05d}"
-                            )
-                            self.copy_to(outchunk.as_posix(), part_dst)
-                            outchunk.unlink()
-                            return None
-                    except KeyboardInterrupt as ke:
-                        _thread.interrupt_main()
-                        return Exception(ke)
-                    except SystemExit as se:
-                        _thread.interrupt_main()
-                        return Exception(se)
-                    except Exception as e:
-                        return e
+                semaphore = threading.Semaphore(threads)
 
-                tasks.append(task)
+                with ThreadPoolExecutor(max_workers=threads) as upload_executor:
+                    with ThreadPoolExecutor(max_workers=threads) as read_executor:
+                        for part_info in part_infos:
+                            part_number: int = part_info.part_number
+                            range: Range = part_info.range
+                            offset: SizeSuffix = SizeSuffix(range.start)
+                            length: SizeSuffix = SizeSuffix(range.end - range.start)
 
-            with ThreadPoolExecutor(max_workers=threads) as executor:
-                curr_task: Callable[[], Exception | None]
-                for curr_task in tasks:
-                    err = curr_task()
-                    if isinstance(err, Exception):
-                        executor.shutdown(wait=True, cancel_futures=True)
-                        return err
+                            def task(
+                                http_server=http_server,
+                                tmpdir=tmpdir,
+                                offset=offset,
+                                length=length,
+                            ) -> UploadPart:
+                                return read_task(http_server, tmpdir, offset, length)
+
+                            read_fut: Future[UploadPart] = read_executor.submit(task)
+
+                            def queue_upload_task(
+                                read_fut=read_fut,
+                            ) -> None:
+                                upload_part = read_fut.result()
+                                upload_fut: Future[UploadPart] = upload_executor.submit(
+                                    upload_task, upload_part
+                                )
+                                upload_fut.add_done_callback(
+                                    lambda _: semaphore.release()
+                                )
+                                upload_fut.add_done_callback(
+                                    lambda fut: finished_tasks.append(fut.result())
+                                )
+
+                            read_fut.add_done_callback(queue_upload_task)
+                            semaphore.acquire()  # If we are back filled, we will wait here
 
         return None
 
