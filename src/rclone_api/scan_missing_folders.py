@@ -6,9 +6,9 @@ from threading import Thread
 from typing import Generator
 
 from rclone_api import Dir
+from rclone_api.detail.walk import walk_runner_depth_first
 from rclone_api.dir_listing import DirListing
 from rclone_api.types import ListingOption, Order
-from rclone_api.walk import walk_runner_depth_first
 
 _MAX_OUT_QUEUE_SIZE = 50
 

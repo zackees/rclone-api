@@ -72,7 +72,7 @@ class Dir:
         self, breadth_first: bool, max_depth: int = -1
     ) -> Generator[DirListing, None, None]:
         """List files and directories in the given path."""
-        from rclone_api.walk import walk
+        from rclone_api.detail.walk import walk
 
         assert self.path.rclone is not None
         return walk(self, breadth_first=breadth_first, max_depth=max_depth)

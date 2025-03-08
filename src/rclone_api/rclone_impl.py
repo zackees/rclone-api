@@ -19,6 +19,7 @@ from rclone_api.completed_process import CompletedProcess
 from rclone_api.config import Config, Parsed, Section
 from rclone_api.convert import convert_to_filestr_list, convert_to_str
 from rclone_api.deprecated import deprecated
+from rclone_api.detail.walk import walk
 from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_process
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
@@ -51,7 +52,6 @@ from rclone_api.util import (
     get_verbose,
     to_path,
 )
-from rclone_api.walk import walk
 
 
 def rclone_verbose(verbose: bool | None) -> bool:
