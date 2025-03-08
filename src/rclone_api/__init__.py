@@ -393,7 +393,7 @@ class Rclone:
     def copy_file_parts(
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
-        dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/**.part.{part_number:05d}
+        dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/part.{part_number:05d}.start-end
         part_infos: list[PartInfo],
         threads: int = 1,  # Number of reader and writer threads to use
     ) -> Exception | None:

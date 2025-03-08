@@ -749,7 +749,7 @@ class RcloneImpl:
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
         dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/
-        part_infos: list[PartInfo],
+        part_infos: list[PartInfo] | None = None,
         threads: int = 1,
     ) -> Exception | None:
         """Copy parts of a file from source to destination."""
@@ -760,6 +760,12 @@ class RcloneImpl:
         src_dir = os.path.dirname(src)
         src_name = os.path.basename(src)
         http_server: HttpServer
+
+        if part_infos is None:
+            src_size = self.size_file(src)
+            if isinstance(src_size, Exception):
+                return src_size
+            part_infos = PartInfo.split_parts(src_size, SizeSuffix("96MB"))
 
         @dataclass
         class UploadPart:
@@ -803,7 +809,7 @@ class RcloneImpl:
             offset_int = offset.as_int()
             end_int = (offset + length).as_int()
             range = Range(offset.as_int(), (offset + length).as_int())
-            part_dst: str = f"{dst_dir}/{offset_int}-{end_int}.part.{part_number:05d}"
+            part_dst: str = f"{dst_dir}/part.{part_number:05d}.{offset_int}-{end_int}"
             try:
                 err = http_server.download(
                     path=src_name,
