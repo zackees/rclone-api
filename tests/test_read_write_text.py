@@ -84,9 +84,7 @@ class RcloneReadWriteText(unittest.TestCase):
         _CONFIG_PATH.write_text(config_text, encoding="utf-8")
         print(f"Config file written to: {_CONFIG_PATH}")
         rclone = Rclone(_CONFIG_PATH)
-
         dst_file = f"{dst_dir}/hello.txt"
-
         rclone.write_text(
             text="Hello, World!",
             dst=dst_file,

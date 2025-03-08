@@ -264,13 +264,23 @@ class RcloneImpl:
             random.shuffle(paths)
         return DirListing(paths)
 
-    def modtime(self, src: str) -> str | Exception:
-        """Get the modification time of a file or directory."""
+    def stat(self, src: str) -> File | Exception:
+        """Get the status of a file or directory."""
         dirlist: DirListing = self.ls(src)
         if len(dirlist.files) == 0:
             raise FileNotFoundError(f"File not found: {src}")
         try:
             file: File = dirlist.files[0]
+            return file
+        except Exception as e:
+            return e
+
+    def modtime(self, src: str) -> str | Exception:
+        """Get the modification time of a file or directory."""
+        try:
+            file: File | Exception = self.stat(src)
+            if isinstance(file, Exception):
+                return file
             return file.mod_time()
         except Exception as e:
             return e
