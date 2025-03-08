@@ -761,6 +761,28 @@ class RcloneImpl:
         )
         return out
 
+    def write_text(
+        self,
+        text: str,
+        dst: str,
+    ) -> Exception | None:
+        """Write text to a file."""
+        return self.write_bytes(text.encode("utf-8"), dst)
+
+    def write_bytes(
+        self,
+        data: bytes,
+        dst: str,
+    ) -> Exception | None:
+        """Write bytes to a file."""
+        with TemporaryDirectory() as tmpdir:
+            tmpfile = Path(tmpdir) / "file.bin"
+            tmpfile.write_bytes(data)
+            completed_proc = self.copy_to(str(tmpfile), dst, check=True)
+            if completed_proc.returncode != 0:
+                return Exception(f"Failed to write bytes to {dst}", completed_proc)
+        return None
+
     def size_file(self, src: str) -> SizeSuffix | Exception:
         """Get the size of a file or directory."""
         src_parent = os.path.dirname(src)
