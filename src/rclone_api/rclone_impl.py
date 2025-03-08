@@ -25,6 +25,7 @@ from rclone_api.diff import DiffItem, DiffOption, diff_stream_from_running_proce
 from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
+from rclone_api.file_part import FilePart
 from rclone_api.file_stream import FilesStream
 from rclone_api.group_files import group_files
 from rclone_api.http_server import HttpServer
@@ -40,7 +41,6 @@ from rclone_api.s3.types import (
     S3UploadTarget,
 )
 from rclone_api.types import (
-    FilePart,
     ListingOption,
     ModTimeStrategy,
     Order,
@@ -1035,7 +1035,7 @@ class RcloneImpl:
         direct_io: bool = True,
     ) -> bytes | Exception:
         """Copy a slice of bytes from the src file to dst. Parallelism is achieved through multiple mounted files."""
-        from rclone_api.types import FilePart
+        from rclone_api.file_part import FilePart
 
         offset = SizeSuffix(offset).as_int()
         length = SizeSuffix(length).as_int()

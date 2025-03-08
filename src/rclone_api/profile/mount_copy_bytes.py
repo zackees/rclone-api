@@ -14,8 +14,8 @@ import psutil
 from dotenv import load_dotenv
 
 from rclone_api import Config, Rclone, SizeSuffix
+from rclone_api.file_part import FilePart
 from rclone_api.mount_read_chunker import MultiMountFileChunker
-from rclone_api.types import FilePart
 
 os.environ["RCLONE_API_VERBOSE"] = "1"
 

@@ -5,8 +5,9 @@ from pathlib import Path
 from threading import Lock, Semaphore
 from typing import Any
 
+from rclone_api.file_part import FilePart
 from rclone_api.mount import Mount
-from rclone_api.types import FilePart, SizeSuffix
+from rclone_api.types import SizeSuffix
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)

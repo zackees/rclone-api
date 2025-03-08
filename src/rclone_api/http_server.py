@@ -12,8 +12,9 @@ from typing import Any
 
 import httpx
 
+from rclone_api.file_part import FilePart
 from rclone_api.process import Process
-from rclone_api.types import FilePart, SizeSuffix, get_chunk_tmpdir
+from rclone_api.types import SizeSuffix, get_chunk_tmpdir
 
 _TIMEOUT = 10 * 60  # 10 minutes
 
