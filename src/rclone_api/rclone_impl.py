@@ -268,7 +268,8 @@ class RcloneImpl:
         """Get the status of a file or directory."""
         dirlist: DirListing = self.ls(src)
         if len(dirlist.files) == 0:
-            raise FileNotFoundError(f"File not found: {src}")
+            # raise FileNotFoundError(f"File not found: {src}")
+            return FileNotFoundError(f"File not found: {src}")
         try:
             file: File = dirlist.files[0]
             return file
@@ -819,7 +820,13 @@ class RcloneImpl:
             completed_proc = self.copy_to(src, str(tmpfile), check=True)
             if completed_proc.returncode != 0:
                 return Exception(f"Failed to read bytes from {src}", completed_proc)
-            return tmpfile.read_bytes()
+
+            if not tmpfile.exists():
+                return Exception(f"Failed to read bytes from {src}, file not found")
+            try:
+                return tmpfile.read_bytes()
+            except Exception as e:
+                return Exception(f"Failed to read bytes from {src}", e)
 
     def read_text(self, src: str) -> str | Exception:
         """Read text from a file."""

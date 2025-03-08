@@ -1,8 +1,10 @@
 import _thread
+import json
 import os
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -47,6 +49,81 @@ def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
         upload_part.dispose()
 
 
+def _get_info_json(self: RcloneImpl, src: str, src_info: str) -> dict:
+    from rclone_api.file import File
+
+    src_stat: File | Exception = self.stat(src)
+    if isinstance(src_stat, Exception):
+        raise FileNotFoundError(f"Failed to stat {src}: {src_stat}")
+
+    now: datetime = datetime.now()
+    new_data = {
+        "new": True,
+        "created": now.isoformat(),
+        "modtime": src_stat.mod_time(),
+        "size": src_stat.size,
+    }
+
+    text_or_err = self.read_text(src_info)
+    err: Exception | None = text_or_err if isinstance(text_or_err, Exception) else None
+    if isinstance(text_or_err, Exception):
+        warnings.warn(f"Failed to read {src_info}: {text_or_err}")
+        return new_data
+    assert isinstance(text_or_err, str)
+    text: str = text_or_err
+
+    if err is not None:
+        return new_data
+
+    data: dict = {}
+    try:
+        data = json.loads(text)
+        return data
+    except Exception as e:
+        warnings.warn(f"Failed to parse JSON: {e} at {src_info}")
+        return new_data
+
+
+def _save_info_json(self: RcloneImpl, src: str, data: dict) -> None:
+    data = data.copy()
+    data.pop("new", None)  # Not to be round tripped.
+    self.write_text(src, json.dumps(data, indent=4))
+
+
+class InfoJson:
+    def __init__(self, rclone: RcloneImpl, src: str, src_info: str) -> None:
+        self.rclone = rclone
+        self.src = src
+        self.src_info = src_info
+        self.data: dict = {}
+
+    def load(self) -> None:
+        self.data = _get_info_json(self.rclone, self.src, self.src_info)
+
+    def save(self) -> None:
+        _save_info_json(self.rclone, self.src_info, self.data)
+
+    @property
+    def mod_time(self) -> datetime:
+        return datetime.fromisoformat(self.data["modtime"])
+
+    @mod_time.setter
+    def mod_time(self, value: datetime) -> None:
+        self.data["modtime"] = value.isoformat()
+
+    # @property
+    # def size(self) -> int:
+    #     return int(self.data["size"])
+
+    # @property
+    # def is_new(self) -> bool:
+    #     return self.data.get("new", False)
+
+    # @property
+    # def created(self) -> datetime:
+    #     return datetime.fromisoformat(self.data["created"])
+
+
 def copy_file_parts(
     self: RcloneImpl,
     src: str,  # src:/Bucket/path/myfile.large.zst
@@ -57,6 +134,16 @@ def copy_file_parts(
     """Copy parts of a file from source to destination."""
     if dst_dir.endswith("/"):
         dst_dir = dst_dir[:-1]
+
+    src_info_json = f"{dst_dir}/info.json"
+    info_json = _get_info_json(self, src=src, src_info=src_info_json)
+    print(info_json)
+
+    # if not data:
+    #     data = {
+    #         "modtime": src_stat.mod_time(),
+    #         "size": src_stat.size,
+    #     }
 
     part_info: PartInfo
     src_dir = os.path.dirname(src)
