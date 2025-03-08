@@ -140,6 +140,14 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             part_infos=part_infos,
         )
 
+        rclone.impl.write_text(
+            text="Hello, World!",
+            dst=f"{dst_dir}/hello.txt",
+        )
+
+        out = rclone.impl.read_text(f"{dst_dir}/hello.txt")
+        print(f"out: {out}")
+
         dir_listing = rclone.ls(dst_dir)
         print(f"dir_listing: {dir_listing}")
 

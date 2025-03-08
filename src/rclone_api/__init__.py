@@ -333,6 +333,30 @@ class Rclone:
         """Check if two directories are in sync."""
         return self.impl.is_synced(src=src, dst=dst)
 
+    def write_text(
+        self,
+        text: str,
+        dst: str,
+    ) -> Exception | None:
+        """Write text to a file."""
+        return self.write_bytes(text.encode("utf-8"), dst)
+
+    def write_bytes(
+        self,
+        data: bytes,
+        dst: str,
+    ) -> Exception | None:
+        """Write bytes to a file."""
+        return self.impl.write_bytes(data=data, dst=dst)
+
+    def read_bytes(self, src: str) -> bytes | Exception:
+        """Read bytes from a file."""
+        return self.impl.read_bytes(src=src)
+
+    def read_text(self, src: str) -> str | Exception:
+        """Read text from a file."""
+        return self.impl.read_text(src=src)
+
     def copy_file_resumable_s3(
         self,
         src: str,
