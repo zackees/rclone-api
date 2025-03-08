@@ -793,16 +793,17 @@ class RcloneImpl:
 
     def write_text(
         self,
-        text: str,
         dst: str,
+        text: str,
     ) -> Exception | None:
         """Write text to a file."""
-        return self.write_bytes(text.encode("utf-8"), dst)
+        data = text.encode("utf-8")
+        return self.write_bytes(dst=dst, data=data)
 
     def write_bytes(
         self,
-        data: bytes,
         dst: str,
+        data: bytes,
     ) -> Exception | None:
         """Write bytes to a file."""
         with TemporaryDirectory() as tmpdir:

@@ -313,10 +313,9 @@ class Range:
 _MAX_PART_NUMBER = 10000
 
 
-def _create_part_infos(
+def _get_chunk_size(
     src_size: int | SizeSuffix, target_chunk_size: int | SizeSuffix
-) -> list["PartInfo"]:
-    # now break it up into 10 parts
+) -> SizeSuffix:
     src_size = SizeSuffix(src_size)
     target_chunk_size = SizeSuffix(target_chunk_size)
     min_chunk_size = src_size // (_MAX_PART_NUMBER - 1)  # overriden
@@ -328,6 +327,16 @@ def _create_part_infos(
         chunk_size = SizeSuffix(min_chunk_size)
     else:
         chunk_size = SizeSuffix(target_chunk_size)
+    return chunk_size
+
+
+def _create_part_infos(
+    src_size: int | SizeSuffix, target_chunk_size: int | SizeSuffix
+) -> list["PartInfo"]:
+    # now break it up into 10 parts
+    target_chunk_size = SizeSuffix(target_chunk_size)
+    src_size = SizeSuffix(src_size)
+    chunk_size = _get_chunk_size(src_size=src_size, target_chunk_size=target_chunk_size)
 
     part_infos: list[PartInfo] = []
     curr_offset: int = 0
