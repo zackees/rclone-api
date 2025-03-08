@@ -15,6 +15,38 @@ from rclone_api.types import (
 )
 
 
+@dataclass
+class UploadPart:
+    chunk: Path
+    dst_part: str
+    exception: Exception | None = None
+    finished: bool = False
+
+    def dispose(self):
+        try:
+            if self.chunk.exists():
+                self.chunk.unlink()
+            self.finished = True
+        except Exception as e:
+            warnings.warn(f"Failed to delete file {self.chunk}: {e}")
+
+    def __del__(self):
+        self.dispose()
+
+
+def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
+    try:
+        if upload_part.exception is not None:
+            return upload_part
+        self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
+        return upload_part
+    except Exception as e:
+        upload_part.exception = e
+        return upload_part
+    finally:
+        upload_part.dispose()
+
+
 def copy_file_parts(
     self: RcloneImpl,
     src: str,  # src:/Bucket/path/myfile.large.zst
@@ -37,49 +69,18 @@ def copy_file_parts(
             return src_size
         part_infos = PartInfo.split_parts(src_size, SizeSuffix("96MB"))
 
-    @dataclass
-    class UploadPart:
-        chunk: Path
-        dst_part: str
-        exception: Exception | None = None
-        finished: bool = False
-
-        def dispose(self):
-            try:
-                if self.chunk.exists():
-                    self.chunk.unlink()
-                self.finished = True
-            except Exception as e:
-                warnings.warn(f"Failed to delete file {self.chunk}: {e}")
-
-        def __del__(self):
-            self.dispose()
-
-    def upload_task(upload_part: UploadPart) -> UploadPart:
-        try:
-            if upload_part.exception is not None:
-                return upload_part
-            self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
-            return upload_part
-        except Exception as e:
-            upload_part.exception = e
-            return upload_part
-        finally:
-            upload_part.dispose()
-
     def read_task(
         http_server: HttpServer,
         tmpdir: Path,
         offset: SizeSuffix,
         length: SizeSuffix,
+        part_dst: str,
     ) -> UploadPart:
         outchunk: Path = (
             tmpdir / f"{offset.as_int()}-{(offset + length).as_int()}.chunk"
         )
-        offset_int = offset.as_int()
-        end_int = (offset + length).as_int()
         range = Range(offset.as_int(), (offset + length).as_int())
-        part_dst: str = f"{dst_dir}/part.{part_number:05d}.{offset_int}-{end_int}"
+
         try:
             err = http_server.download(
                 path=src_name,
@@ -116,14 +117,23 @@ def copy_file_parts(
                         range: Range = part_info.range
                         offset: SizeSuffix = SizeSuffix(range.start)
                         length: SizeSuffix = SizeSuffix(range.end - range.start)
+                        end = offset + length
+                        part_dst = f"{dst_dir}/part.{part_number:05d}.{offset.as_int()}-{end.as_int()}"
 
                         def task(
                             http_server=http_server,
                             tmpdir=tmpdir,
                             offset=offset,
                             length=length,
+                            part_dst=part_dst,
                         ) -> UploadPart:
-                            return read_task(http_server, tmpdir, offset, length)
+                            return read_task(
+                                http_server=http_server,
+                                tmpdir=tmpdir,
+                                offset=offset,
+                                length=length,
+                                part_dst=part_dst,
+                            )
 
                         read_fut: Future[UploadPart] = read_executor.submit(task)
 
@@ -132,7 +142,7 @@ def copy_file_parts(
                         ) -> None:
                             upload_part = read_fut.result()
                             upload_fut: Future[UploadPart] = upload_executor.submit(
-                                upload_task, upload_part
+                                upload_task, self, upload_part
                             )
                             upload_fut.add_done_callback(lambda _: semaphore.release())
                             upload_fut.add_done_callback(
