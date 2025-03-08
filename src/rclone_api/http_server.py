@@ -3,6 +3,7 @@ Unit test file for testing rclone mount functionality.
 """
 
 import tempfile
+import time
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
@@ -63,33 +64,46 @@ class HttpServer:
         self, path: str, dst: Path, range: Range | None = None
     ) -> Path | Exception:
         """Get bytes from the server."""
-        if not dst.parent.exists():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-        headers: dict[str, str] = {}
-        if range:
-            headers.update(range.to_header())
-        url = self._get_file_url(path)
-        try:
-            with httpx.stream(
-                "GET", url, headers=headers, timeout=_TIMEOUT
-            ) as response:
-                response.raise_for_status()
-                with open(dst, "wb") as file:
-                    for chunk in response.iter_bytes(chunk_size=8192):
-                        if chunk:
-                            file.write(chunk)
-                        else:
-                            assert response.is_closed
-                # print(f"Downloaded bytes {start}-{end} to {dst}")
-                if range:
-                    print(f"Downloaded bytes {range.start}-{range.end} to {dst}")
-                else:
-                    size = dst.stat().st_size
-                    print(f"Downloaded {size} bytes to {dst}")
-                return dst
-        except Exception as e:
-            warnings.warn(f"Failed to download {url} to {dst}: {e}")
-            return e
+
+        def task() -> Path | Exception:
+
+            if not dst.parent.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+            headers: dict[str, str] = {}
+            if range:
+                headers.update(range.to_header())
+            url = self._get_file_url(path)
+            try:
+                with httpx.stream(
+                    "GET", url, headers=headers, timeout=_TIMEOUT
+                ) as response:
+                    response.raise_for_status()
+                    with open(dst, "wb") as file:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            if chunk:
+                                file.write(chunk)
+                            else:
+                                assert response.is_closed
+                    # print(f"Downloaded bytes {start}-{end} to {dst}")
+                    if range:
+                        print(f"Downloaded bytes {range.start}-{range.end} to {dst}")
+                    else:
+                        size = dst.stat().st_size
+                        print(f"Downloaded {size} bytes to {dst}")
+                    return dst
+            except Exception as e:
+                warnings.warn(f"Failed to download {url} to {dst}: {e}")
+                return e
+
+        retries = 3
+        for i in _range(retries):
+            out = task()
+            if not isinstance(out, Exception):
+                return out
+            warnings.warn(f"Failed to download {path} to {dst}: {out}, retrying ({i})")
+            time.sleep(10)
+        else:
+            return Exception(f"Failed to download {path} to {dst}")
 
     def download_multi_threaded(
         self,

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from rclone_api import rclone_verbose
 from rclone_api.dir_listing import DirListing
 from rclone_api.http_server import HttpServer
 from rclone_api.rclone_impl import RcloneImpl
@@ -17,6 +18,8 @@ from rclone_api.types import (
     Range,
     SizeSuffix,
 )
+
+rclone_verbose(True)
 
 
 @dataclass
@@ -46,6 +49,11 @@ def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
     try:
         if upload_part.exception is not None:
             return upload_part
+        # print(f"Uploading {upload_part.chunk} to {upload_part.dst_part}")
+        msg = "\n#########################################\n"
+        msg += f"# Uploading {upload_part.chunk} to {upload_part.dst_part}\n"
+        msg += "#########################################\n"
+        print
         self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
         return upload_part
     except Exception as e:
