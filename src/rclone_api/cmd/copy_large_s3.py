@@ -2,7 +2,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from rclone_api import MultiUploadResult, Rclone, SizeSuffix
+from rclone_api import Rclone, SizeSuffix
 
 
 @dataclass
@@ -85,17 +85,24 @@ def main() -> int:
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
     # unit_chunk = args.chunk_size / args.threads
-    rslt: MultiUploadResult = rclone.copy_file_resumable_s3(
+    # rslt: MultiUploadResult = rclone.copy_file_resumable_s3(
+    #     src=args.src,
+    #     dst=args.dst,
+    #     chunk_size=args.chunk_size,
+    #     read_threads=args.read_threads,
+    #     write_threads=args.write_threads,
+    #     retries=args.retries,
+    #     save_state_json=args.save_state_json,
+    #     verbose=args.verbose,
+    # )
+    err: Exception | None = rclone.copy_file_parts(
         src=args.src,
-        dst=args.dst,
-        chunk_size=args.chunk_size,
-        read_threads=args.read_threads,
-        write_threads=args.write_threads,
-        retries=args.retries,
-        save_state_json=args.save_state_json,
-        verbose=args.verbose,
+        dst_dir=args.dst,
+        # verbose=args.verbose,
     )
-    print(rslt)
+    if err is not None:
+        print(f"Error: {err}")
+        raise err
     return 0
 
 

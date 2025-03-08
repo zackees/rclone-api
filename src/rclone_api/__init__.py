@@ -427,7 +427,7 @@ class Rclone:
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
         dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/part.{part_number:05d}.start-end
-        part_infos: list[PartInfo],
+        part_infos: list[PartInfo] | None = None,
         threads: int = 1,  # Number of reader and writer threads to use
     ) -> Exception | None:
         """Copy a file in parts."""
