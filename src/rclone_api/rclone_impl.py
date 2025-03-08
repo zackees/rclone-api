@@ -1234,7 +1234,19 @@ class RcloneImpl:
         """
         addr = addr or f"localhost:{find_free_port()}"
         _, subpath = src.split(":", 1)  # might not work on local paths.
-        cmd_list: list[str] = ["serve", "http", "--addr", addr, src]
+        cmd_list: list[str] = [
+            "serve",
+            "http",
+            "--addr",
+            addr,
+            src,
+            "--vfs-disk-space-total-size",
+            "0",
+            "--vfs-read-chunk-size-limit",
+            "512M",
+            "--vfs-cache-mode",
+            "off",
+        ]
         if serve_http_log:
             cmd_list += ["--log-file", str(serve_http_log)]
             cmd_list += ["-vvvv"]
