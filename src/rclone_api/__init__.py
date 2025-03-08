@@ -1,5 +1,6 @@
 # Import logging module to activate default configuration
 
+from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
@@ -333,13 +334,21 @@ class Rclone:
         """Check if two directories are in sync."""
         return self.impl.is_synced(src=src, dst=dst)
 
+    def modtime(self, src: str) -> str | Exception:
+        """Get the modification time of a file or directory."""
+        return self.impl.modtime(src=src)
+
+    def modtime_dt(self, src: str) -> datetime | Exception:
+        """Get the modification time of a file or directory."""
+        return self.impl.modtime_dt(src=src)
+
     def write_text(
         self,
         text: str,
         dst: str,
     ) -> Exception | None:
         """Write text to a file."""
-        return self.write_bytes(text.encode("utf-8"), dst)
+        return self.impl.write_text(text=text, dst=dst)
 
     def write_bytes(
         self,

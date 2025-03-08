@@ -9,6 +9,7 @@ import time
 import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
+from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -262,6 +263,24 @@ class RcloneImpl:
         elif order == Order.RANDOM:
             random.shuffle(paths)
         return DirListing(paths)
+
+    def modtime(self, src: str) -> str | Exception:
+        """Get the modification time of a file or directory."""
+        dirlist: DirListing = self.ls(src)
+        if len(dirlist.files) == 0:
+            raise FileNotFoundError(f"File not found: {src}")
+        try:
+            file: File = dirlist.files[0]
+            return file.mod_time()
+        except Exception as e:
+            return e
+
+    def modtime_dt(self, src: str) -> datetime | Exception:
+        """Get the modification time of a file or directory."""
+        modtime: str | Exception = self.modtime(src)
+        if isinstance(modtime, Exception):
+            return modtime
+        return datetime.fromisoformat(modtime)
 
     def listremotes(self) -> list[Remote]:
         cmd = ["listremotes"]

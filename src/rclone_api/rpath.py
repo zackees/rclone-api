@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any
 
 from rclone_api.remote import Remote
@@ -29,6 +30,10 @@ class RPath:
         self.mod_time = mod_time
         self.is_dir = is_dir
         self.rclone: RcloneImpl | None = None
+
+    def mod_time_dt(self) -> datetime:
+        """Return the modification time as a datetime object."""
+        return datetime.fromisoformat(self.mod_time)
 
     def set_rclone(self, rclone: Any) -> None:
         """Set the rclone object."""

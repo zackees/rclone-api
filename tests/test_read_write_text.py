@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import datetime
 
 # context lib
 from pathlib import Path
@@ -76,7 +77,7 @@ class RcloneReadWriteText(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
     def test_read_write(self) -> None:
-        dst_dir = "dst:rclone-api-unit-test/test_data/read_write_test/"
+        dst_dir = "dst:rclone-api-unit-test/test_data/read_write_test"
 
         # print(f"BUCKET_KEY_SECRET: {SECRET_ACCESS_KEY}")
         config_text = _generate_rclone_config()
@@ -84,13 +85,18 @@ class RcloneReadWriteText(unittest.TestCase):
         print(f"Config file written to: {_CONFIG_PATH}")
         rclone = Rclone(_CONFIG_PATH)
 
+        dst_file = f"{dst_dir}/hello.txt"
+
         rclone.write_text(
             text="Hello, World!",
-            dst=f"{dst_dir}/hello.txt",
+            dst=dst_file,
         )
 
-        out = rclone.read_text(f"{dst_dir}/hello.txt")
+        out = rclone.read_text(dst_file)
         self.assertEqual("Hello, World!", out)
+        mod_time_dt = rclone.modtime_dt(dst_file)
+        assert isinstance(mod_time_dt, datetime)
+        print(mod_time_dt)
 
         dir_listing = rclone.ls(dst_dir)
         print(f"dir_listing: {dir_listing}")

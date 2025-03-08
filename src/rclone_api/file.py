@@ -1,6 +1,7 @@
 import json
 import warnings
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from rclone_api.rpath import RPath
@@ -145,6 +146,13 @@ class File:
     @property
     def name(self) -> str:
         return self.path.name
+
+    def mod_time(self) -> str:
+        return self.path.mod_time
+
+    def mod_time_dt(self) -> datetime:
+        """Return the modification time as a datetime object."""
+        return self.path.mod_time_dt()
 
     def read_text(self) -> str:
         """Read the file contents as bytes.
