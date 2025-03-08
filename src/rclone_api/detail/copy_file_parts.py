@@ -293,6 +293,10 @@ def copy_file_parts(
     all_numbers_already_done: set[int] = set(
         info_json.fetch_all_finished_part_numbers()
     )
+
+    first_part_number = part_infos[0].part_number
+    last_part_number = part_infos[-1].part_number
+
     print(f"all_numbers_already_done: {sorted(list(all_numbers_already_done))}")
 
     filtered_part_infos: list[PartInfo] = []
@@ -309,8 +313,9 @@ def copy_file_parts(
     chunk_size = SizeSuffix(part_infos[0].range.end - part_infos[0].range.start)
 
     info_json.chunksize = chunk_size
-    info_json.first_part = part_infos[0].part_number
-    info_json.last_part = part_infos[-1].part_number
+
+    info_json.first_part = first_part_number
+    info_json.last_part = last_part_number
     info_json.save()
 
     # We are now validated
