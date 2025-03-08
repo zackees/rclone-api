@@ -4,7 +4,6 @@ Unit test file.
 
 import os
 import random
-import shutil
 import subprocess
 import time
 import traceback
@@ -30,7 +29,6 @@ from rclone_api.file_stream import FilesStream
 from rclone_api.group_files import group_files
 from rclone_api.http_server import HttpServer
 from rclone_api.mount import Mount, clean_mount, prepare_mount
-from rclone_api.mount_read_chunker import MultiMountFileChunker
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -895,104 +893,6 @@ class RcloneImpl:
             fetcher.shutdown()
             fetcher.shutdown()
 
-    def get_multi_mount_file_chunker(
-        self,
-        src: str,
-        chunk_size: SizeSuffix,
-        threads: int,
-        mount_log: Path | None,
-        direct_io: bool,
-    ) -> MultiMountFileChunker:
-        from rclone_api.util import random_str
-
-        mounts: list[Mount] = []
-        vfs_read_chunk_size = chunk_size
-        vfs_read_chunk_size_limit = chunk_size
-        vfs_read_chunk_streams = 0
-        vfs_disk_space_total_size = chunk_size
-        other_args: list[str] = []
-        other_args += ["--no-modtime"]
-        other_args += ["--vfs-read-chunk-size", vfs_read_chunk_size.as_str()]
-        other_args += [
-            "--vfs-read-chunk-size-limit",
-            vfs_read_chunk_size_limit.as_str(),
-        ]
-        other_args += ["--vfs-read-chunk-streams", str(vfs_read_chunk_streams)]
-        other_args += [
-            "--vfs-disk-space-total-size",
-            vfs_disk_space_total_size.as_str(),
-        ]
-        other_args += ["--read-only"]
-        if direct_io:
-            other_args += ["--direct-io"]
-
-        base_mount_dir = self._get_tmp_mount_dir()
-        base_cache_dir = self._get_cache_dir()
-
-        filename = Path(src).name
-        with ThreadPoolExecutor(max_workers=threads) as executor:
-            futures: list[Future] = []
-            try:
-                for i in range(threads):
-                    tmp_mnts = base_mount_dir / random_str(12)
-                    verbose = mount_log is not None
-
-                    src_parent_path = Path(src).parent.as_posix()
-                    cache_dir = base_cache_dir / random_str(12)
-
-                    def task(
-                        src_parent_path=src_parent_path,
-                        tmp_mnts=tmp_mnts,
-                        cache_dir=cache_dir,
-                    ):
-                        clean_mount(tmp_mnts, verbose=verbose)
-                        prepare_mount(tmp_mnts, verbose=verbose)
-                        return self.mount(
-                            src=src_parent_path,
-                            outdir=tmp_mnts,
-                            allow_writes=False,
-                            use_links=True,
-                            vfs_cache_mode="minimal",
-                            verbose=False,
-                            cache_dir=cache_dir,
-                            cache_dir_delete_on_exit=True,
-                            log=mount_log,
-                            other_args=other_args,
-                        )
-
-                    futures.append(executor.submit(task))
-                mount_errors: list[Exception] = []
-                for fut in futures:
-                    try:
-                        mount = fut.result()
-                        mounts.append(mount)
-                    except Exception as er:
-                        warnings.warn(f"Error mounting: {er}")
-                        mount_errors.append(er)
-                if mount_errors:
-                    warnings.warn(f"Error mounting: {mount_errors}")
-                    raise Exception(mount_errors)
-            except Exception:
-                for mount in mounts:
-                    mount.close()
-                raise
-
-        src_path: Path = Path(src)
-        src_parent_path = src_path.parent.as_posix()
-        name = src_path.name
-        size_result: SizeResult = self.size_files(src_parent_path, [name])
-        filesize = size_result.total_size
-
-        executor = ThreadPoolExecutor(max_workers=threads)
-        filechunker: MultiMountFileChunker = MultiMountFileChunker(
-            filename=filename,
-            filesize=filesize,
-            mounts=mounts,
-            executor=executor,
-            verbose=mount_log is not None,
-        )
-        return filechunker
-
     def copy_bytes(
         self,
         src: str,
@@ -1021,56 +921,6 @@ class RcloneImpl:
             return Exception(cp.stderr)
         except subprocess.CalledProcessError as e:
             return e
-
-    def copy_bytes_mount(
-        self,
-        src: str,
-        offset: int | SizeSuffix,
-        length: int | SizeSuffix,
-        chunk_size: SizeSuffix,
-        max_threads: int = 1,
-        # If outfile is supplied then bytes are written to this file and success returns bytes(0)
-        outfile: Path | None = None,
-        mount_log: Path | None = None,
-        direct_io: bool = True,
-    ) -> bytes | Exception:
-        """Copy a slice of bytes from the src file to dst. Parallelism is achieved through multiple mounted files."""
-        from rclone_api.file_part import FilePart
-
-        offset = SizeSuffix(offset).as_int()
-        length = SizeSuffix(length).as_int()
-        # determine number of threads from chunk size
-        threads = max(1, min(max_threads, length // chunk_size.as_int()))
-        # todo - implement max threads.
-        filechunker = self.get_multi_mount_file_chunker(
-            src=src,
-            chunk_size=chunk_size,
-            threads=threads,
-            mount_log=mount_log,
-            direct_io=direct_io,
-        )
-        try:
-            fut = filechunker.fetch(offset, length, extra=None)
-            fp: FilePart = fut.result()
-            payload = fp.payload
-            if isinstance(payload, Exception):
-                return payload
-            try:
-                if outfile is None:
-                    return payload.read_bytes()
-                shutil.move(payload, outfile)
-                return bytes(0)
-            finally:
-                fp.dispose()
-
-        except Exception as e:
-            warnings.warn(f"Error copying bytes: {e}")
-            return e
-        finally:
-            try:
-                filechunker.shutdown()
-            except Exception as e:
-                warnings.warn(f"Error closing filechunker: {e}")
 
     def copy_dir(
         self, src: str | Dir, dst: str | Dir, args: list[str] | None = None

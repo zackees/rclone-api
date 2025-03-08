@@ -1,33 +1,3 @@
-"""
-Unit test file.
-
-Notes:
-
-We want seekable writes, but since s3 doesn't allow appends, we can't use the full cache mode.
---vfs-cache-mode writes
-
-Seekable Reads:
---vfs-cache-mode minimal
-
-we cannot use:
---vfs-cache-mode full
-
-Because it will place a 9TB file in the cache directory.
-
-
-Workflow:
-
-  1. Develop on local machine but test on remote machine.
-  2. Mount read only remote
-  3. S3 API for upload
-    -> Very certain mounting seek doesn't really work for S3
-
-
-Mount target:
-  rclone --config rclone.conf mount 45061:/aa_misc_data/aa_misc_data/ mount
-  file -> world_lending_library_2024_11.tar.zst
-
-"""
 
 import os
 import unittest

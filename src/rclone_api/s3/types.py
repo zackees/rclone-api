@@ -4,7 +4,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
-from rclone_api.mount_read_chunker import FilePart
+from rclone_api.file_part import FilePart
 
 
 class S3Provider(Enum):

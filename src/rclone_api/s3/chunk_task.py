@@ -6,7 +6,7 @@ from queue import Queue
 from threading import Event, Lock
 from typing import Any, Callable
 
-from rclone_api.mount_read_chunker import FilePart
+from rclone_api.file_part import FilePart
 from rclone_api.s3.multipart.file_info import S3FileInfo
 from rclone_api.s3.multipart.upload_state import UploadState
 from rclone_api.types import EndOfStream
