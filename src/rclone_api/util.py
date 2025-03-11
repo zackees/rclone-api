@@ -1,10 +1,11 @@
+import atexit
 import os
 import random
 import shutil
+import signal
 import subprocess
 import warnings
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from threading import Lock
 from typing import Any
 
@@ -17,6 +18,44 @@ from rclone_api.types import S3PathInfo
 # from .rclone import Rclone
 
 _PRINT_LOCK = Lock()
+
+_TMP_CONFIG_DIR = Path(".") / ".rclone" / "tmp_config"
+_RCLONE_CONFIGS_LIST: list[Path] = []
+_DO_CLEANUP = os.getenv("RCLONE_API_CLEANUP", "1") == "1"
+
+
+def _clean_configs(signum=None, frame=None) -> None:
+    if not _DO_CLEANUP:
+        return
+    for config in _RCLONE_CONFIGS_LIST:
+        try:
+            config.unlink()
+        except Exception as e:
+            print(f"Error deleting config file: {config}, {e}")
+    _RCLONE_CONFIGS_LIST.clear()
+    if signum is not None:
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+
+def _init_cleanup() -> None:
+    atexit.register(_clean_configs)
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, _clean_configs)
+
+
+_init_cleanup()
+
+
+def _make_temp_config_file() -> Path:
+    from rclone_api.util import random_str
+
+    tmpdir = _TMP_CONFIG_DIR / random_str(32)
+    tmpdir.mkdir(parents=True, exist_ok=True)
+    tmpfile = tmpdir / "rclone.conf"
+    _RCLONE_CONFIGS_LIST.append(tmpfile)
+    return tmpfile
 
 
 def locked_print(*args, **kwargs):
@@ -116,7 +155,7 @@ def rclone_execute(
     capture: bool | Path | None = None,
     verbose: bool | None = None,
 ) -> subprocess.CompletedProcess:
-    tempdir: TemporaryDirectory | None = None
+    tmpfile: Path | None = None
     verbose = get_verbose(verbose)
 
     # Handle the Path case for capture
@@ -131,8 +170,7 @@ def rclone_execute(
 
     try:
         if isinstance(rclone_conf, Config):
-            tempdir = TemporaryDirectory()
-            tmpfile = Path(tempdir.name) / "rclone.conf"
+            tmpfile = _make_temp_config_file()
             tmpfile.write_text(rclone_conf.text, encoding="utf-8")
             rclone_conf = tmpfile
         cmd = (
@@ -168,9 +206,9 @@ def rclone_execute(
                 )
         return cp
     finally:
-        if tempdir:
+        if tmpfile and _DO_CLEANUP:
             try:
-                tempdir.cleanup()
+                tmpfile.unlink()
             except Exception as e:
                 print(f"Error cleaning up tempdir: {e}")
 

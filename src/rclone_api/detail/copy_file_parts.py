@@ -53,7 +53,7 @@ def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
         msg = "\n#########################################\n"
         msg += f"# Uploading {upload_part.chunk} to {upload_part.dst_part}\n"
         msg += "#########################################\n"
-        print
+        print(msg)
         self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
         return upload_part
     except Exception as e:
