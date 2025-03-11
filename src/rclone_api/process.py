@@ -5,11 +5,10 @@ import time
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any
 
 from rclone_api.config import Config
-from rclone_api.util import get_verbose
+from rclone_api.util import clear_temp_config_file, get_verbose, make_temp_config_file
 
 
 @dataclass
@@ -28,17 +27,14 @@ class Process:
         assert args.rclone_exe.exists()
         self.args = args
         self.log = args.log
-        self.tempdir: TemporaryDirectory | None = None
+        self.tempfile: Path | None = None
         verbose = get_verbose(args.verbose)
         if isinstance(args.rclone_conf, Config):
-            self.tempdir = TemporaryDirectory()
-            tmpfile = Path(self.tempdir.name) / "rclone.conf"
-            tmpfile.write_text(args.rclone_conf.text, encoding="utf-8")
-            rclone_conf = tmpfile
-            self.needs_cleanup = True
+            self.tmpfile = make_temp_config_file()
+            self.tmpfile.write_text(args.rclone_conf.text, encoding="utf-8")
+            rclone_conf = self.tmpfile
         else:
             rclone_conf = args.rclone_conf
-            self.needs_cleanup = False
 
         assert rclone_conf.exists()
 
@@ -81,11 +77,7 @@ class Process:
         self.cleanup()
 
     def cleanup(self) -> None:
-        if self.tempdir and self.needs_cleanup:
-            try:
-                self.tempdir.cleanup()
-            except Exception as e:
-                print(f"Error cleaning up tempdir: {e}")
+        clear_temp_config_file(self.tempfile)
 
     def _atexit_terminate(self) -> None:
         """

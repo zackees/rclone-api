@@ -48,7 +48,7 @@ def _init_cleanup() -> None:
 _init_cleanup()
 
 
-def _make_temp_config_file() -> Path:
+def make_temp_config_file() -> Path:
     from rclone_api.util import random_str
 
     tmpdir = _TMP_CONFIG_DIR / random_str(32)
@@ -56,6 +56,15 @@ def _make_temp_config_file() -> Path:
     tmpfile = tmpdir / "rclone.conf"
     _RCLONE_CONFIGS_LIST.append(tmpfile)
     return tmpfile
+
+
+def clear_temp_config_file(path: Path | None) -> None:
+    if (path is None) or (not path.exists()) or (not _DO_CLEANUP):
+        return
+    try:
+        path.unlink()
+    except Exception as e:
+        print(f"Error deleting config file: {path}, {e}")
 
 
 def locked_print(*args, **kwargs):
@@ -170,7 +179,7 @@ def rclone_execute(
 
     try:
         if isinstance(rclone_conf, Config):
-            tmpfile = _make_temp_config_file()
+            tmpfile = make_temp_config_file()
             tmpfile.write_text(rclone_conf.text, encoding="utf-8")
             rclone_conf = tmpfile
         cmd = (
@@ -206,11 +215,7 @@ def rclone_execute(
                 )
         return cp
     finally:
-        if tmpfile and _DO_CLEANUP:
-            try:
-                tmpfile.unlink()
-            except Exception as e:
-                print(f"Error cleaning up tempdir: {e}")
+        clear_temp_config_file(tmpfile)
 
 
 def split_s3_path(path: str) -> S3PathInfo:
