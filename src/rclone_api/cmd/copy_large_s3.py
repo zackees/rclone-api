@@ -11,8 +11,7 @@ class Args:
     src: str
     dst: str
     chunk_size: SizeSuffix
-    read_threads: int
-    write_threads: int
+    threads: int
     retries: int
     save_state_json: Path
     verbose: bool
@@ -40,16 +39,10 @@ def _parse_args() -> Args:
         default="128MB",  # if this is too low or too high an s3 service
     )
     parser.add_argument(
-        "--read-threads",
-        help="Number of concurrent read threads per chunk, only one chunk will be read at a time",
-        type=int,
-        default=8,
-    )
-    parser.add_argument(
-        "--write-threads",
+        "--threads",
         help="Max number of chunks to upload in parallel to the destination, each chunk is uploaded in a separate thread",
         type=int,
-        default=16,
+        default=8,
     )
     parser.add_argument("--retries", help="Number of retries", type=int, default=3)
     parser.add_argument(
@@ -70,9 +63,8 @@ def _parse_args() -> Args:
         config_path=config,
         src=args.src,
         dst=args.dst,
+        threads=args.threads,
         chunk_size=SizeSuffix(args.chunk_size),
-        read_threads=args.read_threads,
-        write_threads=args.write_threads,
         retries=args.retries,
         save_state_json=args.resume_json,
         verbose=args.verbose,

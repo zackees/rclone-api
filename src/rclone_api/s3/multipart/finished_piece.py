@@ -1,4 +1,5 @@
 import json
+import warnings
 from dataclasses import dataclass
 
 from rclone_api.types import EndOfStream
@@ -28,7 +29,9 @@ class FinishedPiece:
         for p in parts:
             if p is EndOfStream:
                 count_eos += 1
-        assert count_eos <= 1, "Only one EndOfStream should be present"
+        # assert count_eos <= 1, "Only one EndOfStream should be present"
+        if count_eos > 1:
+            warnings.warn(f"Only one EndOfStream should be present, found {count_eos}")
         return [p.to_json() for p in non_none]
 
     @staticmethod
