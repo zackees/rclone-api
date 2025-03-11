@@ -5,6 +5,26 @@ https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/cl
 
 """
 
+# response = client.upload_part_copy(
+#     Bucket='string',
+#     CopySource='string' or {'Bucket': 'string', 'Key': 'string', 'VersionId': 'string'},
+#     CopySourceIfMatch='string',
+#     CopySourceIfModifiedSince=datetime(2015, 1, 1),
+#     CopySourceIfNoneMatch='string',
+#     CopySourceIfUnmodifiedSince=datetime(2015, 1, 1),
+#     CopySourceRange='string',
+#     Key='string',
+#     PartNumber=123,
+#     UploadId='string',
+#     SSECustomerAlgorithm='string',
+#     SSECustomerKey='string',
+#     CopySourceSSECustomerAlgorithm='string',
+#     CopySourceSSECustomerKey='string',
+#     RequestPayer='requester',
+#     ExpectedBucketOwner='string',
+#     ExpectedSourceBucketOwner='string'
+# )
+
 # import _thread
 # import os
 # import traceback

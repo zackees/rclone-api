@@ -4,6 +4,31 @@ from pathlib import Path
 
 from rclone_api import Rclone, SizeSuffix
 
+DATA_SOURCE = (
+    "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
+)
+
+
+# response = client.upload_part_copy(
+#     Bucket='string',
+#     CopySource='string' or {'Bucket': 'string', 'Key': 'string', 'VersionId': 'string'},
+#     CopySourceIfMatch='string',
+#     CopySourceIfModifiedSince=datetime(2015, 1, 1),
+#     CopySourceIfNoneMatch='string',
+#     CopySourceIfUnmodifiedSince=datetime(2015, 1, 1),
+#     CopySourceRange='string',
+#     Key='string',
+#     PartNumber=123,
+#     UploadId='string',
+#     SSECustomerAlgorithm='string',
+#     SSECustomerKey='string',
+#     CopySourceSSECustomerAlgorithm='string',
+#     CopySourceSSECustomerKey='string',
+#     RequestPayer='requester',
+#     ExpectedBucketOwner='string',
+#     ExpectedSourceBucketOwner='string'
+# )
+
 
 @dataclass
 class Args:
@@ -122,6 +147,6 @@ if __name__ == "__main__":
         "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     sys.argv.append(
-        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts"
+        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     main()
