@@ -18,7 +18,6 @@ from rclone_api.s3.s3_multipart_uploader_by_copy import (
 class Args:
     config_path: Path
     src: str  # like dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts/ (info.json will be located here)
-    dst: str  # like dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst
     verbose: bool
 
 
@@ -31,8 +30,7 @@ def list_files(rclone: Rclone, path: str):
 
 def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description="List files in a remote path.")
-    parser.add_argument("src", help="File to copy")
-    parser.add_argument("dst", help="Destination file")
+    parser.add_argument("src", help="Directory that holds the info.json file")
     parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
     parser.add_argument(
         "--config", help="Path to rclone config file", type=Path, required=False
@@ -47,7 +45,6 @@ def _parse_args() -> Args:
     out = Args(
         config_path=config,
         src=args.src,
-        dst=args.dst,
         verbose=args.verbose,
     )
     return out
@@ -58,7 +55,6 @@ def _begin_new_merge(
 ) -> S3MultiPartMerger | Exception:
 
     try:
-
         s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
         merger: S3MultiPartMerger = S3MultiPartMerger(
             s3_creds=s3_creds,
@@ -129,7 +125,7 @@ def _finish_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     return None
 
 
-def _perform_merge(rclone: Rclone, info_path: str, dst: str) -> Exception | None:
+def _perform_merge(rclone: Rclone, info_path: str) -> Exception | None:
     info = InfoJson(rclone.impl, src=None, src_info=info_path)
     loaded = info.load()
     if not loaded:
@@ -138,9 +134,11 @@ def _perform_merge(rclone: Rclone, info_path: str, dst: str) -> Exception | None
         )
     size = info.size
     parts_dir = info.parts_dir
+    dst = info.dst
     print(f"Finishing upload: {dst}")
     print(f"Parts dir: {parts_dir}")
     print(f"Size: {size}")
+    print(f"Info: {info}")
     merger: S3MultiPartMerger | Exception = _begin_new_merge(
         rclone=rclone, info=info, dst=dst
     )
@@ -167,7 +165,7 @@ def main() -> int:
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
     info_path = _get_info_path(src=args.src)
-    _perform_merge(rclone=rclone, info_path=info_path, dst=args.dst)
+    _perform_merge(rclone=rclone, info_path=info_path)
     return 0
 
 
@@ -178,8 +176,5 @@ if __name__ == "__main__":
     sys.argv.append("rclone.conf")
     sys.argv.append(
         "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts/"
-    )
-    sys.argv.append(
-        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     main()
