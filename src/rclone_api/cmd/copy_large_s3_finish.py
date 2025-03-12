@@ -1,5 +1,7 @@
 import argparse
+import json
 import os
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,8 +10,8 @@ from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.s3.create import (
     S3Credentials,
 )
+from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
-    Part,
     S3MultiPartMerger,
 )
 
@@ -50,12 +52,10 @@ def _parse_args() -> Args:
     return out
 
 
-def _begin_new_merge(
+def _begin_or_resume_merge(
     rclone: Rclone, info: InfoJson, dst: str
 ) -> S3MultiPartMerger | Exception:
-
     try:
-        merge_path = _get_merge_path(info_path=info.src_info)
         s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
         merger: S3MultiPartMerger = S3MultiPartMerger(
             s3_creds=s3_creds,
@@ -65,6 +65,18 @@ def _begin_new_merge(
         s3_bucket = s3_creds.bucket_name
         is_done = info.fetch_is_done()
         assert is_done, f"Upload is not done: {info}"
+
+        merge_path = _get_merge_path(info_path=info.src_info)
+        merge_json_text = rclone.read_text(merge_path)
+        if isinstance(merge_json_text, str):
+            # Attempt to do a resume
+            merge_data = json.loads(merge_json_text)
+            print(merge_data)
+            merge_state = MergeState.from_json(merge_data)
+            if isinstance(merge_state, MergeState):
+                merger.begin_resume_merge(merge_state=merge_state)
+                return merger
+            warnings.warn(f"Failed to resume merge: {merge_state}, starting new merge")
 
         parts_dir = info.parts_dir
         source_keys = info.fetch_all_finished()
@@ -149,7 +161,7 @@ def _perform_merge(rclone: Rclone, info_path: str) -> Exception | None:
     print(f"Size: {size}")
     print(f"Info: {info}")
     print(f"Merge.json: {merge_path}")
-    merger: S3MultiPartMerger | Exception = _begin_new_merge(
+    merger: S3MultiPartMerger | Exception = _begin_or_resume_merge(
         rclone=rclone, info=info, dst=dst
     )
     if isinstance(merger, Exception):

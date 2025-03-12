@@ -77,7 +77,7 @@ class MergeState:
         return remaining
 
     @staticmethod
-    def from_json_array(json_array: dict) -> "MergeState | Exception":
+    def from_json(json_array: dict) -> "MergeState | Exception":
         try:
             merge_path = json_array["merge_path"]
             bucket = json_array["bucket"]

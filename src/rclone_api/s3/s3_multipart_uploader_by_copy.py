@@ -280,6 +280,13 @@ class S3MultiPartMerger:
         except Exception as e:
             return e
 
+    def begin_resume_merge(
+        self,
+        merge_state: MergeState,
+    ) -> None:
+        self.state = merge_state
+        self.state.add_callback(self.on_finished)
+
     def merge(
         self,
     ) -> Exception | None:
