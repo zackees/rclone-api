@@ -340,7 +340,7 @@ def finish_multipart_upload_from_keys(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # semaphore
 
-        semaphore = Semaphore(max_workers)
+        semaphore = Semaphore(max_workers * 2)
         for part_number, source_key in parts:
 
             def task(
