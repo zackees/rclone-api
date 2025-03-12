@@ -5,6 +5,7 @@ from pathlib import Path
 
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
+from rclone_api.s3.merge_state import MergeState
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
     Part,
     S3MultiPartUploader,
@@ -54,54 +55,6 @@ def _parse_args() -> Args:
     return out
 
 
-# def finish_multipart_upload_from_keys(
-#     s3_client: BaseClient,
-#     source_bucket: str,
-#     parts: list[Part],
-#     destination_bucket: str,
-#     destination_key: str,
-#     chunk_size: int,  # 5MB default
-#     max_workers: int = 100,
-#     retries: int = 3,
-# ) -> str | Exception:
-#     """
-#     Finish a multipart upload by copying parts from existing S3 objects.
-
-#     Args:
-#         s3_client: Boto3 S3 client
-#         source_bucket: Source bucket name
-#         source_keys: List of source object keys to copy from
-#         destination_bucket: Destination bucket name
-#         destination_key: Destination object key
-#         chunk_size: Size of each part in bytes
-#         retries: Number of retry attempts
-#         byte_ranges: Optional list of byte ranges corresponding to source_keys
-
-#     Returns:
-#         The URL of the completed object
-#     """
-
-#     # Create upload info
-#     info = begin_upload(
-#         s3_client=s3_client,
-#         parts=parts,
-#         destination_bucket=destination_bucket,
-#         destination_key=destination_key,
-#         chunk_size=chunk_size,
-#         retries=retries,
-#     )
-
-#     out = do_body_work(
-#         info=info,
-#         source_bucket=source_bucket,
-#         parts=parts,
-#         max_workers=max_workers,
-#         retries=retries,
-#     )
-
-#     return out
-
-
 def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     from rclone_api.s3.create import (
         BaseClient,
@@ -115,7 +68,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         timeout_read=_TIMEOUT_READ,
         timeout_connection=_TIMEOUT_CONNECTION,
     )
-
     s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
     s3_client: BaseClient = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
     s3_bucket = s3_creds.bucket_name
@@ -127,8 +79,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
     if parts_dir.endswith("/"):
         parts_dir = parts_dir[:-1]
     source_keys = info.fetch_all_finished()
-    # print(parts_dir)
-    # print(source_keys)
 
     parts_path = parts_dir.split(s3_bucket)[1]
     if parts_path.startswith("/"):
@@ -165,15 +115,15 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         verbose=True,
     )
 
-    from rclone_api.s3.merge_state import MergeState
-
     merge_state: MergeState = uploader.begin_new_upload(
         parts=parts,
         bucket=s3_creds.bucket_name,
         dst_key=dst_key,
     )
 
-    uploader.start_upload(state=merge_state, max_workers=_MAX_WORKERS)
+    err = uploader.start_upload(state=merge_state, max_workers=_MAX_WORKERS)
+    if isinstance(err, Exception):
+        return err
 
     # now check if the dst now exists, if so, delete the parts folder.
     # if rclone.exists(dst):
