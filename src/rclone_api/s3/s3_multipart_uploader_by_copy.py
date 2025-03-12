@@ -107,7 +107,7 @@ def upload_part_copy_task(
 
 
 def complete_multipart_upload_from_parts(
-    info: MultipartUploadInfo, state: MergeState, finished_parts: list[FinishedPiece]
+    s3_client: BaseClient, state: MergeState, finished_parts: list[FinishedPiece]
 ) -> str:
     """
     Complete a multipart upload using the provided parts.
@@ -124,7 +124,7 @@ def complete_multipart_upload_from_parts(
     multipart_parts = FinishedPiece.to_json_array(finished_parts)
 
     # Complete the multipart upload
-    response = info.s3_client.complete_multipart_upload(
+    response = s3_client.complete_multipart_upload(
         Bucket=state.bucket,
         Key=state.dst_key,
         UploadId=state.upload_id,
@@ -187,7 +187,7 @@ def do_body_work(
 
         # Complete the multipart upload
         return complete_multipart_upload_from_parts(
-            info=info, state=merge_state, finished_parts=finished_parts
+            s3_client=s3_client, state=merge_state, finished_parts=finished_parts
         )
 
 
