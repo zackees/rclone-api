@@ -140,7 +140,13 @@ def _finish_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     return None
 
 
-def perform_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+def perform_merge(rclone: Rclone, info_path: str, dst: str) -> Exception | None:
+    info = InfoJson(rclone.impl, src=None, src_info=info_path)
+    loaded = info.load()
+    if not loaded:
+        return FileNotFoundError(
+            f"Info file not found, has the upload finished? {info_path}"
+        )
     size = info.size
     parts_dir = info.parts_dir
     print(f"Finishing upload: {dst}")
@@ -160,22 +166,19 @@ def perform_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     return err
 
 
+def _get_info_path(src: str) -> str:
+    if src.endswith("/"):
+        src = src[:-1]
+    info_path = f"{src}/info.json"
+    return info_path
+
+
 def main() -> int:
     """Main entry point."""
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
-    src = args.src
-    if src.endswith("/"):
-        src = src[:-1]
-    info_json = f"{src}/info.json"
-    info = InfoJson(rclone.impl, src=None, src_info=info_json)
-    loaded = info.load()
-    if not loaded:
-        raise FileNotFoundError(
-            f"Info file not found, has the upload finished? {info_json}"
-        )
-    print(info)
-    perform_merge(rclone=rclone, info=info, dst=args.dst)
+    info_path = _get_info_path(src=args.src)
+    perform_merge(rclone=rclone, info_path=info_path, dst=args.dst)
     return 0
 
 
