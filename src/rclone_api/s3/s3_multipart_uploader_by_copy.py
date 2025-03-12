@@ -141,6 +141,7 @@ def do_body_work(
     source_bucket: str,
     parts: list[Part],
     max_workers: int,
+    merge_state: MergeState,
 ) -> str | Exception:
 
     futures: list[Future[FinishedPiece | Exception]] = []
@@ -156,12 +157,16 @@ def do_body_work(
                 s3_key=s3_key,
                 part_number=part_number,
             ):
-                return upload_part_copy_task(
+                out = upload_part_copy_task(
                     info=info,
                     source_bucket=source_bucket,
                     source_key=s3_key,
                     part_number=part_number,
                 )
+                if isinstance(out, Exception):
+                    return out
+                merge_state.on_finished(out)
+                return out
 
             fut = executor.submit(task)
             fut.add_done_callback(lambda x: semaphore.release())
@@ -270,6 +275,7 @@ def finish_multipart_upload_from_keys(
         source_bucket=source_bucket,
         parts=parts,
         max_workers=max_workers,
+        merge_state=MergeState(finished=[], all_parts=parts),
     )
 
     return out
@@ -317,4 +323,5 @@ class S3MultiPartUploader:
             source_bucket=info.bucket_name,
             parts=parts,
             max_workers=max_workers,
+            merge_state=MergeState(finished=[], all_parts=parts),
         )
