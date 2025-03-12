@@ -315,12 +315,12 @@ class S3MultiPartUploader:
     def start_upload(
         self,
         info: MultipartUploadInfo,
-        parts: list[Part],
+        state: MergeState,
         max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> str | Exception:
         return do_body_work(
             info=info,
             source_bucket=info.bucket_name,
             max_workers=max_workers,
-            merge_state=MergeState(finished=[], all_parts=parts),
+            merge_state=state,
         )

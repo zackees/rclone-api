@@ -12,7 +12,7 @@ from rclone_api.s3.s3_multipart_uploader_by_copy import (
 
 _TIMEOUT_READ = 900
 _TIMEOUT_CONNECTION = 900
-_MAX_WORKERS = 10
+_MAX_WORKERS = 1  # Back blaze get's overwhelmed with 10, so I set it to 1 to be safe.
 
 
 @dataclass
@@ -168,16 +168,22 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         verbose=True,
     )
 
+    from rclone_api.s3.merge_state import MergeState
     from rclone_api.s3.s3_multipart_uploader_by_copy import MultipartUploadInfo
 
+    merge_state: MergeState = MergeState(
+        finished=[],
+        all_parts=parts,
+    )
+
     state: MultipartUploadInfo = uploader.begin_new_upload(
-        parts=parts,
+        parts=merge_state.all_parts,
         destination_bucket=s3_creds.bucket_name,
         destination_key=dst_key,
         chunk_size=chunksize.as_int(),
     )
 
-    uploader.start_upload(info=state, parts=parts, max_workers=_MAX_WORKERS)
+    uploader.start_upload(info=state, state=merge_state, max_workers=_MAX_WORKERS)
 
     # now check if the dst now exists, if so, delete the parts folder.
     # if rclone.exists(dst):
