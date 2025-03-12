@@ -10,6 +10,9 @@ from rclone_api.s3.s3_multipart_uploader_by_copy import (
 )
 from rclone_api.types import SizeSuffix
 
+_TIMEOUT_READ = 900
+_TIMEOUT_CONNECTION = 900
+
 
 @dataclass
 class Args:
@@ -58,10 +61,14 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         create_s3_client,
     )
 
-    s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
-    s3_client: BaseClient = create_s3_client(
-        s3_creds, S3Config(verbose=False, timeout_read=5 * 60)
+    s3_config = S3Config(
+        verbose=False,
+        timeout_read=_TIMEOUT_READ,
+        timeout_connection=_TIMEOUT_CONNECTION,
     )
+
+    s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
+    s3_client: BaseClient = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
     s3_bucket = s3_creds.bucket_name
     is_done = info.fetch_is_done()
     assert is_done, f"Upload is not done: {info}"
@@ -115,8 +122,7 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         destination_key=dst_key,
         chunk_size=chunksize.as_int(),
         final_size=size.as_int(),
-        max_workers=50,
-        retries=3,
+        max_workers=10,
     )
 
     # now check if the dst now exists, if so, delete the parts folder.

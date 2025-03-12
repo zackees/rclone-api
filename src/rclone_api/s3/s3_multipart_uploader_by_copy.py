@@ -240,7 +240,7 @@ class S3MultiPartUploader:
         destination_key: str,
         chunk_size: int,
         final_size: int,
-        retries: int = 3,
+        retries: int = 100,
     ) -> str:
         """
         Finish a multipart upload by copying parts from existing S3 objects.
