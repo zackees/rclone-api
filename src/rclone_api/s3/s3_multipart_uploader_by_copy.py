@@ -26,8 +26,6 @@ class MultipartUploadInfo:
     """Simplified upload information for multipart uploads."""
 
     s3_client: BaseClient
-    bucket_name: str
-    object_name: str
     upload_id: str
     chunk_size: int
     src_file_path: Optional[Path] = None
@@ -35,6 +33,7 @@ class MultipartUploadInfo:
 
 def upload_part_copy_task(
     info: MultipartUploadInfo,
+    state: MergeState,
     source_bucket: str,
     source_key: str,
     part_number: int,
@@ -62,19 +61,19 @@ def upload_part_copy_task(
         params: dict = {}
         try:
             if retry > 0:
-                locked_print(f"Retrying part copy {part_number} for {info.object_name}")
+                locked_print(f"Retrying part copy {part_number} for {state.dst_key}")
 
             locked_print(
-                f"Copying part {part_number} for {info.object_name} from {source_bucket}/{source_key}"
+                f"Copying part {part_number} for {state.dst_key} from {source_bucket}/{source_key}"
             )
 
             # Prepare the upload_part_copy parameters
             params = {
-                "Bucket": info.bucket_name,
+                "Bucket": state.bucket,
                 "CopySource": copy_source,
-                "Key": info.object_name,
+                "Key": state.dst_key,
                 "PartNumber": part_number,
-                "UploadId": info.upload_id,
+                "UploadId": state.upload_id,
             }
 
             # Execute the copy operation
@@ -83,11 +82,13 @@ def upload_part_copy_task(
             # Extract ETag from the response
             etag = part["CopyPartResult"]["ETag"]
             out = FinishedPiece(etag=etag, part_number=part_number)
-            locked_print(f"Finished part {part_number} for {info.object_name}")
+            locked_print(f"Finished part {part_number} for {state.dst_key}")
             return out
 
         except Exception as e:
-            msg = f"Error copying {copy_source} -> {info.object_name}: {e}, params={params}"
+            msg = (
+                f"Error copying {copy_source} -> {state.dst_key}: {e}, params={params}"
+            )
             if "An error occurred (InternalError)" in str(e):
                 locked_print(msg)
             elif "NoSuchKey" in str(e):
@@ -106,7 +107,7 @@ def upload_part_copy_task(
 
 
 def complete_multipart_upload_from_parts(
-    info: MultipartUploadInfo, parts: list[FinishedPiece]
+    info: MultipartUploadInfo, state: MergeState, finished_parts: list[FinishedPiece]
 ) -> str:
     """
     Complete a multipart upload using the provided parts.
@@ -119,23 +120,19 @@ def complete_multipart_upload_from_parts(
         The URL of the completed object
     """
     # Sort parts by part number to ensure correct order
-    parts.sort(key=lambda x: x.part_number)
-
-    # Prepare the parts list for the complete_multipart_upload call
-    multipart_parts = [
-        {"ETag": part.etag, "PartNumber": part.part_number} for part in parts
-    ]
+    finished_parts.sort(key=lambda x: x.part_number)
+    multipart_parts = FinishedPiece.to_json_array(finished_parts)
 
     # Complete the multipart upload
     response = info.s3_client.complete_multipart_upload(
-        Bucket=info.bucket_name,
-        Key=info.object_name,
-        UploadId=info.upload_id,
+        Bucket=state.bucket,
+        Key=state.dst_key,
+        UploadId=state.upload_id,
         MultipartUpload={"Parts": multipart_parts},
     )
 
     # Return the URL of the completed object
-    return response.get("Location", f"s3://{info.bucket_name}/{info.object_name}")
+    return response.get("Location", f"s3://{state.bucket}/{state.dst_key}")
 
 
 def do_body_work(
@@ -155,12 +152,14 @@ def do_body_work(
 
             def task(
                 info=info,
+                state=merge_state,
                 source_bucket=source_bucket,
                 s3_key=s3_key,
                 part_number=part_number,
             ):
                 out = upload_part_copy_task(
                     info=info,
+                    state=state,
                     source_bucket=source_bucket,
                     source_key=s3_key,
                     part_number=part_number,
@@ -186,7 +185,9 @@ def do_body_work(
             finished_parts.append(finished_part)
 
         # Complete the multipart upload
-        return complete_multipart_upload_from_parts(info, finished_parts)
+        return complete_multipart_upload_from_parts(
+            info=info, state=merge_state, finished_parts=finished_parts
+        )
 
 
 def begin_upload(
@@ -229,8 +230,6 @@ def begin_upload(
     # Create upload info
     info = MultipartUploadInfo(
         s3_client=s3_client,
-        bucket_name=bucket,
-        object_name=dst_key,
         upload_id=upload_id,
         chunk_size=chunk_size,
     )
@@ -282,7 +281,7 @@ class S3MultiPartUploader:
     ) -> str | Exception:
         return do_body_work(
             info=info,
-            source_bucket=info.bucket_name,
+            source_bucket=state.bucket,
             max_workers=max_workers,
             merge_state=state,
         )

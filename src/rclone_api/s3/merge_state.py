@@ -65,6 +65,7 @@ class MergeState:
         self.callbacks.append(callback)
 
     def on_finished(self, finished_piece: FinishedPiece) -> None:
+        self.finished.append(finished_piece)
         for callback in list(self.callbacks):
             callback(finished_piece)
 

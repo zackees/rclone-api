@@ -1,4 +1,3 @@
-import json
 import warnings
 from dataclasses import dataclass
 
@@ -12,9 +11,6 @@ class FinishedPiece:
 
     def to_json(self) -> dict:
         return {"part_number": self.part_number, "etag": self.etag}
-
-    def to_json_str(self) -> str:
-        return json.dumps(self.to_json(), indent=0)
 
     @staticmethod
     def to_json_array(
