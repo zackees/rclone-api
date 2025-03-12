@@ -51,7 +51,6 @@ class MultipartUploadInfo:
     object_name: str
     upload_id: str
     chunk_size: int
-    retries: int
     src_file_path: Optional[Path] = None
 
 
@@ -214,7 +213,6 @@ def begin_upload(
     destination_bucket: str,
     destination_key: str,
     chunk_size: int,
-    retries: int = 3,
 ) -> MultipartUploadInfo:
     """
     Finish a multipart upload by copying parts from existing S3 objects.
@@ -252,7 +250,6 @@ def begin_upload(
         bucket_name=destination_bucket,
         object_name=destination_key,
         upload_id=upload_id,
-        retries=retries,
         chunk_size=chunk_size,
     )
     return info
@@ -292,7 +289,6 @@ def finish_multipart_upload_from_keys(
         destination_bucket=destination_bucket,
         destination_key=destination_key,
         chunk_size=chunk_size,
-        retries=retries,
     )
 
     out = do_body_work(
@@ -306,6 +302,10 @@ def finish_multipart_upload_from_keys(
     return out
 
 
+_DEFAULT_RETRIES = 20
+_DEFAULT_MAX_WORKERS = 10
+
+
 class S3MultiPartUploader:
     def __init__(self, s3_client: BaseClient, verbose: bool = False) -> None:
         self.verbose = verbose
@@ -317,7 +317,6 @@ class S3MultiPartUploader:
         destination_bucket: str,
         destination_key: str,
         chunk_size: int,
-        retries: int = 3,
     ) -> MultipartUploadInfo:
         return begin_upload(
             s3_client=self.client,
@@ -325,27 +324,27 @@ class S3MultiPartUploader:
             destination_bucket=destination_bucket,
             destination_key=destination_key,
             chunk_size=chunk_size,
-            retries=retries,
         )
 
     def start_upload_resume(
         self,
-        resume_json: str,
-        retries: int = 3,
-        state: dict = {},
-    ) -> MultipartUploadInfo:
-        raise NotImplementedError("Not implemented yet")
+        state: MergeJson,
+        retries: int = _DEFAULT_RETRIES,
+        max_workers: int = _DEFAULT_MAX_WORKERS,
+    ) -> MultipartUploadInfo | Exception:
+        return Exception("Not implemented")
 
     def start_upload(
         self,
         info: MultipartUploadInfo,
         parts: list[Part],
-        max_workers: int = 10,
+        retries: int = _DEFAULT_RETRIES,
+        max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> str | Exception:
         return do_body_work(
             info=info,
             source_bucket=info.bucket_name,
             parts=parts,
             max_workers=max_workers,
-            retries=info.retries,
+            retries=retries,
         )

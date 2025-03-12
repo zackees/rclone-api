@@ -185,7 +185,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         destination_bucket=s3_creds.bucket_name,
         destination_key=dst_key,
         chunk_size=chunksize.as_int(),
-        retries=3,
     )
 
     uploader.start_upload(info=state, parts=parts, max_workers=_MAX_WORKERS)
