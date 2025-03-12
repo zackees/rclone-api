@@ -125,10 +125,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
     if isinstance(err, Exception):
         return err
 
-    # now check if the dst now exists, if so, delete the parts folder.
-    # if rclone.exists(dst):
-    #     rclone.purge(parts_dir)
-
     if not rclone.exists(dst):
         return FileNotFoundError(f"Destination file not found: {dst}")
 
