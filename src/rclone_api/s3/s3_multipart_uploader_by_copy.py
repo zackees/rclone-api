@@ -76,9 +76,11 @@ class MergeState:
             return e
 
     def to_json(self) -> dict:
+        finished = self.finished.copy()
+        all_parts = self.all_parts.copy()
         return {
-            "finished": FinishedPiece.to_json_array(self.finished),
-            "all": [part.to_json() for part in self.all_parts],
+            "finished": FinishedPiece.to_json_array(finished),
+            "all": [part.to_json() for part in all_parts],
         }
 
     def to_json_str(self) -> str:
