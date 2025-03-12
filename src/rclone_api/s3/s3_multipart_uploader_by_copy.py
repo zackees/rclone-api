@@ -8,10 +8,7 @@ from existing S3 objects using upload_part_copy.
 
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
-from pathlib import Path
 from threading import Semaphore
-from typing import Optional
 
 from botocore.client import BaseClient
 
@@ -22,17 +19,7 @@ from rclone_api.util import locked_print
 _DEFAULT_MAX_WORKERS = 10
 
 
-@dataclass
-class MultipartUploadInfo:
-    """Simplified upload information for multipart uploads."""
-
-    s3_client: BaseClient
-    upload_id: str
-    chunk_size: int
-    src_file_path: Optional[Path] = None
-
-
-def upload_part_copy_task(
+def _upload_part_copy_task(
     s3_client: BaseClient,
     state: MergeState,
     source_bucket: str,
@@ -107,7 +94,7 @@ def upload_part_copy_task(
     return Exception("Should not reach here")
 
 
-def complete_multipart_upload_from_parts(
+def _complete_multipart_upload_from_parts(
     s3_client: BaseClient, state: MergeState, finished_parts: list[FinishedPiece]
 ) -> str:
     """
@@ -136,7 +123,7 @@ def complete_multipart_upload_from_parts(
     return response.get("Location", f"s3://{state.bucket}/{state.dst_key}")
 
 
-def do_body_work(
+def _do_upload_task(
     s3_client: BaseClient,
     max_workers: int,
     merge_state: MergeState,
@@ -156,7 +143,7 @@ def do_body_work(
                 s3_key=s3_key,
                 part_number=part_number,
             ):
-                out = upload_part_copy_task(
+                out = _upload_part_copy_task(
                     s3_client=s3_client,
                     state=state,
                     source_bucket=source_bucket,
@@ -185,7 +172,7 @@ def do_body_work(
 
         try:
             # Complete the multipart upload
-            complete_multipart_upload_from_parts(
+            _complete_multipart_upload_from_parts(
                 s3_client=s3_client, state=merge_state, finished_parts=finished_parts
             )
         except Exception as e:
@@ -278,7 +265,7 @@ class S3MultiPartMerger:
         state = self.state
         if state is None:
             return Exception("No merge state loaded")
-        return do_body_work(
+        return _do_upload_task(
             s3_client=self.client,
             merge_state=state,
             max_workers=max_workers,
