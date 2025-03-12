@@ -6,6 +6,7 @@ This module provides functionality for S3 multipart uploads, including copying p
 from existing S3 objects using upload_part_copy.
 """
 
+import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -139,7 +140,7 @@ def do_body_work(
     s3_client: BaseClient,
     max_workers: int,
     merge_state: MergeState,
-) -> str | Exception:
+) -> Exception | None:
     futures: list[Future[FinishedPiece | Exception]] = []
     parts = merge_state.remaining_parts()
     source_bucket = merge_state.bucket
@@ -182,10 +183,15 @@ def do_body_work(
                 return finished_part
             finished_parts.append(finished_part)
 
-        # Complete the multipart upload
-        return complete_multipart_upload_from_parts(
-            s3_client=s3_client, state=merge_state, finished_parts=finished_parts
-        )
+        try:
+            # Complete the multipart upload
+            complete_multipart_upload_from_parts(
+                s3_client=s3_client, state=merge_state, finished_parts=finished_parts
+            )
+        except Exception as e:
+            warnings.warn(f"Error completing multipart upload: {e}")
+            return e
+        return None
 
 
 def begin_upload(
@@ -260,7 +266,7 @@ class S3MultiPartUploader:
         self,
         state: MergeState,
         max_workers: int = _DEFAULT_MAX_WORKERS,
-    ) -> str | Exception:
+    ) -> Exception | None:
         return do_body_work(
             s3_client=self.client,
             merge_state=state,
