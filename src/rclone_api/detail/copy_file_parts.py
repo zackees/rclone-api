@@ -209,7 +209,10 @@ class InfoJson:
 
     @property
     def parts_dir(self) -> str:
-        return os.path.dirname(self.src_info)
+        parts_dir = os.path.dirname(self.src_info)
+        if parts_dir.endswith("/"):
+            parts_dir = parts_dir[:-1]
+        return parts_dir
 
     @property
     def dst(self) -> str:

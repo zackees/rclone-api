@@ -54,7 +54,9 @@ def _parse_args() -> Args:
     return out
 
 
-def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+def begin_new_upload(
+    rclone: Rclone, info: InfoJson, dst: str
+) -> S3MultiPartUploader | Exception:
     from rclone_api.s3.create import (
         BaseClient,
         S3Config,
@@ -62,63 +64,77 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         create_s3_client,
     )
 
-    s3_config = S3Config(
-        verbose=False,
-        timeout_read=_TIMEOUT_READ,
-        timeout_connection=_TIMEOUT_CONNECTION,
-    )
-    s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
-    s3_client: BaseClient = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
-    s3_bucket = s3_creds.bucket_name
-    is_done = info.fetch_is_done()
-    size = info.size
-    assert is_done, f"Upload is not done: {info}"
+    try:
+        s3_config = S3Config(
+            verbose=False,
+            timeout_read=_TIMEOUT_READ,
+            timeout_connection=_TIMEOUT_CONNECTION,
+        )
+        s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
+        s3_client: BaseClient = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
+        s3_bucket = s3_creds.bucket_name
+        is_done = info.fetch_is_done()
+        assert is_done, f"Upload is not done: {info}"
 
-    parts_dir = info.parts_dir
-    if parts_dir.endswith("/"):
-        parts_dir = parts_dir[:-1]
-    source_keys = info.fetch_all_finished()
+        parts_dir = info.parts_dir
+        source_keys = info.fetch_all_finished()
 
-    parts_path = parts_dir.split(s3_bucket)[1]
-    if parts_path.startswith("/"):
-        parts_path = parts_path[1:]
+        parts_path = parts_dir.split(s3_bucket)[1]
+        if parts_path.startswith("/"):
+            parts_path = parts_path[1:]
 
-    first_part: int | None = info.first_part
-    last_part: int | None = info.last_part
+        first_part: int | None = info.first_part
+        last_part: int | None = info.last_part
 
-    assert first_part is not None
-    assert last_part is not None
+        assert first_part is not None
+        assert last_part is not None
 
-    def _to_s3_key(name: str | None) -> str:
-        if name:
-            out = f"{parts_path}/{name}"
+        def _to_s3_key(name: str | None) -> str:
+            if name:
+                out = f"{parts_path}/{name}"
+                return out
+            out = f"{parts_path}"
             return out
-        out = f"{parts_path}"
-        return out
 
-    parts: list[Part] = []
-    part_num = first_part
-    for part_key in source_keys:
-        assert part_num <= last_part and part_num >= first_part
-        s3_key = _to_s3_key(name=part_key)
-        part = Part(part_number=part_num, s3_key=s3_key)
-        parts.append(part)
-        part_num += 1
+        parts: list[Part] = []
+        part_num = first_part
+        for part_key in source_keys:
+            assert part_num <= last_part and part_num >= first_part
+            s3_key = _to_s3_key(name=part_key)
+            part = Part(part_number=part_num, s3_key=s3_key)
+            parts.append(part)
+            part_num += 1
 
-    dst_name = info.dst_name
-    dst_dir = os.path.dirname(parts_path)
-    dst_key = f"{dst_dir}/{dst_name}"
+        dst_name = info.dst_name
+        dst_dir = os.path.dirname(parts_path)
+        dst_key = f"{dst_dir}/{dst_name}"
 
-    uploader: S3MultiPartUploader = S3MultiPartUploader(
-        s3_client=s3_client,
-        verbose=True,
+        uploader: S3MultiPartUploader = S3MultiPartUploader(
+            s3_client=s3_client,
+            verbose=True,
+        )
+
+        uploader.begin_new_upload(
+            parts=parts,
+            bucket=s3_creds.bucket_name,
+            dst_key=dst_key,
+        )
+        return uploader
+    except Exception as e:
+        return e
+
+
+def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+    size = info.size
+    parts_dir = info.parts_dir
+    print(f"Finishing upload: {dst}")
+    print(f"Parts dir: {parts_dir}")
+    print(f"Size: {size}")
+    uploader: S3MultiPartUploader | Exception = begin_new_upload(
+        rclone=rclone, info=info, dst=dst
     )
-
-    uploader.begin_new_upload(
-        parts=parts,
-        bucket=s3_creds.bucket_name,
-        dst_key=dst_key,
-    )
+    if isinstance(uploader, Exception):
+        return uploader
 
     err = uploader.start_upload(max_workers=_MAX_WORKERS)
     if isinstance(err, Exception):
