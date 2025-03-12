@@ -277,6 +277,7 @@ def finish_multipart_upload_from_keys(
     destination_bucket: str,
     destination_key: str,
     chunk_size: int,  # 5MB default
+    max_workers: int = 100,
     retries: int = 3,
 ) -> str:
     """
@@ -318,19 +319,37 @@ def finish_multipart_upload_from_keys(
         file_size=estimated_file_size,
     )
 
+    from concurrent.futures import Future, ThreadPoolExecutor
+
+    futures: list[Future[FinishedPiece]] = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for i, source_key in enumerate(source_keys):
+            part_number = i + 1  # Part numbers start at 1
+
+            def task(
+                info=upload_info,
+                source_bucket=source_bucket,
+                source_key=source_key,
+                part_number=part_number,
+                retries=retries,
+            ):
+                return upload_part_copy_task(
+                    info=info,
+                    source_bucket=source_bucket,
+                    source_key=source_key,
+                    part_number=part_number,
+                    retries=retries,
+                )
+
+            fut = executor.submit(task)
+            futures.append(fut)
+
     # Upload parts by copying from source objects
     finished_parts = []
-    for i, source_key in enumerate(source_keys):
-        part_number = i + 1  # Part numbers start at 1
 
-        finished_part = upload_part_copy_task(
-            info=upload_info,
-            source_bucket=source_bucket,
-            source_key=source_key,
-            part_number=part_number,
-            retries=retries,
-        )
-
+    for fut in futures:
+        finished_part = fut.result()
         finished_parts.append(finished_part)
 
     # Complete the multipart upload
