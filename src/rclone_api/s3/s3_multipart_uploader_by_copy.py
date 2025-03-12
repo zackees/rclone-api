@@ -241,6 +241,9 @@ class S3MultiPartMerger:
         self.client: BaseClient = s3_client
         self.state: MergeState | None = None
 
+    def on_finished(self, finished_piece: FinishedPiece) -> None:
+        locked_print(f"Finished part {finished_piece.part_number}")
+
     def begin_new_merge(
         self,
         parts: list[Part],
@@ -263,6 +266,7 @@ class S3MultiPartMerger:
                 all_parts=parts,
             )
             self.state = merge_state
+            self.state.add_callback(self.state.on_finished)
             return None
         except Exception as e:
             return e
