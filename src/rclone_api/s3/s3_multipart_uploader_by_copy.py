@@ -295,14 +295,17 @@ class S3MultiPartUploader:
         destination_bucket: str,
         destination_key: str,
         chunk_size: int,
-    ) -> MultipartUploadInfo:
-        return begin_upload(
+    ) -> tuple[MultipartUploadInfo, MergeState]:
+        info: MultipartUploadInfo = begin_upload(
             s3_client=self.client,
             parts=parts,
             destination_bucket=destination_bucket,
             destination_key=destination_key,
             chunk_size=chunk_size,
         )
+        upload_id = info.upload_id
+        merge_state = MergeState(upload_id=upload_id, finished=[], all_parts=parts)
+        return info, merge_state
 
     def start_upload_resume(
         self,
