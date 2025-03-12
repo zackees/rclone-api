@@ -140,7 +140,7 @@ def do_body_work(
     parts: list[tuple[int, str]],
     max_workers: int,
     retries: int,
-) -> str:
+) -> str | Exception:
 
     futures: list[Future[FinishedPiece | Exception]] = []
 
@@ -177,7 +177,7 @@ def do_body_work(
             finished_part = fut.result()
             if isinstance(finished_part, Exception):
                 executor.shutdown(wait=True, cancel_futures=True)
-                raise finished_part
+                return finished_part
             finished_parts.append(finished_part)
 
         # Complete the multipart upload
@@ -246,7 +246,7 @@ def finish_multipart_upload_from_keys(
     chunk_size: int,  # 5MB default
     max_workers: int = 100,
     retries: int = 3,
-) -> str:
+) -> str | Exception:
     """
     Finish a multipart upload by copying parts from existing S3 objects.
 
@@ -300,7 +300,7 @@ class S3MultiPartUploader:
         chunk_size: int,
         final_size: int,
         retries: int = 100,
-    ) -> str:
+    ) -> str | Exception:
         """
         Finish a multipart upload by copying parts from existing S3 objects.
 
