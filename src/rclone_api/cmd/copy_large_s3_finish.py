@@ -111,6 +111,36 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     is_done = info.fetch_is_done()
     assert is_done, f"Upload is not done: {info}"
 
+    parts_dir = info.parts_dir
+    if parts_dir.endswith("/"):
+        parts_dir = parts_dir[:-1]
+    source_keys = info.fetch_all_finished()
+
+    print(parts_dir)
+    print(source_keys)
+
+    def _to_s3_key(name: str) -> str:
+        return f"{parts_dir}/{name}"
+
+    s3_keys: list[str] = [_to_s3_key(name=p) for p in source_keys]
+
+    for key in s3_keys:
+        print(key)
+
+    chunksize = info.chunksize
+    assert chunksize is not None
+
+    finish_multipart_upload_from_keys(
+        s3_client=s3_client,
+        source_bucket=s3_creds.bucket_name,
+        source_keys=source_keys,
+        destination_bucket=s3_creds.bucket_name,
+        destination_key=dst,
+        chunk_size=chunksize.as_int(),
+        retries=3,
+        byte_ranges=None,
+    )
+
     if False:
         print(finish_multipart_upload_from_keys)
         print(s3_client)

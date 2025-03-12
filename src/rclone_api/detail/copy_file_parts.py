@@ -207,6 +207,10 @@ class InfoJson:
         part_numbers = [int(name.split("_")[0].split(".")[1]) for name in names]
         return part_numbers
 
+    @property
+    def parts_dir(self) -> str:
+        return os.path.dirname(self.src_info)
+
     def compute_all_parts(self) -> list[PartInfo] | Exception:
         # full_part_infos: list[PartInfo] | Exception = PartInfo.split_parts(
         # src_size, SizeSuffix("96MB")
