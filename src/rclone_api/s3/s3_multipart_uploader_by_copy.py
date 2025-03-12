@@ -16,7 +16,7 @@ from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
 from rclone_api.util import locked_print
 
-DEFAULT_MAX_WORKERS = 5  # Back blaze seems to barely be able to 10
+DEFAULT_MAX_WORKERS = 5  # Backblaze can do 10 with exponential backoff, so let's try 5
 
 
 def _upload_part_copy_task(

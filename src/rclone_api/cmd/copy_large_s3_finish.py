@@ -164,7 +164,10 @@ def main() -> int:
     """Main entry point."""
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
-    info_json = f"{args.src}/info.json".replace("//", "/")
+    src = args.src
+    if src.endswith("/"):
+        src = src[:-1]
+    info_json = f"{src}/info.json"
     info = InfoJson(rclone.impl, src=None, src_info=info_json)
     loaded = info.load()
     if not loaded:
