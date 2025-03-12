@@ -8,7 +8,9 @@ from existing S3 objects using upload_part_copy.
 
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from threading import Semaphore
+from queue import Queue
+from threading import Semaphore, Thread
+from typing import Callable
 
 from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
@@ -19,9 +21,13 @@ from rclone_api.s3.create import (
 )
 from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
+from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print
 
 DEFAULT_MAX_WORKERS = 5  # Backblaze can do 10 with exponential backoff, so let's try 5
+
+_TIMEOUT_READ = 900
+_TIMEOUT_CONNECTION = 900
 
 
 def _upload_part_copy_task(
@@ -132,6 +138,7 @@ def _do_upload_task(
     s3_client: BaseClient,
     max_workers: int,
     merge_state: MergeState,
+    on_finished: Callable[[FinishedPiece | EndOfStream], None],
 ) -> Exception | None:
     futures: list[Future[FinishedPiece | Exception]] = []
     parts = merge_state.remaining_parts()
@@ -157,7 +164,8 @@ def _do_upload_task(
                 )
                 if isinstance(out, Exception):
                     return out
-                merge_state.on_finished(out)
+                # merge_state.on_finished(out)
+                on_finished(out)
                 return out
 
             fut = executor.submit(task)
@@ -174,6 +182,8 @@ def _do_upload_task(
                 executor.shutdown(wait=True, cancel_futures=True)
                 return finished_part
             finished_parts.append(finished_part)
+
+        on_finished(EndOfStream())
 
         try:
             # Complete the multipart upload
@@ -227,8 +237,50 @@ def _begin_upload(
     return upload_id
 
 
-_TIMEOUT_READ = 900
-_TIMEOUT_CONNECTION = 900
+class WriteMergeStateThread(Thread):
+    def __init__(self, rclone_impl: RcloneImpl, merge_state: MergeState):
+        super().__init__(daemon=True)
+        assert isinstance(merge_state, MergeState)
+        self.merge_state = merge_state
+        self.merge_path = merge_state.merge_path
+        self.rclone_impl = rclone_impl
+        self.queue: Queue[FinishedPiece | EndOfStream] = Queue()
+        self.start()
+
+    def _get_next(self) -> FinishedPiece | EndOfStream:
+        item = self.queue.get()
+        if isinstance(item, EndOfStream):
+            return item
+        # see if there are more items in the queue, only write the last one
+        while not self.queue.empty():
+            item = self.queue.get()
+            if isinstance(item, EndOfStream):
+                # put it back in for next time
+                self.queue.put(item)
+                return item
+        return item
+
+    def run(self):
+        while True:
+            item = self._get_next()
+            if isinstance(item, EndOfStream):
+                warnings.warn("End of stream")
+                break
+
+            assert isinstance(item, FinishedPiece)
+            # piece: FinishedPiece = item
+            # at this point just write out the whole json str
+            json_str = self.merge_state.to_json_str()
+            err = self.rclone_impl.write_text(self.merge_path, json_str)
+            if isinstance(err, Exception):
+                warnings.warn(f"Error writing merge state: {err}")
+                break
+
+    def add_finished(self, finished: FinishedPiece) -> None:
+        self.queue.put(finished)
+
+    def add_eos(self) -> None:
+        self.queue.put(EndOfStream())
 
 
 class S3MultiPartMerger:
@@ -239,8 +291,6 @@ class S3MultiPartMerger:
         s3_config: S3Config | None = None,
         verbose: bool = False,
     ) -> None:
-
-        assert isinstance(rclone_impl, RcloneImpl)
         self.rclone_impl: RcloneImpl = rclone_impl
         self.verbose = verbose
         s3_config = s3_config or S3Config(
@@ -252,9 +302,15 @@ class S3MultiPartMerger:
         self.max_workers = s3_config.max_pool_connections or DEFAULT_MAX_WORKERS
         self.client = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
         self.state: MergeState | None = None
+        self.write_thread: WriteMergeStateThread | None = None
 
-    def on_finished(self, finished_piece: FinishedPiece) -> None:
-        locked_print(f"Finished part {finished_piece.part_number}")
+    def start_write_thread(self) -> None:
+        assert self.state is not None
+        assert self.write_thread is None
+        self.write_thread = WriteMergeStateThread(
+            rclone_impl=self.rclone_impl,
+            merge_state=self.state,
+        )
 
     def begin_new_merge(
         self,
@@ -281,7 +337,6 @@ class S3MultiPartMerger:
                 all_parts=parts,
             )
             self.state = merge_state
-            self.state.add_callback(self.on_finished)
             return None
         except Exception as e:
             return e
@@ -291,7 +346,15 @@ class S3MultiPartMerger:
         merge_state: MergeState,
     ) -> None:
         self.state = merge_state
-        self.state.add_callback(self.on_finished)
+
+    def on_finished(self, finished_piece: FinishedPiece | EndOfStream) -> None:
+        assert self.write_thread is not None
+        assert self.state is not None
+        if isinstance(finished_piece, EndOfStream):
+            self.write_thread.add_eos()
+        else:
+            self.state.on_finished(finished_piece)
+            self.write_thread.add_finished(finished_piece)
 
     def merge(
         self,
@@ -299,8 +362,10 @@ class S3MultiPartMerger:
         state = self.state
         if state is None:
             return Exception("No merge state loaded")
+        self.start_write_thread()
         return _do_upload_task(
             s3_client=self.client,
             merge_state=state,
             max_workers=self.max_workers,
+            on_finished=self.on_finished,
         )

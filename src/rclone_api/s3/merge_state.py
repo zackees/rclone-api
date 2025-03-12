@@ -59,7 +59,7 @@ class MergeState:
     ) -> None:
         self.rclone_impl: RcloneImpl = rclone_impl
         self.merge_path: str = merge_path
-        self.merge_parts_path: str = f"{merge_path}/merge"
+        self.merge_parts_path: str = f"{merge_path}/merge"  # future use?
         self.upload_id: str = upload_id
         self.bucket: str = bucket
         self.dst_key: str = dst_key
@@ -67,13 +67,8 @@ class MergeState:
         self.all_parts: list[Part] = list(all_parts)
         self.callbacks: list[Callable[[FinishedPiece], None]] = []
 
-    def add_callback(self, callback: Callable[[FinishedPiece], None]) -> None:
-        self.callbacks.append(callback)
-
     def on_finished(self, finished_piece: FinishedPiece) -> None:
         self.finished.append(finished_piece)
-        for callback in list(self.callbacks):
-            callback(finished_piece)
 
     def remaining_parts(self) -> list[Part]:
         finished_parts: set[int] = set([p.part_number for p in self.finished])
