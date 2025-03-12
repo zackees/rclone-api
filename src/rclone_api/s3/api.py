@@ -9,7 +9,7 @@ from rclone_api.s3.basic_ops import (
     list_bucket_contents,
     upload_file,
 )
-from rclone_api.s3.create import create_s3_client
+from rclone_api.s3.create import S3Config, create_s3_client
 from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
 from rclone_api.s3.upload_file_multipart import (
     MultiUploadResult,
@@ -23,7 +23,9 @@ class S3Client:
     def __init__(self, credentials: S3Credentials, verbose: bool = False) -> None:
         self.verbose = verbose
         self.credentials: S3Credentials = credentials
-        self.client: BaseClient = create_s3_client(credentials, verbose=verbose)
+        self.client: BaseClient = create_s3_client(
+            credentials, config=S3Config(verbose=verbose)
+        )
 
     def list_bucket_contents(self, bucket_name: str) -> None:
         list_bucket_contents(self.client, bucket_name)

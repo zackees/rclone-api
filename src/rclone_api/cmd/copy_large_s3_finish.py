@@ -112,6 +112,10 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         retries=3,
     )
 
+    # now check if the dst now exists, if so, delete the parts folder.
+    if rclone.exists(dst):
+        rclone.purge(parts_dir)
+
 
 def main() -> int:
     """Main entry point."""
@@ -120,7 +124,10 @@ def main() -> int:
     info_json = f"{args.src}/info.json".replace("//", "/")
     info = InfoJson(rclone.impl, src=None, src_info=info_json)
     loaded = info.load()
-    assert loaded
+    if not loaded:
+        raise FileNotFoundError(
+            f"Info file not found, has the upload finished? {info_json}"
+        )
     print(info)
     do_finish_part(rclone=rclone, info=info, dst=args.dst)
     return 0
