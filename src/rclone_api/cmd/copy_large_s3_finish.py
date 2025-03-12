@@ -5,14 +5,14 @@ from pathlib import Path
 
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
+from rclone_api.s3.create import (
+    S3Credentials,
+)
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
     DEFAULT_MAX_WORKERS,
     Part,
     S3MultiPartMerger,
 )
-
-_TIMEOUT_READ = 900
-_TIMEOUT_CONNECTION = 900
 
 
 @dataclass
@@ -57,21 +57,15 @@ def _parse_args() -> Args:
 def _begin_new_merge(
     rclone: Rclone, info: InfoJson, dst: str
 ) -> S3MultiPartMerger | Exception:
-    from rclone_api.s3.create import (
-        BaseClient,
-        S3Config,
-        S3Credentials,
-        create_s3_client,
-    )
 
     try:
-        s3_config = S3Config(
-            verbose=False,
-            timeout_read=_TIMEOUT_READ,
-            timeout_connection=_TIMEOUT_CONNECTION,
-        )
+
         s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
-        s3_client: BaseClient = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
+        merger: S3MultiPartMerger = S3MultiPartMerger(
+            s3_creds=s3_creds,
+            verbose=True,
+        )
+
         s3_bucket = s3_creds.bucket_name
         is_done = info.fetch_is_done()
         assert is_done, f"Upload is not done: {info}"
@@ -109,10 +103,6 @@ def _begin_new_merge(
         dst_dir = os.path.dirname(parts_path)
         dst_key = f"{dst_dir}/{dst_name}"
 
-        merger: S3MultiPartMerger = S3MultiPartMerger(
-            s3_client=s3_client,
-            verbose=True,
-        )
         err = merger.begin_new_merge(
             parts=parts,
             bucket=s3_creds.bucket_name,

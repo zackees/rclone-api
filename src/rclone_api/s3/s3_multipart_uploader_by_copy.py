@@ -10,8 +10,12 @@ import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Semaphore
 
-from botocore.client import BaseClient
-
+from rclone_api.s3.create import (
+    BaseClient,
+    S3Config,
+    S3Credentials,
+    create_s3_client,
+)
 from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
 from rclone_api.util import locked_print
@@ -222,10 +226,24 @@ def _begin_upload(
     return upload_id
 
 
+_TIMEOUT_READ = 900
+_TIMEOUT_CONNECTION = 900
+
+
 class S3MultiPartMerger:
-    def __init__(self, s3_client: BaseClient, verbose: bool = False) -> None:
+    def __init__(
+        self,
+        s3_creds: S3Credentials,
+        s3_config: S3Config | None = None,
+        verbose: bool = False,
+    ) -> None:
         self.verbose = verbose
-        self.client: BaseClient = s3_client
+        s3_config = s3_config or S3Config(
+            verbose=verbose,
+            timeout_read=_TIMEOUT_READ,
+            timeout_connection=_TIMEOUT_CONNECTION,
+        )
+        self.client = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
         self.state: MergeState | None = None
 
     def on_finished(self, finished_piece: FinishedPiece) -> None:
