@@ -1,4 +1,5 @@
 import argparse
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,31 +9,6 @@ from rclone_api.s3.s3_multipart_uploader_by_copy import (
     finish_multipart_upload_from_keys,
 )
 from rclone_api.types import SizeSuffix
-
-DATA_SOURCE = (
-    "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
-)
-
-
-# response = client.upload_part_copy(
-#     Bucket='string',
-#     CopySource='string' or {'Bucket': 'string', 'Key': 'string', 'VersionId': 'string'},
-#     CopySourceIfMatch='string',
-#     CopySourceIfModifiedSince=datetime(2015, 1, 1),
-#     CopySourceIfNoneMatch='string',
-#     CopySourceIfUnmodifiedSince=datetime(2015, 1, 1),
-#     CopySourceRange='string',
-#     Key='string',
-#     PartNumber=123,
-#     UploadId='string',
-#     SSECustomerAlgorithm='string',
-#     SSECustomerKey='string',
-#     CopySourceSSECustomerAlgorithm='string',
-#     CopySourceSSECustomerKey='string',
-#     RequestPayer='requester',
-#     ExpectedBucketOwner='string',
-#     ExpectedSourceBucketOwner='string'
-# )
 
 
 @dataclass
@@ -58,13 +34,6 @@ def _parse_args() -> Args:
     parser.add_argument(
         "--config", help="Path to rclone config file", type=Path, required=False
     )
-    parser.add_argument(
-        "--chunk-size",
-        help="Chunk size that will be read and uploaded in SizeSuffix form, too low or too high will cause issues",
-        type=str,
-        default="128MB",  # if this is too low or too high an s3 service
-    )
-
     args = parser.parse_args()
     config: Path | None = args.config
     if config is None:
@@ -79,28 +48,6 @@ def _parse_args() -> Args:
         verbose=args.verbose,
     )
     return out
-
-
-# from dataclasses import dataclass
-
-# def parse_info_json(text: str) -> UploadInfo:
-#     import json
-#     data = json.loads(text)
-#     chunk_size = data["chunksize_int"]
-#     first_part = data["first_part"]
-#     last_part = data["last_part"]
-#     assert isinstance(chunk_size, int)
-#     assert isinstance(first_part, int)
-#     assert isinstance(last_part, int)
-#     assert first_part <= last_part
-#     parts: list[str] = []
-#     fmt = "part.{:05d}_{}-{}"
-#     for i in range(first_part, last_part + 1):
-#         offset: int = i * chunk_size
-#         end: int = (i + 1) * chunk_size
-#         part = fmt.format(i, offset, end)
-#         parts.append(part)
-#     return UploadInfo(chunk_size=chunk_size, parts=parts)
 
 
 def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
@@ -138,7 +85,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         out = f"{parts_path}"
         return out
 
-    # s3_keys: list[str] = [_to_s3_key(name=p) for p in source_keys]
     parts: list[tuple[int, str]] = []
     part_num = 1
     for part_key in source_keys:
@@ -146,13 +92,8 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         parts.append((part_num, s3_key))
         part_num += 1
 
-    # for key in parts:
-    #     print(key)
-
     chunksize = info.chunksize
     assert chunksize is not None
-
-    import os
 
     dst_name = info.dst_name
     dst_dir = os.path.dirname(parts_path)
@@ -167,7 +108,7 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         destination_key=dst_key,
         chunk_size=chunksize.as_int(),
         final_size=size.as_int(),
-        max_workers=100,
+        max_workers=50,
         retries=3,
     )
 

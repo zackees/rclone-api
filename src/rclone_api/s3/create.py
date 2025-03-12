@@ -7,7 +7,7 @@ from botocore.config import Config
 from rclone_api.s3.types import S3Credentials, S3Provider
 
 _DEFAULT_BACKBLAZE_ENDPOINT = "https://s3.us-west-002.backblazeb2.com"
-_MAX_CONNECTIONS = 500
+_MAX_CONNECTIONS = 50
 
 
 # Create a Boto3 session and S3 client, this is back blaze specific.
