@@ -54,7 +54,7 @@ def _parse_args() -> Args:
     return out
 
 
-def begin_new_upload(
+def _begin_new_upload(
     rclone: Rclone, info: InfoJson, dst: str
 ) -> S3MultiPartUploader | Exception:
     from rclone_api.s3.create import (
@@ -124,22 +124,9 @@ def begin_new_upload(
         return e
 
 
-def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+def _finish_upload(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     size = info.size
     parts_dir = info.parts_dir
-    print(f"Finishing upload: {dst}")
-    print(f"Parts dir: {parts_dir}")
-    print(f"Size: {size}")
-    uploader: S3MultiPartUploader | Exception = begin_new_upload(
-        rclone=rclone, info=info, dst=dst
-    )
-    if isinstance(uploader, Exception):
-        return uploader
-
-    err = uploader.start_upload(max_workers=_MAX_WORKERS)
-    if isinstance(err, Exception):
-        return err
-
     if not rclone.exists(dst):
         return FileNotFoundError(f"Destination file not found: {dst}")
 
@@ -150,6 +137,26 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
     print(f"Upload complete: {dst}")
     rclone.purge(parts_dir)
     return None
+
+
+def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+    size = info.size
+    parts_dir = info.parts_dir
+    print(f"Finishing upload: {dst}")
+    print(f"Parts dir: {parts_dir}")
+    print(f"Size: {size}")
+    uploader: S3MultiPartUploader | Exception = _begin_new_upload(
+        rclone=rclone, info=info, dst=dst
+    )
+    if isinstance(uploader, Exception):
+        return uploader
+
+    err = uploader.start_upload(max_workers=_MAX_WORKERS)
+    if isinstance(err, Exception):
+        return err
+
+    err = _finish_upload(rclone=rclone, info=info, dst=dst)
+    return err
 
 
 def main() -> int:
