@@ -870,6 +870,11 @@ class RcloneImpl:
 
         verbose = get_verbose(verbose)
         path_info: S3PathInfo = split_s3_path(remote)
+
+        # path_info: S3PathInfo = split_s3_path(remote)
+        remote = path_info.remote
+        bucket_name = path_info.bucket
+
         remote = path_info.remote
         parsed: Parsed = self.config.parse()
         sections: dict[str, Section] = parsed.sections
@@ -908,6 +913,7 @@ class RcloneImpl:
         provider_enum = S3Provider.from_str(provider)
 
         s3_creds: S3Credentials = S3Credentials(
+            bucket_name=bucket_name,
             provider=provider_enum,
             access_key_id=section.access_key_id(),
             secret_access_key=section.secret_access_key(),
@@ -961,10 +967,10 @@ class RcloneImpl:
             )
 
         path_info: S3PathInfo = split_s3_path(dst)
-        remote = path_info.remote
+        # remote = path_info.remote
         bucket_name = path_info.bucket
         s3_key = path_info.key
-        s3_creds: S3Credentials = self.get_s3_credentials(remote, verbose=verbose)
+        s3_creds: S3Credentials = self.get_s3_credentials(dst, verbose=verbose)
 
         port = random.randint(10000, 20000)
         http_server: HttpServer = self.serve_http(

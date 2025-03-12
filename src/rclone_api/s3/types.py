@@ -26,6 +26,7 @@ class S3Provider(Enum):
 class S3Credentials:
     """Credentials for accessing S3."""
 
+    bucket_name: str
     provider: S3Provider
     access_key_id: str
     secret_access_key: str

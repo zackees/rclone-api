@@ -35,6 +35,7 @@ class RcloneS3Tester(unittest.TestCase):
         assert ENDPOINT_URL
 
         credentials = S3Credentials(
+            bucket_name=BUCKET_NAME,
             provider=S3Provider.BACKBLAZE,
             access_key_id=ACCESS_KEY_ID,
             secret_access_key=SECRET_ACCESS_KEY,
