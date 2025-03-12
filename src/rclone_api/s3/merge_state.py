@@ -8,7 +8,7 @@ from existing S3 objects using upload_part_copy.
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
 
@@ -49,10 +49,14 @@ class MergeState:
     def __init__(self, finished: list[FinishedPiece], all_parts: list[Part]) -> None:
         self.finished: list[FinishedPiece] = finished
         self.all_parts: list[Part] = all_parts
-        self.
+        self.callbacks: list[Callable[[FinishedPiece], None]] = []
 
-    def add_finished(self, finished: FinishedPiece) -> None:
-        self.finished.append(finished)
+    def add_callback(self, callback: Callable[[FinishedPiece], None]) -> None:
+        self.callbacks.append(callback)
+
+    def on_finished(self, finished_piece: FinishedPiece) -> None:
+        for callback in list(self.callbacks):
+            callback(finished_piece)
 
     @staticmethod
     def from_json_array(json_array: dict) -> "MergeState | Exception":
