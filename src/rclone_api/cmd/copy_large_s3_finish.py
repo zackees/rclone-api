@@ -176,8 +176,8 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
 
     info_multipart, merge_state = uploader.begin_new_upload(
         parts=parts,
-        destination_bucket=s3_creds.bucket_name,
-        destination_key=dst_key,
+        bucket=s3_creds.bucket_name,
+        dst_key=dst_key,
         chunk_size=chunksize.as_int(),
     )
 

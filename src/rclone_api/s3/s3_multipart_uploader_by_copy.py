@@ -192,8 +192,8 @@ def do_body_work(
 def begin_upload(
     s3_client: BaseClient,
     parts: list[Part],
-    destination_bucket: str,
-    destination_key: str,
+    bucket: str,
+    dst_key: str,
     chunk_size: int,
 ) -> MultipartUploadInfo:
     """
@@ -203,8 +203,8 @@ def begin_upload(
         s3_client: Boto3 S3 client
         source_bucket: Source bucket name
         source_keys: List of source object keys to copy from
-        destination_bucket: Destination bucket name
-        destination_key: Destination object key
+        bucket: Destination bucket name
+        dst_key: Destination object key
         chunk_size: Size of each part in bytes
         retries: Number of retry attempts
         byte_ranges: Optional list of byte ranges corresponding to source_keys
@@ -215,11 +215,11 @@ def begin_upload(
 
     # Initiate multipart upload
     locked_print(
-        f"Creating multipart upload for {destination_bucket}/{destination_key} from {len(parts)} source objects"
+        f"Creating multipart upload for {bucket}/{dst_key} from {len(parts)} source objects"
     )
     create_params: dict[str, str] = {
-        "Bucket": destination_bucket,
-        "Key": destination_key,
+        "Bucket": bucket,
+        "Key": dst_key,
     }
     print(f"Creating multipart upload with {create_params}")
     mpu = s3_client.create_multipart_upload(**create_params)
@@ -229,59 +229,12 @@ def begin_upload(
     # Create upload info
     info = MultipartUploadInfo(
         s3_client=s3_client,
-        bucket_name=destination_bucket,
-        object_name=destination_key,
+        bucket_name=bucket,
+        object_name=dst_key,
         upload_id=upload_id,
         chunk_size=chunk_size,
     )
     return info
-
-
-def finish_multipart_upload_from_keys(
-    s3_client: BaseClient,
-    source_bucket: str,
-    parts: list[Part],
-    destination_bucket: str,
-    destination_key: str,
-    chunk_size: int,  # 5MB default
-    max_workers: int = 100,
-) -> str | Exception:
-    """
-    Finish a multipart upload by copying parts from existing S3 objects.
-
-    Args:
-        s3_client: Boto3 S3 client
-        source_bucket: Source bucket name
-        source_keys: List of source object keys to copy from
-        destination_bucket: Destination bucket name
-        destination_key: Destination object key
-        chunk_size: Size of each part in bytes
-        retries: Number of retry attempts
-        byte_ranges: Optional list of byte ranges corresponding to source_keys
-
-    Returns:
-        The URL of the completed object
-    """
-
-    # Create upload info
-    info = begin_upload(
-        s3_client=s3_client,
-        parts=parts,
-        destination_bucket=destination_bucket,
-        destination_key=destination_key,
-        chunk_size=chunk_size,
-    )
-    upload_id = info.upload_id
-    merge_state = MergeState(upload_id=upload_id, finished=[], all_parts=parts)
-
-    out = do_body_work(
-        info=info,
-        source_bucket=source_bucket,
-        max_workers=max_workers,
-        merge_state=merge_state,
-    )
-
-    return out
 
 
 class S3MultiPartUploader:
@@ -292,19 +245,25 @@ class S3MultiPartUploader:
     def begin_new_upload(
         self,
         parts: list[Part],
-        destination_bucket: str,
-        destination_key: str,
+        bucket: str,
+        dst_key: str,
         chunk_size: int,
     ) -> tuple[MultipartUploadInfo, MergeState]:
         info: MultipartUploadInfo = begin_upload(
             s3_client=self.client,
             parts=parts,
-            destination_bucket=destination_bucket,
-            destination_key=destination_key,
+            bucket=bucket,
+            dst_key=dst_key,
             chunk_size=chunk_size,
         )
         upload_id = info.upload_id
-        merge_state = MergeState(upload_id=upload_id, finished=[], all_parts=parts)
+        merge_state = MergeState(
+            upload_id=upload_id,
+            bucket=bucket,
+            dst_key=dst_key,
+            finished=[],
+            all_parts=parts,
+        )
         return info, merge_state
 
     def start_upload_resume(

@@ -47,9 +47,16 @@ class Part:
 class MergeState:
 
     def __init__(
-        self, upload_id: str, finished: list[FinishedPiece], all_parts: list[Part]
+        self,
+        upload_id: str,
+        bucket: str,
+        dst_key: str,
+        finished: list[FinishedPiece],
+        all_parts: list[Part],
     ) -> None:
         self.upload_id: str = upload_id
+        self.bucket: str = bucket
+        self.dst_key: str = dst_key
         self.finished: list[FinishedPiece] = list(finished)
         self.all_parts: list[Part] = list(all_parts)
         self.callbacks: list[Callable[[FinishedPiece], None]] = []
@@ -64,6 +71,8 @@ class MergeState:
     @staticmethod
     def from_json_array(json_array: dict) -> "MergeState | Exception":
         try:
+            bucket = json_array["bucket"]
+            dst_key = json_array["dst_key"]
             finished: list[FinishedPiece] = FinishedPiece.from_json_array(
                 json_array["finished"]
             )
@@ -78,7 +87,11 @@ class MergeState:
             if len(errs):
                 return Exception(f"Errors in parts: {errs}")
             return MergeState(
-                upload_id=upload_id, finished=finished, all_parts=all_parts_no_err
+                upload_id=upload_id,
+                bucket=bucket,
+                dst_key=dst_key,
+                finished=finished,
+                all_parts=all_parts_no_err,
             )
         except Exception as e:
             return e
@@ -87,9 +100,11 @@ class MergeState:
         finished = self.finished.copy()
         all_parts = self.all_parts.copy()
         return {
+            "bucket": self.bucket,
+            "dst_key": self.dst_key,
+            "upload_id": self.upload_id,
             "finished": FinishedPiece.to_json_array(finished),
             "all": [part.to_json() for part in all_parts],
-            "upload_id": self.upload_id,
         }
 
     def to_json_str(self) -> str:
