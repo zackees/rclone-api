@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
+from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
     S3Credentials,
 )
@@ -53,11 +54,12 @@ def _parse_args() -> Args:
 
 
 def _begin_or_resume_merge(
-    rclone: Rclone, info: InfoJson, dst: str
+    rclone: RcloneImpl, info: InfoJson, dst: str
 ) -> S3MultiPartMerger | Exception:
     try:
-        s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
+        s3_creds: S3Credentials = rclone.get_s3_credentials(remote=dst)
         merger: S3MultiPartMerger = S3MultiPartMerger(
+            rclone_impl=rclone,
             s3_creds=s3_creds,
             verbose=True,
         )
@@ -72,7 +74,7 @@ def _begin_or_resume_merge(
             # Attempt to do a resume
             merge_data = json.loads(merge_json_text)
             print(merge_data)
-            merge_state = MergeState.from_json(merge_data)
+            merge_state = MergeState.from_json(rclone_impl=rclone, json=merge_data)
             if isinstance(merge_state, MergeState):
                 merger.begin_resume_merge(merge_state=merge_state)
                 return merger
@@ -124,7 +126,7 @@ def _begin_or_resume_merge(
         return e
 
 
-def _finish_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+def _finish_merge(rclone: RcloneImpl, info: InfoJson, dst: str) -> Exception | None:
     size = info.size
     parts_dir = info.parts_dir
     if not rclone.exists(dst):
@@ -145,9 +147,9 @@ def _get_merge_path(info_path: str) -> str:
     return merge_path
 
 
-def _perform_merge(rclone: Rclone, info_path: str) -> Exception | None:
+def _perform_merge(rclone: RcloneImpl, info_path: str) -> Exception | None:
     merge_path = _get_merge_path(info_path)
-    info = InfoJson(rclone.impl, src=None, src_info=info_path)
+    info = InfoJson(rclone, src=None, src_info=info_path)
     loaded = info.load()
     if not loaded:
         return FileNotFoundError(
@@ -187,7 +189,7 @@ def main() -> int:
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
     info_path = _get_info_path(src=args.src)
-    _perform_merge(rclone=rclone, info_path=info_path)
+    _perform_merge(rclone=rclone.impl, info_path=info_path)
     return 0
 
 

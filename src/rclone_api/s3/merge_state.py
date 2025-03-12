@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
 
 
@@ -48,6 +49,7 @@ class MergeState:
 
     def __init__(
         self,
+        rclone_impl: RcloneImpl,
         merge_path: str,
         upload_id: str,
         bucket: str,
@@ -55,7 +57,9 @@ class MergeState:
         finished: list[FinishedPiece],
         all_parts: list[Part],
     ) -> None:
+        self.rclone_impl: RcloneImpl = rclone_impl
         self.merge_path: str = merge_path
+        self.merge_parts_path: str = f"{merge_path}/merge"
         self.upload_id: str = upload_id
         self.bucket: str = bucket
         self.dst_key: str = dst_key
@@ -77,25 +81,24 @@ class MergeState:
         return remaining
 
     @staticmethod
-    def from_json(json_array: dict) -> "MergeState | Exception":
+    def from_json(rclone_impl: RcloneImpl, json: dict) -> "MergeState | Exception":
         try:
-            merge_path = json_array["merge_path"]
-            bucket = json_array["bucket"]
-            dst_key = json_array["dst_key"]
+            merge_path = json["merge_path"]
+            bucket = json["bucket"]
+            dst_key = json["dst_key"]
             finished: list[FinishedPiece] = FinishedPiece.from_json_array(
-                json_array["finished"]
+                json["finished"]
             )
-            all_parts: list[Part | Exception] = [
-                Part.from_json(j) for j in json_array["all"]
-            ]
+            all_parts: list[Part | Exception] = [Part.from_json(j) for j in json["all"]]
             all_parts_no_err: list[Part] = [
                 p for p in all_parts if not isinstance(p, Exception)
             ]
-            upload_id: str = json_array["upload_id"]
+            upload_id: str = json["upload_id"]
             errs: list[Exception] = [p for p in all_parts if isinstance(p, Exception)]
             if len(errs):
                 return Exception(f"Errors in parts: {errs}")
             return MergeState(
+                rclone_impl=rclone_impl,
                 merge_path=merge_path,
                 upload_id=upload_id,
                 bucket=bucket,

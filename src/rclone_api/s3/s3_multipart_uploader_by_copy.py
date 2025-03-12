@@ -10,6 +10,7 @@ import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import Semaphore
 
+from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
     BaseClient,
     S3Config,
@@ -233,10 +234,14 @@ _TIMEOUT_CONNECTION = 900
 class S3MultiPartMerger:
     def __init__(
         self,
+        rclone_impl: RcloneImpl,
         s3_creds: S3Credentials,
         s3_config: S3Config | None = None,
         verbose: bool = False,
     ) -> None:
+
+        assert isinstance(rclone_impl, RcloneImpl)
+        self.rclone_impl: RcloneImpl = rclone_impl
         self.verbose = verbose
         s3_config = s3_config or S3Config(
             verbose=verbose,
@@ -267,6 +272,7 @@ class S3MultiPartMerger:
                 verbose=self.verbose,
             )
             merge_state = MergeState(
+                rclone_impl=self.rclone_impl,
                 merge_path=merge_path,
                 upload_id=upload_id,
                 bucket=bucket,
