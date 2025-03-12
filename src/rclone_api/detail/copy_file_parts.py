@@ -211,6 +211,17 @@ class InfoJson:
     def parts_dir(self) -> str:
         return os.path.dirname(self.src_info)
 
+    @property
+    def dst(self) -> str:
+        parts_dir = self.parts_dir
+        assert parts_dir.endswith("-parts")
+        out = parts_dir[:-6]
+        return out
+
+    @property
+    def dst_name(self) -> str:
+        return os.path.basename(self.dst)
+
     def compute_all_parts(self) -> list[PartInfo] | Exception:
         # full_part_infos: list[PartInfo] | Exception = PartInfo.split_parts(
         # src_size, SizeSuffix("96MB")

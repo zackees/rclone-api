@@ -9,6 +9,7 @@ from existing S3 objects using upload_part_copy.
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Semaphore
 from typing import Optional
 
 from botocore.client import BaseClient
@@ -183,7 +184,7 @@ def upload_part_copy_task(
     source_key: str,
     part_number: int,
     retries: int = 3,
-) -> FinishedPiece:
+) -> FinishedPiece | Exception:
     """
     Upload a part by copying from an existing S3 object.
 
@@ -200,8 +201,11 @@ def upload_part_copy_task(
     """
     copy_source = {"Bucket": source_bucket, "Key": source_key}
 
+    # from botocore.exceptions import NoSuchKey
+
     retries = retries + 1  # Add one for the initial attempt
     for retry in range(retries):
+        params: dict = {}
         try:
             if retry > 0:
                 locked_print(f"Retrying part copy {part_number} for {info.object_name}")
@@ -226,16 +230,23 @@ def upload_part_copy_task(
             etag = part["CopyPartResult"]["ETag"]
 
             return FinishedPiece(etag=etag, part_number=part_number)
+        # except NoSuchKey as e:
+        #     locked_print(f"Error copying part {part_number}: {e}")
+        #     return e
 
         except Exception as e:
+            msg = f"Error copying {copy_source} -> {info.object_name}: {e}, params={params}"
+            if "NoSuchKey" in str(e):
+                locked_print(msg)
+                return e
             if retry == retries - 1:
-                locked_print(f"Error copying part {part_number}: {e}")
-                raise e
+                locked_print(msg)
+                return e
             else:
-                locked_print(f"Error copying part {part_number}: {e}, retrying")
+                locked_print(f"{msg}, retrying")
                 continue
 
-    raise Exception("Should not reach here")
+    return Exception("Should not reach here")
 
 
 def complete_multipart_upload_from_parts(
@@ -303,9 +314,14 @@ def finish_multipart_upload_from_keys(
     locked_print(
         f"Creating multipart upload for {destination_bucket}/{destination_key} from {len(parts)} source objects"
     )
-    mpu = s3_client.create_multipart_upload(
-        Bucket=destination_bucket, Key=destination_key
-    )
+
+    create_params: dict[str, str] = {
+        "Bucket": destination_bucket,
+        "Key": destination_key,
+    }
+    print(f"Creating multipart upload with {create_params}")
+    mpu = s3_client.create_multipart_upload(**create_params)
+    print(f"Created multipart upload: {mpu}")
     upload_id = mpu["UploadId"]
 
     # Create upload info
@@ -319,9 +335,12 @@ def finish_multipart_upload_from_keys(
         file_size=final_size,
     )
 
-    futures: list[Future[FinishedPiece]] = []
+    futures: list[Future[FinishedPiece | Exception]] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # semaphore
+
+        semaphore = Semaphore(max_workers)
         for part_number, source_key in parts:
 
             def task(
@@ -340,17 +359,22 @@ def finish_multipart_upload_from_keys(
                 )
 
             fut = executor.submit(task)
+            fut.add_done_callback(lambda x: semaphore.release())
             futures.append(fut)
+            semaphore.acquire()
 
-    # Upload parts by copying from source objects
-    finished_parts = []
+        # Upload parts by copying from source objects
+        finished_parts: list[FinishedPiece] = []
 
-    for fut in futures:
-        finished_part = fut.result()
-        finished_parts.append(finished_part)
+        for fut in futures:
+            finished_part = fut.result()
+            if isinstance(finished_part, Exception):
+                executor.shutdown(wait=True, cancel_futures=True)
+                raise finished_part
+            finished_parts.append(finished_part)
 
-    # Complete the multipart upload
-    return complete_multipart_upload_from_parts(upload_info, finished_parts)
+        # Complete the multipart upload
+        return complete_multipart_upload_from_parts(upload_info, finished_parts)
 
 
 class S3MultiPartUploader:

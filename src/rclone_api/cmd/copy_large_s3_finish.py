@@ -116,13 +116,12 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     if parts_dir.endswith("/"):
         parts_dir = parts_dir[:-1]
     source_keys = info.fetch_all_finished()
+    # print(parts_dir)
+    # print(source_keys)
 
-    print(parts_dir)
-    print(source_keys)
-
-    parent_path = parts_dir.split(s3_bucket)[1]
-    if parent_path.startswith("/"):
-        parent_path = parent_path[1:]
+    parts_path = parts_dir.split(s3_bucket)[1]
+    if parts_path.startswith("/"):
+        parts_path = parts_path[1:]
 
     first_part: int | None = info.first_part
     last_part: int | None = info.last_part
@@ -132,16 +131,20 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     assert last_part is not None
     assert size is not None
 
-    def _to_s3_key(name: str) -> str:
-        out = f"{parent_path}/{name}"
+    def _to_s3_key(name: str | None) -> str:
+        if name:
+            out = f"{parts_path}/{name}"
+            return out
+        out = f"{parts_path}"
         return out
 
     # s3_keys: list[str] = [_to_s3_key(name=p) for p in source_keys]
     parts: list[tuple[int, str]] = []
-    for i in range(first_part, last_part + 1):
-        part_name = f"part.{i:05d}"
-        s3_key = _to_s3_key(name=part_name)
-        parts.append((i, s3_key))
+    part_num = 1
+    for part_key in source_keys:
+        s3_key = _to_s3_key(name=part_key)
+        parts.append((part_num, s3_key))
+        part_num += 1
 
     # for key in parts:
     #     print(key)
@@ -149,14 +152,22 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     chunksize = info.chunksize
     assert chunksize is not None
 
+    import os
+
+    dst_name = info.dst_name
+    dst_dir = os.path.dirname(parts_path)
+    # dst_key =
+    dst_key = f"{dst_dir}/{dst_name}"
+
     finish_multipart_upload_from_keys(
         s3_client=s3_client,
         source_bucket=s3_creds.bucket_name,
         parts=parts,
         destination_bucket=s3_creds.bucket_name,
-        destination_key=dst,
+        destination_key=dst_key,
         chunk_size=chunksize.as_int(),
         final_size=size.as_int(),
+        max_workers=100,
         retries=3,
     )
 
