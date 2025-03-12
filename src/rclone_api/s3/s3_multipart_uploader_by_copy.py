@@ -56,6 +56,9 @@ class MergeState:
         self.finished: list[FinishedPiece] = finished
         self.all_parts: list[Part] = all_parts
 
+    def add_finished(self, finished: FinishedPiece) -> None:
+        self.finished.append(finished)
+
     @staticmethod
     def from_json_array(json_array: dict) -> "MergeState | Exception":
         try:
