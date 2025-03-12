@@ -274,7 +274,8 @@ def complete_multipart_upload_from_parts(
 def finish_multipart_upload_from_keys(
     s3_client: BaseClient,
     source_bucket: str,
-    source_keys: list[str],
+    parts: list[tuple[int, str]],
+    final_size: int,
     destination_bucket: str,
     destination_key: str,
     chunk_size: int,  # 5MB default
@@ -297,12 +298,10 @@ def finish_multipart_upload_from_keys(
     Returns:
         The URL of the completed object
     """
-    # Create a dummy file size for the upload info
-    estimated_file_size = len(source_keys) * chunk_size
 
     # Initiate multipart upload
     locked_print(
-        f"Creating multipart upload for {destination_bucket}/{destination_key} from {len(source_keys)} source objects"
+        f"Creating multipart upload for {destination_bucket}/{destination_key} from {len(parts)} source objects"
     )
     mpu = s3_client.create_multipart_upload(
         Bucket=destination_bucket, Key=destination_key
@@ -317,14 +316,13 @@ def finish_multipart_upload_from_keys(
         upload_id=upload_id,
         retries=retries,
         chunk_size=chunk_size,
-        file_size=estimated_file_size,
+        file_size=final_size,
     )
 
     futures: list[Future[FinishedPiece]] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for i, source_key in enumerate(source_keys):
-            part_number = i + 1  # Part numbers start at 1
+        for part_number, source_key in parts:
 
             def task(
                 info=upload_info,
@@ -363,10 +361,11 @@ class S3MultiPartUploader:
     def finish_from_keys(
         self,
         source_bucket: str,
-        source_keys: list[str],
+        parts: list[tuple[int, str]],
         destination_bucket: str,
         destination_key: str,
-        chunk_size: int = 5 * 1024 * 1024,
+        chunk_size: int,
+        final_size: int,
         retries: int = 3,
     ) -> str:
         """
@@ -387,9 +386,10 @@ class S3MultiPartUploader:
         return finish_multipart_upload_from_keys(
             s3_client=self.s3_client,
             source_bucket=source_bucket,
-            source_keys=source_keys,
+            parts=parts,
             destination_bucket=destination_bucket,
             destination_key=destination_key,
             chunk_size=chunk_size,
+            final_size=final_size,
             retries=retries,
         )

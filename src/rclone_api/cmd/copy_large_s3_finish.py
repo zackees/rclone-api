@@ -7,6 +7,7 @@ from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
     finish_multipart_upload_from_keys,
 )
+from rclone_api.types import SizeSuffix
 
 DATA_SOURCE = (
     "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
@@ -123,14 +124,27 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     if parent_path.startswith("/"):
         parent_path = parent_path[1:]
 
+    first_part: int | None = info.first_part
+    last_part: int | None = info.last_part
+    size: SizeSuffix | None = info.size
+
+    assert first_part is not None
+    assert last_part is not None
+    assert size is not None
+
     def _to_s3_key(name: str) -> str:
         out = f"{parent_path}/{name}"
         return out
 
-    s3_keys: list[str] = [_to_s3_key(name=p) for p in source_keys]
+    # s3_keys: list[str] = [_to_s3_key(name=p) for p in source_keys]
+    parts: list[tuple[int, str]] = []
+    for i in range(first_part, last_part + 1):
+        part_name = f"part.{i:05d}"
+        s3_key = _to_s3_key(name=part_name)
+        parts.append((i, s3_key))
 
-    for key in s3_keys:
-        print(key)
+    # for key in parts:
+    #     print(key)
 
     chunksize = info.chunksize
     assert chunksize is not None
@@ -138,10 +152,11 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     finish_multipart_upload_from_keys(
         s3_client=s3_client,
         source_bucket=s3_creds.bucket_name,
-        source_keys=s3_keys,
+        parts=parts,
         destination_bucket=s3_creds.bucket_name,
         destination_key=dst,
         chunk_size=chunksize.as_int(),
+        final_size=size.as_int(),
         retries=3,
     )
 
