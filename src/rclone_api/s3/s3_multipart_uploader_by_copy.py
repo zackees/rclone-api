@@ -6,6 +6,8 @@ This module provides functionality for S3 multipart uploads, including copying p
 from existing S3 objects using upload_part_copy.
 """
 
+import json
+import os
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
@@ -301,6 +303,84 @@ def _cleanup_merge(rclone: RcloneImpl, info: InfoJson) -> Exception | None:
     return None
 
 
+def _get_merge_path(info_path: str) -> str:
+    par_dir = os.path.dirname(info_path)
+    merge_path = f"{par_dir}/merge.json"
+    return merge_path
+
+
+def _begin_or_resume_merge(
+    rclone: RcloneImpl, info: InfoJson
+) -> "S3MultiPartMerger | Exception":
+    try:
+        merger: S3MultiPartMerger = S3MultiPartMerger(
+            rclone_impl=rclone,
+            info=info,
+            verbose=True,
+        )
+
+        s3_bucket = merger.bucket
+        is_done = info.fetch_is_done()
+        assert is_done, f"Upload is not done: {info}"
+
+        merge_path = _get_merge_path(info_path=info.src_info)
+        merge_json_text = rclone.read_text(merge_path)
+        if isinstance(merge_json_text, str):
+            # Attempt to do a resume
+            merge_data = json.loads(merge_json_text)
+            print(merge_data)
+            merge_state = MergeState.from_json(rclone_impl=rclone, json=merge_data)
+            if isinstance(merge_state, MergeState):
+                merger.begin_resume_merge(merge_state=merge_state)
+                return merger
+            warnings.warn(f"Failed to resume merge: {merge_state}, starting new merge")
+
+        parts_dir = info.parts_dir
+        source_keys = info.fetch_all_finished()
+
+        parts_path = parts_dir.split(s3_bucket)[1]
+        if parts_path.startswith("/"):
+            parts_path = parts_path[1:]
+
+        first_part: int | None = info.first_part
+        last_part: int | None = info.last_part
+
+        assert first_part is not None
+        assert last_part is not None
+
+        def _to_s3_key(name: str | None) -> str:
+            if name:
+                out = f"{parts_path}/{name}"
+                return out
+            out = f"{parts_path}"
+            return out
+
+        parts: list[Part] = []
+        part_num = first_part
+        for part_key in source_keys:
+            assert part_num <= last_part and part_num >= first_part
+            s3_key = _to_s3_key(name=part_key)
+            part = Part(part_number=part_num, s3_key=s3_key)
+            parts.append(part)
+            part_num += 1
+
+        dst_name = info.dst_name
+        dst_dir = os.path.dirname(parts_path)
+        dst_key = f"{dst_dir}/{dst_name}"
+
+        err = merger.begin_new_merge(
+            merge_path=merge_path,
+            parts=parts,
+            bucket=merger.bucket,
+            dst_key=dst_key,
+        )
+        if isinstance(err, Exception):
+            return err
+        return merger
+    except Exception as e:
+        return e
+
+
 class S3MultiPartMerger:
     def __init__(
         self,
@@ -323,6 +403,10 @@ class S3MultiPartMerger:
         self.client = create_s3_client(s3_creds=self.s3_creds, s3_config=s3_config)
         self.state: MergeState | None = None
         self.write_thread: WriteMergeStateThread | None = None
+
+    @staticmethod
+    def create(rclone: RcloneImpl, info: InfoJson) -> "S3MultiPartMerger | Exception":
+        return _begin_or_resume_merge(rclone=rclone, info=info)
 
     @property
     def bucket(self) -> str:
@@ -399,3 +483,28 @@ class S3MultiPartMerger:
 
     def cleanup(self) -> Exception | None:
         return _cleanup_merge(rclone=self.rclone_impl, info=self.info)
+
+
+def s3_server_side_multi_part_merge(
+    rclone: RcloneImpl, info_path: str
+) -> Exception | None:
+    info = InfoJson(rclone, src=None, src_info=info_path)
+    loaded = info.load()
+    if not loaded:
+        return FileNotFoundError(
+            f"Info file not found, has the upload finished? {info_path}"
+        )
+    merger: S3MultiPartMerger | Exception = S3MultiPartMerger.create(
+        rclone=rclone, info=info
+    )
+    if isinstance(merger, Exception):
+        return merger
+
+    err = merger.merge()
+    if isinstance(err, Exception):
+        return err
+
+    err = merger.cleanup()
+    if isinstance(err, Exception):
+        err
+    return None
