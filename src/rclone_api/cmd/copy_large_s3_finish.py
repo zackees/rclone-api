@@ -54,12 +54,14 @@ def _parse_args() -> Args:
 
 
 def _begin_or_resume_merge(
-    rclone: RcloneImpl, info: InfoJson, dst: str
+    rclone: RcloneImpl, info: InfoJson
 ) -> S3MultiPartMerger | Exception:
     try:
+        dst = info.dst
         s3_creds: S3Credentials = rclone.get_s3_credentials(remote=dst)
         merger: S3MultiPartMerger = S3MultiPartMerger(
             rclone_impl=rclone,
+            info=info,
             s3_creds=s3_creds,
             verbose=True,
         )
@@ -126,21 +128,6 @@ def _begin_or_resume_merge(
         return e
 
 
-def _finish_merge(rclone: RcloneImpl, info: InfoJson, dst: str) -> Exception | None:
-    size = info.size
-    parts_dir = info.parts_dir
-    if not rclone.exists(dst):
-        return FileNotFoundError(f"Destination file not found: {dst}")
-
-    write_size = rclone.size_file(dst)
-    if write_size != size:
-        return ValueError(f"Size mismatch: {write_size} != {size}")
-
-    print(f"Upload complete: {dst}")
-    rclone.purge(parts_dir)
-    return None
-
-
 def _get_merge_path(info_path: str) -> str:
     par_dir = os.path.dirname(info_path)
     merge_path = f"{par_dir}/merge.json"
@@ -157,14 +144,13 @@ def _perform_merge(rclone: RcloneImpl, info_path: str) -> Exception | None:
         )
     size = info.size
     parts_dir = info.parts_dir
-    dst = info.dst
-    print(f"Finishing upload: {dst}")
+    print(f"Finishing upload: {info.dst}")
     print(f"Parts dir: {parts_dir}")
     print(f"Size: {size}")
     print(f"Info: {info}")
     print(f"Merge.json: {merge_path}")
     merger: S3MultiPartMerger | Exception = _begin_or_resume_merge(
-        rclone=rclone, info=info, dst=dst
+        rclone=rclone, info=info
     )
     if isinstance(merger, Exception):
         return merger
@@ -173,8 +159,10 @@ def _perform_merge(rclone: RcloneImpl, info_path: str) -> Exception | None:
     if isinstance(err, Exception):
         return err
 
-    err = _finish_merge(rclone=rclone, info=info, dst=dst)
-    return err
+    err = merger.cleanup()
+    if isinstance(err, Exception):
+        err
+    return None
 
 
 def _get_info_path(src: str) -> str:

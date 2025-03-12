@@ -12,6 +12,7 @@ from queue import Queue
 from threading import Semaphore, Thread
 from typing import Callable
 
+from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
     BaseClient,
@@ -283,15 +284,35 @@ class WriteMergeStateThread(Thread):
         self.queue.put(EndOfStream())
 
 
+def _cleanup_merge(rclone: RcloneImpl, info: InfoJson) -> Exception | None:
+    size = info.size
+    dst = info.dst
+    parts_dir = info.parts_dir
+    if not rclone.exists(dst):
+        return FileNotFoundError(f"Destination file not found: {dst}")
+
+    write_size = rclone.size_file(dst)
+    if write_size != size:
+        return ValueError(f"Size mismatch: {write_size} != {size}")
+
+    print(f"Upload complete: {dst}")
+    cp = rclone.purge(parts_dir)
+    if cp.failed():
+        return Exception(f"Failed to purge parts dir: {cp}")
+    return None
+
+
 class S3MultiPartMerger:
     def __init__(
         self,
         rclone_impl: RcloneImpl,
         s3_creds: S3Credentials,
+        info: InfoJson,
         s3_config: S3Config | None = None,
         verbose: bool = False,
     ) -> None:
         self.rclone_impl: RcloneImpl = rclone_impl
+        self.info = info
         self.verbose = verbose
         s3_config = s3_config or S3Config(
             verbose=verbose,
@@ -347,7 +368,7 @@ class S3MultiPartMerger:
     ) -> None:
         self.state = merge_state
 
-    def on_finished(self, finished_piece: FinishedPiece | EndOfStream) -> None:
+    def on_piece_finished(self, finished_piece: FinishedPiece | EndOfStream) -> None:
         assert self.write_thread is not None
         assert self.state is not None
         if isinstance(finished_piece, EndOfStream):
@@ -363,9 +384,15 @@ class S3MultiPartMerger:
         if state is None:
             return Exception("No merge state loaded")
         self.start_write_thread()
-        return _do_upload_task(
+        err = _do_upload_task(
             s3_client=self.client,
             merge_state=state,
             max_workers=self.max_workers,
-            on_finished=self.on_finished,
+            on_finished=self.on_piece_finished,
         )
+        if isinstance(err, Exception):
+            return err
+        return None
+
+    def cleanup(self) -> Exception | None:
+        return _cleanup_merge(rclone=self.rclone_impl, info=self.info)
