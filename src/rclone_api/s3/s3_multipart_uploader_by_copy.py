@@ -134,58 +134,13 @@ def complete_multipart_upload_from_parts(
     return response.get("Location", f"s3://{info.bucket_name}/{info.object_name}")
 
 
-def finish_multipart_upload_from_keys(
-    s3_client: BaseClient,
+def do_body_work(
+    info: MultipartUploadInfo,
     source_bucket: str,
     parts: list[tuple[int, str]],
-    final_size: int,
-    destination_bucket: str,
-    destination_key: str,
-    chunk_size: int,  # 5MB default
-    max_workers: int = 100,
-    retries: int = 3,
+    max_workers: int,
+    retries: int,
 ) -> str:
-    """
-    Finish a multipart upload by copying parts from existing S3 objects.
-
-    Args:
-        s3_client: Boto3 S3 client
-        source_bucket: Source bucket name
-        source_keys: List of source object keys to copy from
-        destination_bucket: Destination bucket name
-        destination_key: Destination object key
-        chunk_size: Size of each part in bytes
-        retries: Number of retry attempts
-        byte_ranges: Optional list of byte ranges corresponding to source_keys
-
-    Returns:
-        The URL of the completed object
-    """
-
-    # Initiate multipart upload
-    locked_print(
-        f"Creating multipart upload for {destination_bucket}/{destination_key} from {len(parts)} source objects"
-    )
-
-    create_params: dict[str, str] = {
-        "Bucket": destination_bucket,
-        "Key": destination_key,
-    }
-    print(f"Creating multipart upload with {create_params}")
-    mpu = s3_client.create_multipart_upload(**create_params)
-    print(f"Created multipart upload: {mpu}")
-    upload_id = mpu["UploadId"]
-
-    # Create upload info
-    upload_info = MultipartUploadInfo(
-        s3_client=s3_client,
-        bucket_name=destination_bucket,
-        object_name=destination_key,
-        upload_id=upload_id,
-        retries=retries,
-        chunk_size=chunk_size,
-        file_size=final_size,
-    )
 
     futures: list[Future[FinishedPiece | Exception]] = []
 
@@ -196,7 +151,7 @@ def finish_multipart_upload_from_keys(
         for part_number, source_key in parts:
 
             def task(
-                info=upload_info,
+                info=info,
                 source_bucket=source_bucket,
                 source_key=source_key,
                 part_number=part_number,
@@ -226,7 +181,109 @@ def finish_multipart_upload_from_keys(
             finished_parts.append(finished_part)
 
         # Complete the multipart upload
-        return complete_multipart_upload_from_parts(upload_info, finished_parts)
+        return complete_multipart_upload_from_parts(info, finished_parts)
+
+
+def begin_upload(
+    s3_client: BaseClient,
+    parts: list[tuple[int, str]],
+    final_size: int,
+    destination_bucket: str,
+    destination_key: str,
+    chunk_size: int,
+    retries: int = 3,
+) -> MultipartUploadInfo:
+    """
+    Finish a multipart upload by copying parts from existing S3 objects.
+
+    Args:
+        s3_client: Boto3 S3 client
+        source_bucket: Source bucket name
+        source_keys: List of source object keys to copy from
+        destination_bucket: Destination bucket name
+        destination_key: Destination object key
+        chunk_size: Size of each part in bytes
+        retries: Number of retry attempts
+        byte_ranges: Optional list of byte ranges corresponding to source_keys
+
+    Returns:
+        The URL of the completed object
+    """
+
+    # Initiate multipart upload
+    locked_print(
+        f"Creating multipart upload for {destination_bucket}/{destination_key} from {len(parts)} source objects"
+    )
+    create_params: dict[str, str] = {
+        "Bucket": destination_bucket,
+        "Key": destination_key,
+    }
+    print(f"Creating multipart upload with {create_params}")
+    mpu = s3_client.create_multipart_upload(**create_params)
+    print(f"Created multipart upload: {mpu}")
+    upload_id = mpu["UploadId"]
+
+    # Create upload info
+    info = MultipartUploadInfo(
+        s3_client=s3_client,
+        bucket_name=destination_bucket,
+        object_name=destination_key,
+        upload_id=upload_id,
+        retries=retries,
+        chunk_size=chunk_size,
+        file_size=final_size,
+    )
+    return info
+
+
+def finish_multipart_upload_from_keys(
+    s3_client: BaseClient,
+    source_bucket: str,
+    parts: list[tuple[int, str]],
+    final_size: int,
+    destination_bucket: str,
+    destination_key: str,
+    chunk_size: int,  # 5MB default
+    max_workers: int = 100,
+    retries: int = 3,
+) -> str:
+    """
+    Finish a multipart upload by copying parts from existing S3 objects.
+
+    Args:
+        s3_client: Boto3 S3 client
+        source_bucket: Source bucket name
+        source_keys: List of source object keys to copy from
+        destination_bucket: Destination bucket name
+        destination_key: Destination object key
+        chunk_size: Size of each part in bytes
+        retries: Number of retry attempts
+        byte_ranges: Optional list of byte ranges corresponding to source_keys
+
+    Returns:
+        The URL of the completed object
+    """
+
+    # Create upload info
+    info = begin_upload(
+        s3_client=s3_client,
+        parts=parts,
+        final_size=final_size,
+        destination_bucket=destination_bucket,
+        destination_key=destination_key,
+        chunk_size=chunk_size,
+        retries=retries,
+    )
+
+    out = do_body_work(
+        info=info,
+        source_bucket=source_bucket,
+        parts=parts,
+        max_workers=max_workers,
+        retries=retries,
+    )
+
+    return out
 
 
 class S3MultiPartUploader:
