@@ -42,5 +42,14 @@ class FinishedPiece:
             return EndOfStream()
         return FinishedPiece(**json)
 
+    @staticmethod
+    def from_json_array(json: dict) -> list["FinishedPiece"]:
+        tmp = [FinishedPiece.from_json(j) for j in json]
+        out: list[FinishedPiece] = []
+        for t in tmp:
+            if isinstance(t, FinishedPiece):
+                out.append(t)
+        return out
+
     def __hash__(self) -> int:
         return hash(self.part_number)

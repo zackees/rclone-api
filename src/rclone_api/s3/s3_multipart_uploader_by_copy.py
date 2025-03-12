@@ -11,7 +11,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Semaphore
-from typing import Optional
+from typing import Any, Optional
 
 from botocore.client import BaseClient
 
@@ -25,8 +25,7 @@ class Part:
     s3_key: str
 
 
-@dataclass
-class MergeJson:
+class MergeState:
     finished: list[FinishedPiece]
 
     def to_json(self) -> dict:
@@ -40,6 +39,26 @@ class MergeJson:
 
     def __repr__(self):
         return self.to_json_str()
+
+    def write(self, rclone_impl: Any, dst: str) -> None:
+        from rclone_api.rclone_impl import RcloneImpl
+
+        assert isinstance(rclone_impl, RcloneImpl)
+        json_str = self.to_json_str()
+        rclone_impl.write_text(dst, json_str)
+
+    def read(self, rclone_impl: Any, src: str) -> None:
+        from rclone_api.rclone_impl import RcloneImpl
+
+        assert isinstance(rclone_impl, RcloneImpl)
+        json_str = rclone_impl.read_text(src)
+        if isinstance(json_str, Exception):
+            raise json_str
+        json_dict = json.loads(json_str)
+        ok_or_err = FinishedPiece.from_json_array(json_dict["finished"])
+        if isinstance(ok_or_err, Exception):
+            raise ok_or_err
+        self.finished = ok_or_err
 
 
 @dataclass
@@ -328,7 +347,7 @@ class S3MultiPartUploader:
 
     def start_upload_resume(
         self,
-        state: MergeJson,
+        state: MergeState,
         retries: int = _DEFAULT_RETRIES,
         max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> MultipartUploadInfo | Exception:
