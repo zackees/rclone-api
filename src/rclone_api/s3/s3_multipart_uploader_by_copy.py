@@ -193,7 +193,7 @@ def begin_upload(
     parts: list[Part],
     bucket: str,
     dst_key: str,
-    chunk_size: int,
+    verbose: bool,
 ) -> str:
     """
     Finish a multipart upload by copying parts from existing S3 objects.
@@ -204,7 +204,6 @@ def begin_upload(
         source_keys: List of source object keys to copy from
         bucket: Destination bucket name
         dst_key: Destination object key
-        chunk_size: Size of each part in bytes
         retries: Number of retry attempts
         byte_ranges: Optional list of byte ranges corresponding to source_keys
 
@@ -213,16 +212,19 @@ def begin_upload(
     """
 
     # Initiate multipart upload
-    locked_print(
-        f"Creating multipart upload for {bucket}/{dst_key} from {len(parts)} source objects"
-    )
+    if verbose:
+        locked_print(
+            f"Creating multipart upload for {bucket}/{dst_key} from {len(parts)} source objects"
+        )
     create_params: dict[str, str] = {
         "Bucket": bucket,
         "Key": dst_key,
     }
-    print(f"Creating multipart upload with {create_params}")
+    if verbose:
+        locked_print(f"Creating multipart upload with {create_params}")
     mpu = s3_client.create_multipart_upload(**create_params)
-    print(f"Created multipart upload: {mpu}")
+    if verbose:
+        locked_print(f"Created multipart upload: {mpu}")
     upload_id = mpu["UploadId"]
     return upload_id
 
@@ -237,14 +239,13 @@ class S3MultiPartUploader:
         parts: list[Part],
         bucket: str,
         dst_key: str,
-        chunk_size: int,
     ) -> MergeState:
         upload_id: str = begin_upload(
             s3_client=self.client,
             parts=parts,
             bucket=bucket,
             dst_key=dst_key,
-            chunk_size=chunk_size,
+            verbose=self.verbose,
         )
         merge_state = MergeState(
             upload_id=upload_id,

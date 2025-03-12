@@ -174,7 +174,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         parts=parts,
         bucket=s3_creds.bucket_name,
         dst_key=dst_key,
-        chunk_size=chunksize.as_int(),
     )
 
     uploader.start_upload(state=merge_state, max_workers=_MAX_WORKERS)
