@@ -239,13 +239,14 @@ class S3MultiPartUploader:
     def __init__(self, s3_client: BaseClient, verbose: bool = False) -> None:
         self.verbose = verbose
         self.client: BaseClient = s3_client
+        self.state: MergeState | None = None
 
     def begin_new_upload(
         self,
         parts: list[Part],
         bucket: str,
         dst_key: str,
-    ) -> MergeState:
+    ) -> None:
         upload_id: str = begin_upload(
             s3_client=self.client,
             parts=parts,
@@ -260,13 +261,16 @@ class S3MultiPartUploader:
             finished=[],
             all_parts=parts,
         )
-        return merge_state
+        self.state = merge_state
+        return
 
     def start_upload(
         self,
-        state: MergeState,
         max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> Exception | None:
+        state = self.state
+        if state is None:
+            return Exception("No merge state loaded")
         return do_body_work(
             s3_client=self.client,
             merge_state=state,

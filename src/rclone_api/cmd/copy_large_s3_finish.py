@@ -5,7 +5,6 @@ from pathlib import Path
 
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
-from rclone_api.s3.merge_state import MergeState
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
     Part,
     S3MultiPartUploader,
@@ -115,13 +114,13 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         verbose=True,
     )
 
-    merge_state: MergeState = uploader.begin_new_upload(
+    uploader.begin_new_upload(
         parts=parts,
         bucket=s3_creds.bucket_name,
         dst_key=dst_key,
     )
 
-    err = uploader.start_upload(state=merge_state, max_workers=_MAX_WORKERS)
+    err = uploader.start_upload(max_workers=_MAX_WORKERS)
     if isinstance(err, Exception):
         return err
 
