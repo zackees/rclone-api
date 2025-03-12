@@ -254,6 +254,7 @@ class S3MultiPartMerger:
     def begin_new_merge(
         self,
         parts: list[Part],
+        merge_path: str,
         bucket: str,
         dst_key: str,
     ) -> Exception | None:
@@ -266,6 +267,7 @@ class S3MultiPartMerger:
                 verbose=self.verbose,
             )
             merge_state = MergeState(
+                merge_path=merge_path,
                 upload_id=upload_id,
                 bucket=bucket,
                 dst_key=dst_key,
@@ -273,7 +275,7 @@ class S3MultiPartMerger:
                 all_parts=parts,
             )
             self.state = merge_state
-            self.state.add_callback(self.state.on_finished)
+            self.state.add_callback(self.on_finished)
             return None
         except Exception as e:
             return e

@@ -55,6 +55,7 @@ def _begin_new_merge(
 ) -> S3MultiPartMerger | Exception:
 
     try:
+        merge_path = _get_merge_path(info_path=info.src_info)
         s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
         merger: S3MultiPartMerger = S3MultiPartMerger(
             s3_creds=s3_creds,
@@ -99,6 +100,7 @@ def _begin_new_merge(
         dst_key = f"{dst_dir}/{dst_name}"
 
         err = merger.begin_new_merge(
+            merge_path=merge_path,
             parts=parts,
             bucket=s3_creds.bucket_name,
             dst_key=dst_key,
@@ -125,7 +127,14 @@ def _finish_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     return None
 
 
+def _get_merge_path(info_path: str) -> str:
+    par_dir = os.path.dirname(info_path)
+    merge_path = f"{par_dir}/merge.json"
+    return merge_path
+
+
 def _perform_merge(rclone: Rclone, info_path: str) -> Exception | None:
+    merge_path = _get_merge_path(info_path)
     info = InfoJson(rclone.impl, src=None, src_info=info_path)
     loaded = info.load()
     if not loaded:
@@ -139,6 +148,7 @@ def _perform_merge(rclone: Rclone, info_path: str) -> Exception | None:
     print(f"Parts dir: {parts_dir}")
     print(f"Size: {size}")
     print(f"Info: {info}")
+    print(f"Merge.json: {merge_path}")
     merger: S3MultiPartMerger | Exception = _begin_new_merge(
         rclone=rclone, info=info, dst=dst
     )

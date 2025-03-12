@@ -48,12 +48,14 @@ class MergeState:
 
     def __init__(
         self,
+        merge_path: str,
         upload_id: str,
         bucket: str,
         dst_key: str,
         finished: list[FinishedPiece],
         all_parts: list[Part],
     ) -> None:
+        self.merge_path: str = merge_path
         self.upload_id: str = upload_id
         self.bucket: str = bucket
         self.dst_key: str = dst_key
@@ -77,6 +79,7 @@ class MergeState:
     @staticmethod
     def from_json_array(json_array: dict) -> "MergeState | Exception":
         try:
+            merge_path = json_array["merge_path"]
             bucket = json_array["bucket"]
             dst_key = json_array["dst_key"]
             finished: list[FinishedPiece] = FinishedPiece.from_json_array(
@@ -93,6 +96,7 @@ class MergeState:
             if len(errs):
                 return Exception(f"Errors in parts: {errs}")
             return MergeState(
+                merge_path=merge_path,
                 upload_id=upload_id,
                 bucket=bucket,
                 dst_key=dst_key,
@@ -106,6 +110,7 @@ class MergeState:
         finished = self.finished.copy()
         all_parts = self.all_parts.copy()
         return {
+            "merge_path": self.merge_path,
             "bucket": self.bucket,
             "dst_key": self.dst_key,
             "upload_id": self.upload_id,
