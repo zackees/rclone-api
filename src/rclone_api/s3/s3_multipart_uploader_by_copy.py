@@ -50,10 +50,11 @@ class Part:
             return e
 
 
-@dataclass
 class MergeState:
-    finished: list[FinishedPiece]
-    all_parts: list[Part]
+
+    def __init__(self, finished: list[FinishedPiece], all_parts: list[Part]) -> None:
+        self.finished: list[FinishedPiece] = finished
+        self.all_parts: list[Part] = all_parts
 
     @staticmethod
     def from_json_array(json_array: dict) -> "MergeState | Exception":
