@@ -140,7 +140,7 @@ def _finish_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     return None
 
 
-def perform_merge(rclone: Rclone, info_path: str, dst: str) -> Exception | None:
+def _perform_merge(rclone: Rclone, info_path: str, dst: str) -> Exception | None:
     info = InfoJson(rclone.impl, src=None, src_info=info_path)
     loaded = info.load()
     if not loaded:
@@ -178,7 +178,7 @@ def main() -> int:
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
     info_path = _get_info_path(src=args.src)
-    perform_merge(rclone=rclone, info_path=info_path, dst=args.dst)
+    _perform_merge(rclone=rclone, info_path=info_path, dst=args.dst)
     return 0
 
 
