@@ -148,19 +148,16 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         return out
 
     parts: list[Part] = []
-    part_num = 1
+    part_num = first_part
     for part_key in source_keys:
+        assert part_num <= last_part and part_num >= first_part
         s3_key = _to_s3_key(name=part_key)
         part = Part(part_number=part_num, s3_key=s3_key)
         parts.append(part)
         part_num += 1
 
-    chunksize = info.chunksize
-    assert chunksize is not None
-
     dst_name = info.dst_name
     dst_dir = os.path.dirname(parts_path)
-    # dst_key =
     dst_key = f"{dst_dir}/{dst_name}"
 
     uploader: S3MultiPartUploader = S3MultiPartUploader(
