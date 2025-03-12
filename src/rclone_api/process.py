@@ -1,11 +1,12 @@
 import atexit
 import subprocess
 import threading
-import time
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import psutil
 
 from rclone_api.config import Config
 from rclone_api.util import clear_temp_config_file, get_verbose, make_temp_config_file
@@ -24,20 +25,25 @@ class ProcessArgs:
 
 class Process:
     def __init__(self, args: ProcessArgs) -> None:
-        assert args.rclone_exe.exists()
+        assert (
+            args.rclone_exe.exists()
+        ), f"rclone executable not found: {args.rclone_exe}"
         self.args = args
         self.log = args.log
         self.tempfile: Path | None = None
+
         verbose = get_verbose(args.verbose)
+        # Create a temporary config file if needed.
         if isinstance(args.rclone_conf, Config):
-            self.tmpfile = make_temp_config_file()
-            self.tmpfile.write_text(args.rclone_conf.text, encoding="utf-8")
-            rclone_conf = self.tmpfile
+            self.tempfile = make_temp_config_file()
+            self.tempfile.write_text(args.rclone_conf.text, encoding="utf-8")
+            rclone_conf = self.tempfile
         else:
             rclone_conf = args.rclone_conf
 
-        assert rclone_conf.exists()
+        assert rclone_conf.exists(), f"rclone config not found: {rclone_conf}"
 
+        # Build the command.
         self.cmd = (
             [str(args.rclone_exe.resolve())]
             + ["--config", str(rclone_conf.resolve())]
@@ -49,16 +55,14 @@ class Process:
         if verbose:
             cmd_str = subprocess.list2cmdline(self.cmd)
             print(f"Running: {cmd_str}")
-        kwargs: dict = {}
-        kwargs["shell"] = False
+        kwargs: dict = {"shell": False}
         if args.capture_stdout:
             kwargs["stdout"] = subprocess.PIPE
             kwargs["stderr"] = subprocess.STDOUT
 
         self.process = subprocess.Popen(self.cmd, **kwargs)  # type: ignore
 
-        # Register an atexit callback using a weak reference to avoid
-        # keeping the Process instance alive solely due to the callback.
+        # Register an atexit callback using a weak reference to avoid keeping the Process instance alive.
         self_ref = weakref.ref(self)
 
         def exit_cleanup():
@@ -77,39 +81,60 @@ class Process:
         self.cleanup()
 
     def cleanup(self) -> None:
-        clear_temp_config_file(self.tempfile)
+        if self.tempfile:
+            clear_temp_config_file(self.tempfile)
+
+    def _kill_process_tree(self) -> None:
+        """
+        Use psutil to recursively terminate the main process and all its child processes.
+        """
+        try:
+            parent = psutil.Process(self.process.pid)
+        except psutil.NoSuchProcess:
+            return
+
+        # Terminate child processes.
+        children = parent.children(recursive=True)
+        if children:
+            print(f"Terminating {len(children)} child processes...")
+            for child in children:
+                try:
+                    child.terminate()
+                except Exception as e:
+                    print(f"Error terminating child process {child.pid}: {e}")
+            psutil.wait_procs(children, timeout=2)
+            # Kill any that remain.
+            for child in children:
+                if child.is_running():
+                    try:
+                        child.kill()
+                    except Exception as e:
+                        print(f"Error killing child process {child.pid}: {e}")
+
+        # Terminate the parent process.
+        if parent.is_running():
+            try:
+                parent.terminate()
+            except Exception as e:
+                print(f"Error terminating process {parent.pid}: {e}")
+            try:
+                parent.wait(timeout=3)
+            except psutil.TimeoutExpired:
+                try:
+                    parent.kill()
+                except Exception as e:
+                    print(f"Error killing process {parent.pid}: {e}")
 
     def _atexit_terminate(self) -> None:
         """
-        Registered via atexit, this method attempts to gracefully terminate the process.
-        If the process does not exit within a short timeout, it is aggressively killed.
+        This method is registered via atexit and uses psutil to clean up the process tree.
+        It runs in a daemon thread so that termination happens without blocking interpreter shutdown.
         """
-        if self.process.poll() is None:  # Process is still running
+        if self.process.poll() is None:  # Process is still running.
 
             def terminate_sequence():
-                try:
-                    # Try to terminate gracefully.
-                    self.process.terminate()
-                except Exception as e:
-                    print(f"Error calling terminate on process {self.process.pid}: {e}")
-                # Allow time for graceful shutdown.
-                timeout = 2  # seconds
-                start = time.time()
-                while self.process.poll() is None and (time.time() - start) < timeout:
-                    time.sleep(0.1)
-                # If still running, kill aggressively.
-                if self.process.poll() is None:
-                    try:
-                        self.process.kill()
-                    except Exception as e:
-                        print(f"Error calling kill on process {self.process.pid}: {e}")
-                # Optionally wait briefly for termination.
-                try:
-                    self.process.wait(timeout=1)
-                except Exception:
-                    pass
+                self._kill_process_tree()
 
-            # Run the termination sequence in a separate daemon thread.
             t = threading.Thread(target=terminate_sequence, daemon=True)
             t.start()
             t.join(timeout=3)
@@ -122,12 +147,12 @@ class Process:
         self.cleanup()
 
     def kill(self) -> None:
-        self.cleanup()
-        return self.process.kill()
+        """Forcefully kill the process tree."""
+        self._kill_process_tree()
 
     def terminate(self) -> None:
-        self.cleanup()
-        return self.process.terminate()
+        """Gracefully terminate the process tree."""
+        self._kill_process_tree()
 
     @property
     def returncode(self) -> int | None:
@@ -147,8 +172,8 @@ class Process:
     def wait(self) -> int:
         return self.process.wait()
 
-    def send_signal(self, signal: int) -> None:
-        return self.process.send_signal(signal)
+    def send_signal(self, sig: int) -> None:
+        self.process.send_signal(sig)
 
     def __str__(self) -> str:
         state = ""
