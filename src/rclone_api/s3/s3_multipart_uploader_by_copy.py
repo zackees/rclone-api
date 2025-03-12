@@ -137,12 +137,12 @@ def complete_multipart_upload_from_parts(
 
 def do_body_work(
     s3_client: BaseClient,
-    source_bucket: str,
     max_workers: int,
     merge_state: MergeState,
 ) -> str | Exception:
     futures: list[Future[FinishedPiece | Exception]] = []
     parts = merge_state.remaining_parts()
+    source_bucket = merge_state.bucket
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         semaphore = Semaphore(max_workers)
         for part in parts:
@@ -263,7 +263,6 @@ class S3MultiPartUploader:
     ) -> str | Exception:
         return do_body_work(
             s3_client=self.client,
-            source_bucket=state.bucket,
-            max_workers=max_workers,
             merge_state=state,
+            max_workers=max_workers,
         )
