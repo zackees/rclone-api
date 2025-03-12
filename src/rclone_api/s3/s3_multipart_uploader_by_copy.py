@@ -263,16 +263,16 @@ def finish_multipart_upload_from_keys(
         The URL of the completed object
     """
 
-    merge_state = MergeState(finished=[], all_parts=parts)
-
     # Create upload info
     info = begin_upload(
         s3_client=s3_client,
-        parts=merge_state.all_parts,
+        parts=parts,
         destination_bucket=destination_bucket,
         destination_key=destination_key,
         chunk_size=chunk_size,
     )
+    upload_id = info.upload_id
+    merge_state = MergeState(upload_id=upload_id, finished=[], all_parts=parts)
 
     out = do_body_work(
         info=info,

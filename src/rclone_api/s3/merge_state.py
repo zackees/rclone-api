@@ -46,7 +46,10 @@ class Part:
 
 class MergeState:
 
-    def __init__(self, finished: list[FinishedPiece], all_parts: list[Part]) -> None:
+    def __init__(
+        self, upload_id: str, finished: list[FinishedPiece], all_parts: list[Part]
+    ) -> None:
+        self.upload_id: str = upload_id
         self.finished: list[FinishedPiece] = list(finished)
         self.all_parts: list[Part] = list(all_parts)
         self.callbacks: list[Callable[[FinishedPiece], None]] = []
@@ -70,10 +73,13 @@ class MergeState:
             all_parts_no_err: list[Part] = [
                 p for p in all_parts if not isinstance(p, Exception)
             ]
+            upload_id: str = json_array["upload_id"]
             errs: list[Exception] = [p for p in all_parts if isinstance(p, Exception)]
             if len(errs):
                 return Exception(f"Errors in parts: {errs}")
-            return MergeState(finished=finished, all_parts=all_parts_no_err)
+            return MergeState(
+                upload_id=upload_id, finished=finished, all_parts=all_parts_no_err
+            )
         except Exception as e:
             return e
 
@@ -83,6 +89,7 @@ class MergeState:
         return {
             "finished": FinishedPiece.to_json_array(finished),
             "all": [part.to_json() for part in all_parts],
+            "upload_id": self.upload_id,
         }
 
     def to_json_str(self) -> str:
