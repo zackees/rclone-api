@@ -507,6 +507,10 @@ class Rclone:
             verbose=verbose,
         )
 
+    def size_file(self, src: str) -> SizeSuffix | Exception:
+        """Get the size of a file."""
+        return self.impl.size_file(src=src)
+
 
 __all__ = [
     "Rclone",

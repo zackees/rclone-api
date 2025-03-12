@@ -51,10 +51,17 @@ def _parse_args() -> Args:
 
 
 def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
-    from rclone_api.s3.create import BaseClient, S3Credentials, create_s3_client
+    from rclone_api.s3.create import (
+        BaseClient,
+        S3Config,
+        S3Credentials,
+        create_s3_client,
+    )
 
     s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
-    s3_client: BaseClient = create_s3_client(s3_creds)
+    s3_client: BaseClient = create_s3_client(
+        s3_creds, S3Config(verbose=False, timeout_read=5 * 60)
+    )
     s3_bucket = s3_creds.bucket_name
     is_done = info.fetch_is_done()
     assert is_done, f"Upload is not done: {info}"
@@ -113,8 +120,18 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     )
 
     # now check if the dst now exists, if so, delete the parts folder.
-    if rclone.exists(dst):
-        rclone.purge(parts_dir)
+    # if rclone.exists(dst):
+    #     rclone.purge(parts_dir)
+
+    if not rclone.exists(dst):
+        raise FileNotFoundError(f"Destination file not found: {dst}")
+
+    write_size = rclone.size_file(dst)
+    if write_size != size:
+        raise ValueError(f"Size mismatch: {write_size} != {size}")
+
+    print(f"Upload complete: {dst}")
+    rclone.purge(parts_dir)
 
 
 def main() -> int:
