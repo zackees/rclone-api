@@ -5,9 +5,12 @@ import shutil
 import signal
 import subprocess
 import warnings
+import weakref
 from pathlib import Path
 from threading import Lock
 from typing import Any
+
+import psutil
 
 from rclone_api.config import Config
 from rclone_api.dir import Dir
@@ -167,51 +170,109 @@ def rclone_execute(
     tmpfile: Path | None = None
     verbose = get_verbose(verbose)
 
-    # Handle the Path case for capture
-    output_file = None
+    # Handle the Path case for capture.
+    output_file: Path | None = None
     if isinstance(capture, Path):
         output_file = capture
-        capture = False  # Don't capture to memory when redirecting to file
+        capture = False  # When redirecting to file, don't capture to memory.
     else:
         capture = capture if isinstance(capture, bool) else True
 
-    assert verbose is not None
-
     try:
+        # Create a temporary config file if needed.
         if isinstance(rclone_conf, Config):
             tmpfile = make_temp_config_file()
             tmpfile.write_text(rclone_conf.text, encoding="utf-8")
             rclone_conf = tmpfile
-        cmd = (
+
+        # Build the command line.
+        full_cmd = (
             [str(rclone_exe.resolve())] + ["--config", str(rclone_conf.resolve())] + cmd
         )
         if verbose:
-            cmd_str = subprocess.list2cmdline(cmd)
+            cmd_str = subprocess.list2cmdline(full_cmd)
             print(f"\nRunning: {cmd_str}")
 
-        # If output_file is set, redirect output to that file
+        # Prepare subprocess parameters.
+        proc_kwargs: dict[str, Any] = {
+            "encoding": "utf-8",
+            "shell": False,
+            "stderr": subprocess.PIPE,
+        }
+        file_handle = None
         if output_file:
-            with open(output_file, "w", encoding="utf-8") as f:
-                cp = subprocess.run(
-                    cmd,
-                    stdout=f,
-                    stderr=subprocess.PIPE,
-                    encoding="utf-8",
-                    check=False,
-                    shell=False,
-                )
+            # Open the file for writing.
+            file_handle = open(output_file, "w", encoding="utf-8")
+            proc_kwargs["stdout"] = file_handle
         else:
-            cp = subprocess.run(
-                cmd, capture_output=capture, encoding="utf-8", check=False, shell=False
-            )
+            proc_kwargs["stdout"] = subprocess.PIPE if capture else None
+
+        # Start the process.
+        process = subprocess.Popen(full_cmd, **proc_kwargs)
+
+        # Register an atexit callback that uses psutil to kill the process tree.
+        proc_ref = weakref.ref(process)
+
+        def cleanup():
+            proc = proc_ref()
+            if proc is None:
+                return
+            try:
+                parent = psutil.Process(proc.pid)
+            except psutil.NoSuchProcess:
+                return
+            # Terminate all child processes first.
+            children = parent.children(recursive=True)
+            if children:
+                print(f"Terminating {len(children)} child process(es)...")
+                for child in children:
+                    try:
+                        child.terminate()
+                    except Exception as e:
+                        print(f"Error terminating child {child.pid}: {e}")
+                psutil.wait_procs(children, timeout=2)
+                for child in children:
+                    if child.is_running():
+                        try:
+                            child.kill()
+                        except Exception as e:
+                            print(f"Error killing child {child.pid}: {e}")
+            # Now terminate the parent process.
+            if parent.is_running():
+                try:
+                    parent.terminate()
+                    parent.wait(timeout=3)
+                except (psutil.TimeoutExpired, Exception):
+                    try:
+                        parent.kill()
+                    except Exception as e:
+                        print(f"Error killing process {parent.pid}: {e}")
+
+        atexit.register(cleanup)
+
+        # Wait for the process to complete.
+        out, err = process.communicate()
+        # Close the file handle if used.
+        if file_handle:
+            file_handle.close()
+
+        cp: subprocess.CompletedProcess = subprocess.CompletedProcess(
+            args=full_cmd,
+            returncode=process.returncode,
+            stdout=out,
+            stderr=err,
+        )
+
+        # Warn or raise if return code is non-zero.
         if cp.returncode != 0:
-            cmd_str = subprocess.list2cmdline(cmd)
+            cmd_str = subprocess.list2cmdline(full_cmd)
             warnings.warn(
-                f"Error running: {cmd_str}, returncode: {cp.returncode}\n{cp.stdout}\n{cp.stderr}"
+                f"Error running: {cmd_str}, returncode: {cp.returncode}\n"
+                f"{cp.stdout}\n{cp.stderr}"
             )
             if check:
                 raise subprocess.CalledProcessError(
-                    cp.returncode, cmd, cp.stdout, cp.stderr
+                    cp.returncode, full_cmd, cp.stdout, cp.stderr
                 )
         return cp
     finally:
