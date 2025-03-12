@@ -34,10 +34,10 @@ class MergeJson:
 
     def to_json_str(self) -> str:
         return json.dumps(self.to_json(), indent=1)
-    
+
     def __str__(self):
         return self.to_json_str()
-    
+
     def __repr__(self):
         return self.to_json_str()
 
@@ -52,7 +52,6 @@ class MultipartUploadInfo:
     upload_id: str
     chunk_size: int
     retries: int
-    file_size: Optional[int] = None
     src_file_path: Optional[Path] = None
 
 
@@ -212,7 +211,6 @@ def do_body_work(
 def begin_upload(
     s3_client: BaseClient,
     parts: list[Part],
-    final_size: int,
     destination_bucket: str,
     destination_key: str,
     chunk_size: int,
@@ -256,7 +254,6 @@ def begin_upload(
         upload_id=upload_id,
         retries=retries,
         chunk_size=chunk_size,
-        file_size=final_size,
     )
     return info
 
@@ -265,7 +262,6 @@ def finish_multipart_upload_from_keys(
     s3_client: BaseClient,
     source_bucket: str,
     parts: list[Part],
-    final_size: int,
     destination_bucket: str,
     destination_key: str,
     chunk_size: int,  # 5MB default
@@ -293,7 +289,6 @@ def finish_multipart_upload_from_keys(
     info = begin_upload(
         s3_client=s3_client,
         parts=parts,
-        final_size=final_size,
         destination_bucket=destination_bucket,
         destination_key=destination_key,
         chunk_size=chunk_size,
@@ -319,27 +314,33 @@ class S3MultiPartUploader:
     def begin_new_upload(
         self,
         parts: list[Part],
-        final_size: int,
         destination_bucket: str,
         destination_key: str,
         chunk_size: int,
         retries: int = 3,
     ) -> MultipartUploadInfo:
         return begin_upload(
-            self.client,
-            parts,
-            final_size,
-            destination_bucket,
-            destination_key,
-            chunk_size,
-            retries,
+            s3_client=self.client,
+            parts=parts,
+            destination_bucket=destination_bucket,
+            destination_key=destination_key,
+            chunk_size=chunk_size,
+            retries=retries,
         )
 
-    def process_upload(
+    def start_upload_resume(
+        self,
+        resume_json: str,
+        retries: int = 3,
+        state: dict = {},
+    ) -> MultipartUploadInfo:
+        raise NotImplementedError("Not implemented yet")
+
+    def start_upload(
         self,
         info: MultipartUploadInfo,
         parts: list[Part],
-        max_workers: int = 100,
+        max_workers: int = 10,
     ) -> str | Exception:
         return do_body_work(
             info=info,
