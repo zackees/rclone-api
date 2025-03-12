@@ -6,6 +6,7 @@ This module provides functionality for S3 multipart uploads, including copying p
 from existing S3 objects using upload_part_copy.
 """
 
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -318,8 +319,6 @@ def finish_multipart_upload_from_keys(
         chunk_size=chunk_size,
         file_size=estimated_file_size,
     )
-
-    from concurrent.futures import Future, ThreadPoolExecutor
 
     futures: list[Future[FinishedPiece]] = []
 
