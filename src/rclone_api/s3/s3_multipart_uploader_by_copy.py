@@ -82,7 +82,9 @@ def upload_part_copy_task(
 
             # Extract ETag from the response
             etag = part["CopyPartResult"]["ETag"]
-            return FinishedPiece(etag=etag, part_number=part_number)
+            out = FinishedPiece(etag=etag, part_number=part_number)
+            locked_print(f"Finished part {part_number} for {info.object_name}")
+            return out
 
         except Exception as e:
             msg = f"Error copying {copy_source} -> {info.object_name}: {e}, params={params}"
