@@ -181,7 +181,6 @@ def upload_part_copy_task(
     source_bucket: str,
     source_key: str,
     part_number: int,
-    byte_range: str | None = None,
     retries: int = 3,
 ) -> FinishedPiece:
     """
@@ -208,7 +207,6 @@ def upload_part_copy_task(
 
             locked_print(
                 f"Copying part {part_number} for {info.object_name} from {source_bucket}/{source_key}"
-                + (f" range: {byte_range}" if byte_range else "")
             )
 
             # Prepare the upload_part_copy parameters
@@ -219,10 +217,6 @@ def upload_part_copy_task(
                 "PartNumber": part_number,
                 "UploadId": info.upload_id,
             }
-
-            # Add byte range if specified
-            if byte_range:
-                params["CopySourceRange"] = byte_range
 
             # Execute the copy operation
             part = info.s3_client.upload_part_copy(**params)
@@ -282,9 +276,8 @@ def finish_multipart_upload_from_keys(
     source_keys: list[str],
     destination_bucket: str,
     destination_key: str,
-    chunk_size: int = 5 * 1024 * 1024,  # 5MB default
+    chunk_size: int,  # 5MB default
     retries: int = 3,
-    byte_ranges: list[str] | None = None,
 ) -> str:
     """
     Finish a multipart upload by copying parts from existing S3 objects.
@@ -329,14 +322,12 @@ def finish_multipart_upload_from_keys(
     finished_parts = []
     for i, source_key in enumerate(source_keys):
         part_number = i + 1  # Part numbers start at 1
-        byte_range = byte_ranges[i] if byte_ranges and i < len(byte_ranges) else None
 
         finished_part = upload_part_copy_task(
             info=upload_info,
             source_bucket=source_bucket,
             source_key=source_key,
             part_number=part_number,
-            byte_range=byte_range,
             retries=retries,
         )
 
@@ -359,7 +350,6 @@ class S3MultiPartUploader:
         destination_key: str,
         chunk_size: int = 5 * 1024 * 1024,
         retries: int = 3,
-        byte_ranges: list[str] | None = None,
     ) -> str:
         """
         Finish a multipart upload by copying parts from existing S3 objects.
@@ -384,5 +374,4 @@ class S3MultiPartUploader:
             destination_key=destination_key,
             chunk_size=chunk_size,
             retries=retries,
-            byte_ranges=byte_ranges,
         )

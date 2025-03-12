@@ -107,7 +107,7 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
 
     s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
     s3_client: BaseClient = create_s3_client(s3_creds)
-
+    s3_bucket = s3_creds.bucket_name
     is_done = info.fetch_is_done()
     assert is_done, f"Upload is not done: {info}"
 
@@ -119,8 +119,13 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     print(parts_dir)
     print(source_keys)
 
+    parent_path = parts_dir.split(s3_bucket)[1]
+    if parent_path.startswith("/"):
+        parent_path = parent_path[1:]
+
     def _to_s3_key(name: str) -> str:
-        return f"{parts_dir}/{name}"
+        out = f"{parent_path}/{name}"
+        return out
 
     s3_keys: list[str] = [_to_s3_key(name=p) for p in source_keys]
 
@@ -133,12 +138,11 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
     finish_multipart_upload_from_keys(
         s3_client=s3_client,
         source_bucket=s3_creds.bucket_name,
-        source_keys=source_keys,
+        source_keys=s3_keys,
         destination_bucket=s3_creds.bucket_name,
         destination_key=dst,
         chunk_size=chunksize.as_int(),
         retries=3,
-        byte_ranges=None,
     )
 
     if False:
