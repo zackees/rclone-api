@@ -16,7 +16,7 @@ from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
 from rclone_api.util import locked_print
 
-_DEFAULT_MAX_WORKERS = 10
+DEFAULT_MAX_WORKERS = 5  # Back blaze seems to barely be able to 10
 
 
 def _upload_part_copy_task(
@@ -181,7 +181,7 @@ def _do_upload_task(
         return None
 
 
-def begin_upload(
+def _begin_upload(
     s3_client: BaseClient,
     parts: list[Part],
     bucket: str,
@@ -238,7 +238,7 @@ class S3MultiPartMerger:
         dst_key: str,
     ) -> Exception | None:
         try:
-            upload_id: str = begin_upload(
+            upload_id: str = _begin_upload(
                 s3_client=self.client,
                 parts=parts,
                 bucket=bucket,
@@ -260,7 +260,7 @@ class S3MultiPartMerger:
 
     def merge(
         self,
-        max_workers: int = _DEFAULT_MAX_WORKERS,
+        max_workers: int = DEFAULT_MAX_WORKERS,
     ) -> Exception | None:
         state = self.state
         if state is None:

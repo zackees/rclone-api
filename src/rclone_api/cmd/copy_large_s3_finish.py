@@ -6,13 +6,13 @@ from pathlib import Path
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
+    DEFAULT_MAX_WORKERS,
     Part,
     S3MultiPartMerger,
 )
 
 _TIMEOUT_READ = 900
 _TIMEOUT_CONNECTION = 900
-_MAX_WORKERS = 1  # Back blaze get's overwhelmed with 10, so I set it to 1 to be safe.
 
 
 @dataclass
@@ -152,7 +152,7 @@ def perform_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     if isinstance(merger, Exception):
         return merger
 
-    err = merger.merge(max_workers=_MAX_WORKERS)
+    err = merger.merge(max_workers=DEFAULT_MAX_WORKERS)
     if isinstance(err, Exception):
         return err
 
