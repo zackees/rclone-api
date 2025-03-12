@@ -4,8 +4,8 @@ from pathlib import Path
 
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
-from rclone_api.types import (
-    PartInfo,
+from rclone_api.s3.s3_multipart_uploader_by_copy import (
+    finish_multipart_upload_from_keys,
 )
 
 DATA_SOURCE = (
@@ -102,9 +102,43 @@ def _parse_args() -> Args:
 #     return UploadInfo(chunk_size=chunk_size, parts=parts)
 
 
-def do_finish_part(info: InfoJson) -> None:
-    all_parts: list[PartInfo] | Exception = info.compute_all_parts()
-    print(all_parts)
+def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
+    from rclone_api.s3.create import BaseClient, S3Credentials, create_s3_client
+
+    s3_creds: S3Credentials = rclone.impl.get_s3_credentials(remote=dst)
+    s3_client: BaseClient = create_s3_client(s3_creds)
+
+    is_done = info.fetch_is_done()
+    assert is_done, f"Upload is not done: {info}"
+
+    if False:
+        print(finish_multipart_upload_from_keys)
+        print(s3_client)
+    print("done")
+
+    # def finish_multipart_upload_from_keys(
+    # s3_client: BaseClient,
+    # source_bucket: str,
+    # source_keys: list[str],
+    # destination_bucket: str,
+    # destination_key: str,
+    # chunk_size: int = 5 * 1024 * 1024,  # 5MB default
+    # retries: int = 3,
+    # byte_ranges: list[str] | None = None,
+
+    # if False:
+    #     finish_multipart_upload_from_keys(
+    #         s3_client=s3_client,
+    #         source_bucket="TODO",
+    #         source_keys=[p.key for p in all_parts],
+    #         destination_bucket=info.dst_bucket,
+    #         destination_key=info.dst_key,
+    #         chunk_size=5 * 1024 * 1024,
+    #         retries=3,
+    #         byte_ranges=None,
+    #     )
+
+    # print(all_parts)
 
 
 def main() -> int:
@@ -116,7 +150,7 @@ def main() -> int:
     loaded = info.load()
     assert loaded
     print(info)
-    do_finish_part(info)
+    do_finish_part(rclone=rclone, info=info, dst=args.dst)
     return 0
 
 

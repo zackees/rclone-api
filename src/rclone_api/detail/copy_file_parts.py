@@ -223,6 +223,30 @@ class InfoJson:
         except Exception as e:
             return e
 
+    def compute_all_part_numbers(self) -> list[int] | Exception:
+        all_parts: list[PartInfo] | Exception = self.compute_all_parts()
+        if isinstance(all_parts, Exception):
+            raise all_parts
+
+        all_part_nums: list[int] = [p.part_number for p in all_parts]
+        return all_part_nums
+
+    def fetch_remaining_part_numbers(self) -> list[int] | Exception:
+        all_part_nums: list[int] | Exception = self.compute_all_part_numbers()
+        if isinstance(all_part_nums, Exception):
+            return all_part_nums
+        finished_part_nums: list[int] = self.fetch_all_finished_part_numbers()
+        remaining_part_nums: list[int] = list(
+            set(all_part_nums) - set(finished_part_nums)
+        )
+        return sorted(remaining_part_nums)
+
+    def fetch_is_done(self) -> bool:
+        remaining_part_nums: list[int] | Exception = self.fetch_remaining_part_numbers()
+        if isinstance(remaining_part_nums, Exception):
+            return False
+        return len(remaining_part_nums) == 0
+
     @property
     def new(self) -> bool:
         return self.data.get("new", False)
