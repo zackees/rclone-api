@@ -7,6 +7,7 @@ from botocore.config import Config
 from rclone_api.s3.types import S3Credentials, S3Provider
 
 _DEFAULT_BACKBLAZE_ENDPOINT = "https://s3.us-west-002.backblazeb2.com"
+_MAX_CONNECTIONS = 500
 
 
 # Create a Boto3 session and S3 client, this is back blaze specific.
@@ -29,6 +30,7 @@ def _create_backblaze_s3_client(creds: S3Credentials, verbose: bool) -> BaseClie
         config=Config(
             signature_version="s3v4",
             region_name=region_name,
+            max_pool_connections=_MAX_CONNECTIONS,
             # Note that BackBlase has a boko3 bug where it doesn't support the new
             # checksum header, the following line was an attempt of fix it on the newest
             # version of boto3, but it didn't work.
@@ -58,10 +60,7 @@ def _create_unknown_s3_client(creds: S3Credentials, verbose: bool) -> BaseClient
         config=Config(
             signature_version="s3v4",
             region_name=creds.region_name,
-            # Note that BackBlase has a boko3 bug where it doesn't support the new
-            # checksum header, the following line was an attempt of fix it on the newest
-            # version of boto3, but it didn't work.
-            # s3={"payload_signing_enabled": False},  # Disable checksum header
+            max_pool_connections=_MAX_CONNECTIONS,
         ),
     )
 

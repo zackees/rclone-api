@@ -171,35 +171,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         retries=3,
     )
 
-    if False:
-        print(finish_multipart_upload_from_keys)
-        print(s3_client)
-    print("done")
-
-    # def finish_multipart_upload_from_keys(
-    # s3_client: BaseClient,
-    # source_bucket: str,
-    # source_keys: list[str],
-    # destination_bucket: str,
-    # destination_key: str,
-    # chunk_size: int = 5 * 1024 * 1024,  # 5MB default
-    # retries: int = 3,
-    # byte_ranges: list[str] | None = None,
-
-    # if False:
-    #     finish_multipart_upload_from_keys(
-    #         s3_client=s3_client,
-    #         source_bucket="TODO",
-    #         source_keys=[p.key for p in all_parts],
-    #         destination_bucket=info.dst_bucket,
-    #         destination_key=info.dst_key,
-    #         chunk_size=5 * 1024 * 1024,
-    #         retries=3,
-    #         byte_ranges=None,
-    #     )
-
-    # print(all_parts)
-
 
 def main() -> int:
     """Main entry point."""
