@@ -9,7 +9,6 @@ from rclone_api.s3.create import (
     S3Credentials,
 )
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
-    DEFAULT_MAX_WORKERS,
     Part,
     S3MultiPartMerger,
 )
@@ -148,7 +147,7 @@ def _perform_merge(rclone: Rclone, info_path: str, dst: str) -> Exception | None
     if isinstance(merger, Exception):
         return merger
 
-    err = merger.merge(max_workers=DEFAULT_MAX_WORKERS)
+    err = merger.merge()
     if isinstance(err, Exception):
         return err
 

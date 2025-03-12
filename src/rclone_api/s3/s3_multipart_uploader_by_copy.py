@@ -242,7 +242,9 @@ class S3MultiPartMerger:
             verbose=verbose,
             timeout_read=_TIMEOUT_READ,
             timeout_connection=_TIMEOUT_CONNECTION,
+            max_pool_connections=DEFAULT_MAX_WORKERS,
         )
+        self.max_workers = s3_config.max_pool_connections or DEFAULT_MAX_WORKERS
         self.client = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
         self.state: MergeState | None = None
 
@@ -278,7 +280,6 @@ class S3MultiPartMerger:
 
     def merge(
         self,
-        max_workers: int = DEFAULT_MAX_WORKERS,
     ) -> Exception | None:
         state = self.state
         if state is None:
@@ -286,5 +287,5 @@ class S3MultiPartMerger:
         return _do_upload_task(
             s3_client=self.client,
             merge_state=state,
-            max_workers=max_workers,
+            max_workers=self.max_workers,
         )
