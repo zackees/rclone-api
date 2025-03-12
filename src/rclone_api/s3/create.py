@@ -16,20 +16,15 @@ _TIMEOUT_CONNECT = 60
 @dataclass
 class S3Config:
     max_pool_connections: int | None = None
-    max_connections: int | None = None
     timeout_connection: int | None = None
     timeout_read: int | None = None
     verbose: bool | None = None
 
     def resolve_defaults(self) -> None:
-        if self.max_pool_connections is None:
-            self.max_pool_connections = _MAX_CONNECTIONS
-        if self.timeout_connection is None:
-            self.timeout_connection = _TIMEOUT_CONNECT
-        if self.timeout_read is None:
-            self.timeout_read = _TIMEOUT_READ
-        if self.verbose is None:
-            self.verbose = False
+        self.max_pool_connections = self.max_pool_connections or _MAX_CONNECTIONS
+        self.timeout_connection = self.timeout_connection or _TIMEOUT_CONNECT
+        self.timeout_read = self.timeout_read or _TIMEOUT_READ
+        self.verbose = self.verbose or False
 
 
 # Create a Boto3 session and S3 client, this is back blaze specific.
@@ -53,7 +48,7 @@ def _create_backblaze_s3_client(creds: S3Credentials, config: S3Config) -> BaseC
         config=Config(
             signature_version="s3v4",
             region_name=region_name,
-            max_pool_connections=config.max_connections,
+            max_pool_connections=config.max_pool_connections,
             read_timeout=config.timeout_read,
             connect_timeout=config.timeout_connection,
             # Note that BackBlase has a boko3 bug where it doesn't support the new
@@ -85,7 +80,7 @@ def _create_unknown_s3_client(creds: S3Credentials, config: S3Config) -> BaseCli
         config=Config(
             signature_version="s3v4",
             region_name=creds.region_name,
-            max_pool_connections=config.max_connections,
+            max_pool_connections=config.max_pool_connections,
             read_timeout=config.timeout_read,
             connect_timeout=config.timeout_connection,
         ),
