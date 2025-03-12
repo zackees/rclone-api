@@ -256,14 +256,6 @@ class S3MultiPartUploader:
         )
         return merge_state
 
-    def start_upload_resume(
-        self,
-        info: MultipartUploadInfo,
-        state: MergeState,
-        max_workers: int = _DEFAULT_MAX_WORKERS,
-    ) -> MultipartUploadInfo | Exception:
-        return Exception("Not implemented")
-
     def start_upload(
         self,
         state: MergeState,
