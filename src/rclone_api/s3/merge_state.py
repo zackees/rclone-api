@@ -47,8 +47,8 @@ class Part:
 class MergeState:
 
     def __init__(self, finished: list[FinishedPiece], all_parts: list[Part]) -> None:
-        self.finished: list[FinishedPiece] = finished
-        self.all_parts: list[Part] = all_parts
+        self.finished: list[FinishedPiece] = list(finished)
+        self.all_parts: list[Part] = list(all_parts)
         self.callbacks: list[Callable[[FinishedPiece], None]] = []
 
     def add_callback(self, callback: Callable[[FinishedPiece], None]) -> None:
