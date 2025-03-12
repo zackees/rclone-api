@@ -168,16 +168,6 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
         verbose=True,
     )
 
-    # finish_multipart_upload_from_keys(
-    #     s3_client=s3_client,
-    #     source_bucket=s3_creds.bucket_name,
-    #     parts=parts,
-    #     destination_bucket=s3_creds.bucket_name,
-    #     destination_key=dst_key,
-    #     chunk_size=chunksize.as_int(),
-    #     max_workers=10,
-    # )
-
     from rclone_api.s3.s3_multipart_uploader_by_copy import MultipartUploadInfo
 
     state: MultipartUploadInfo = uploader.begin_new_upload(
