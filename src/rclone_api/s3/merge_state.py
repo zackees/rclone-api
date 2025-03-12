@@ -116,7 +116,9 @@ class MergeState:
         }
 
     def to_json_str(self) -> str:
-        return json.dumps(self.to_json(), indent=1)
+        data = self.to_json()
+        out = json.dumps(data, indent=2)
+        return out
 
     def __str__(self):
         return self.to_json_str()

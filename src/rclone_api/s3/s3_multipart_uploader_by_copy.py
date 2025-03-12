@@ -8,6 +8,7 @@ from existing S3 objects using upload_part_copy.
 
 import json
 import os
+import time
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
@@ -173,7 +174,9 @@ def _do_upload_task(
             fut = executor.submit(task)
             fut.add_done_callback(lambda x: semaphore.release())
             futures.append(fut)
-            semaphore.acquire()
+
+            while not semaphore.acquire(blocking=False):
+                time.sleep(0.1)
 
         # Upload parts by copying from source objects
         finished_parts: list[FinishedPiece] = []
@@ -310,13 +313,16 @@ def _get_merge_path(info_path: str) -> str:
 
 
 def _begin_or_resume_merge(
-    rclone: RcloneImpl, info: InfoJson
+    rclone: RcloneImpl,
+    info: InfoJson,
+    max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> "S3MultiPartMerger | Exception":
     try:
         merger: S3MultiPartMerger = S3MultiPartMerger(
             rclone_impl=rclone,
             info=info,
             verbose=True,
+            max_workers=max_workers,
         )
 
         s3_bucket = merger.bucket
@@ -328,7 +334,6 @@ def _begin_or_resume_merge(
         if isinstance(merge_json_text, str):
             # Attempt to do a resume
             merge_data = json.loads(merge_json_text)
-            print(merge_data)
             merge_state = MergeState.from_json(rclone_impl=rclone, json=merge_data)
             if isinstance(merge_state, MergeState):
                 merger.begin_resume_merge(merge_state=merge_state)
@@ -388,6 +393,7 @@ class S3MultiPartMerger:
         info: InfoJson,
         s3_config: S3Config | None = None,
         verbose: bool = False,
+        max_workers: int = DEFAULT_MAX_WORKERS,
     ) -> None:
         self.rclone_impl: RcloneImpl = rclone_impl
         self.info = info
@@ -397,7 +403,7 @@ class S3MultiPartMerger:
             verbose=verbose,
             timeout_read=_TIMEOUT_READ,
             timeout_connection=_TIMEOUT_CONNECTION,
-            max_pool_connections=DEFAULT_MAX_WORKERS,
+            max_pool_connections=max_workers,
         )
         self.max_workers = s3_config.max_pool_connections or DEFAULT_MAX_WORKERS
         self.client = create_s3_client(s3_creds=self.s3_creds, s3_config=s3_config)
@@ -405,8 +411,10 @@ class S3MultiPartMerger:
         self.write_thread: WriteMergeStateThread | None = None
 
     @staticmethod
-    def create(rclone: RcloneImpl, info: InfoJson) -> "S3MultiPartMerger | Exception":
-        return _begin_or_resume_merge(rclone=rclone, info=info)
+    def create(
+        rclone: RcloneImpl, info: InfoJson, max_workers: int
+    ) -> "S3MultiPartMerger | Exception":
+        return _begin_or_resume_merge(rclone=rclone, info=info, max_workers=max_workers)
 
     @property
     def bucket(self) -> str:
@@ -486,7 +494,7 @@ class S3MultiPartMerger:
 
 
 def s3_server_side_multi_part_merge(
-    rclone: RcloneImpl, info_path: str
+    rclone: RcloneImpl, info_path: str, max_workers: int = DEFAULT_MAX_WORKERS
 ) -> Exception | None:
     info = InfoJson(rclone, src=None, src_info=info_path)
     loaded = info.load()
@@ -495,7 +503,7 @@ def s3_server_side_multi_part_merge(
             f"Info file not found, has the upload finished? {info_path}"
         )
     merger: S3MultiPartMerger | Exception = S3MultiPartMerger.create(
-        rclone=rclone, info=info
+        rclone=rclone, info=info, max_workers=max_workers
     )
     if isinstance(merger, Exception):
         return merger
