@@ -69,6 +69,11 @@ class MergeState:
         for callback in list(self.callbacks):
             callback(finished_piece)
 
+    def remaining_parts(self) -> list[Part]:
+        finished_parts: set[int] = set([p.part_number for p in self.finished])
+        remaining = [p for p in self.all_parts if p.part_number not in finished_parts]
+        return remaining
+
     @staticmethod
     def from_json_array(json_array: dict) -> "MergeState | Exception":
         try:

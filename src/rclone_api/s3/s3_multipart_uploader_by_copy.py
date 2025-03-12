@@ -141,10 +141,8 @@ def do_body_work(
     max_workers: int,
     merge_state: MergeState,
 ) -> str | Exception:
-
     futures: list[Future[FinishedPiece | Exception]] = []
-    parts = list(merge_state.all_parts)
-
+    parts = merge_state.remaining_parts()
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         semaphore = Semaphore(max_workers)
         for part in parts:
