@@ -246,23 +246,26 @@ class S3MultiPartMerger:
         parts: list[Part],
         bucket: str,
         dst_key: str,
-    ) -> None:
-        upload_id: str = begin_upload(
-            s3_client=self.client,
-            parts=parts,
-            bucket=bucket,
-            dst_key=dst_key,
-            verbose=self.verbose,
-        )
-        merge_state = MergeState(
-            upload_id=upload_id,
-            bucket=bucket,
-            dst_key=dst_key,
-            finished=[],
-            all_parts=parts,
-        )
-        self.state = merge_state
-        return
+    ) -> Exception | None:
+        try:
+            upload_id: str = begin_upload(
+                s3_client=self.client,
+                parts=parts,
+                bucket=bucket,
+                dst_key=dst_key,
+                verbose=self.verbose,
+            )
+            merge_state = MergeState(
+                upload_id=upload_id,
+                bucket=bucket,
+                dst_key=dst_key,
+                finished=[],
+                all_parts=parts,
+            )
+            self.state = merge_state
+            return None
+        except Exception as e:
+            return e
 
     def merge(
         self,

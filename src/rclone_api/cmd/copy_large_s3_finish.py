@@ -113,12 +113,13 @@ def _begin_new_merge(
             s3_client=s3_client,
             verbose=True,
         )
-
-        merger.begin_new_merge(
+        err = merger.begin_new_merge(
             parts=parts,
             bucket=s3_creds.bucket_name,
             dst_key=dst_key,
         )
+        if isinstance(err, Exception):
+            return err
         return merger
     except Exception as e:
         return e
