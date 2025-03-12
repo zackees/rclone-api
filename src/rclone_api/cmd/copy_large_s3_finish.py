@@ -6,6 +6,7 @@ from pathlib import Path
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
+    Part,
     finish_multipart_upload_from_keys,
 )
 from rclone_api.types import SizeSuffix
@@ -99,11 +100,12 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> None:
         out = f"{parts_path}"
         return out
 
-    parts: list[tuple[int, str]] = []
+    parts: list[Part] = []
     part_num = 1
     for part_key in source_keys:
         s3_key = _to_s3_key(name=part_key)
-        parts.append((part_num, s3_key))
+        part = Part(part_number=part_num, s3_key=s3_key)
+        parts.append(part)
         part_num += 1
 
     chunksize = info.chunksize

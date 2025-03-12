@@ -39,3 +39,6 @@ class FinishedPiece:
         if json is None:
             return EndOfStream()
         return FinishedPiece(**json)
+
+    def __hash__(self) -> int:
+        return hash(self.part_number)

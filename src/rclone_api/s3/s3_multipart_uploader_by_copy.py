@@ -19,6 +19,12 @@ from rclone_api.util import locked_print
 
 
 @dataclass
+class Part:
+    part_number: int
+    s3_key: str
+
+
+@dataclass
 class MultipartUploadInfo:
     """Simplified upload information for multipart uploads."""
 
@@ -137,7 +143,7 @@ def complete_multipart_upload_from_parts(
 def do_body_work(
     info: MultipartUploadInfo,
     source_bucket: str,
-    parts: list[tuple[int, str]],
+    parts: list[Part],
     max_workers: int,
     retries: int,
 ) -> str | Exception:
@@ -148,19 +154,20 @@ def do_body_work(
         # semaphore
 
         semaphore = Semaphore(max_workers * 2)
-        for part_number, source_key in parts:
+        for part in parts:
+            part_number, s3_key = part.part_number, part.s3_key
 
             def task(
                 info=info,
                 source_bucket=source_bucket,
-                source_key=source_key,
+                s3_key=s3_key,
                 part_number=part_number,
                 retries=retries,
             ):
                 return upload_part_copy_task(
                     info=info,
                     source_bucket=source_bucket,
-                    source_key=source_key,
+                    source_key=s3_key,
                     part_number=part_number,
                     retries=retries,
                 )
@@ -186,7 +193,7 @@ def do_body_work(
 
 def begin_upload(
     s3_client: BaseClient,
-    parts: list[tuple[int, str]],
+    parts: list[Part],
     final_size: int,
     destination_bucket: str,
     destination_key: str,
@@ -239,7 +246,7 @@ def begin_upload(
 def finish_multipart_upload_from_keys(
     s3_client: BaseClient,
     source_bucket: str,
-    parts: list[tuple[int, str]],
+    parts: list[Part],
     final_size: int,
     destination_bucket: str,
     destination_key: str,
@@ -287,42 +294,39 @@ def finish_multipart_upload_from_keys(
 
 
 class S3MultiPartUploader:
-    def __init__(self, s3_client: BaseClient, verbose: bool) -> None:
-        self.s3_client = s3_client
+    def __init__(self, s3_client: BaseClient, verbose: bool = False) -> None:
         self.verbose = verbose
+        self.client: BaseClient = s3_client
 
-    def finish_from_keys(
+    def begin_new_upload(
         self,
-        source_bucket: str,
-        parts: list[tuple[int, str]],
+        parts: list[Part],
+        final_size: int,
         destination_bucket: str,
         destination_key: str,
         chunk_size: int,
-        final_size: int,
-        retries: int = 100,
+        retries: int = 3,
+    ) -> MultipartUploadInfo:
+        return begin_upload(
+            self.client,
+            parts,
+            final_size,
+            destination_bucket,
+            destination_key,
+            chunk_size,
+            retries,
+        )
+
+    def process_upload(
+        self,
+        info: MultipartUploadInfo,
+        parts: list[Part],
+        max_workers: int = 100,
     ) -> str | Exception:
-        """
-        Finish a multipart upload by copying parts from existing S3 objects.
-
-        Args:
-            source_bucket: Source bucket name
-            source_keys: List of source object keys to copy from
-            destination_bucket: Destination bucket name
-            destination_key: Destination object key
-            chunk_size: Size of each part in bytes
-            retries: Number of retry attempts
-            byte_ranges: Optional list of byte ranges corresponding to source_keys
-
-        Returns:
-            The URL of the completed object
-        """
-        return finish_multipart_upload_from_keys(
-            s3_client=self.s3_client,
-            source_bucket=source_bucket,
+        return do_body_work(
+            info=info,
+            source_bucket=info.bucket_name,
             parts=parts,
-            destination_bucket=destination_bucket,
-            destination_key=destination_key,
-            chunk_size=chunk_size,
-            final_size=final_size,
-            retries=retries,
+            max_workers=max_workers,
+            retries=info.retries,
         )
