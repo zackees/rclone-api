@@ -169,21 +169,15 @@ def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
     )
 
     from rclone_api.s3.merge_state import MergeState
-    from rclone_api.s3.s3_multipart_uploader_by_copy import MultipartUploadInfo
 
-    info_multipart: MultipartUploadInfo
-    merge_state: MergeState
-
-    info_multipart, merge_state = uploader.begin_new_upload(
+    merge_state: MergeState = uploader.begin_new_upload(
         parts=parts,
         bucket=s3_creds.bucket_name,
         dst_key=dst_key,
         chunk_size=chunksize.as_int(),
     )
 
-    uploader.start_upload(
-        info=info_multipart, state=merge_state, max_workers=_MAX_WORKERS
-    )
+    uploader.start_upload(state=merge_state, max_workers=_MAX_WORKERS)
 
     # now check if the dst now exists, if so, delete the parts folder.
     # if rclone.exists(dst):

@@ -136,7 +136,7 @@ def complete_multipart_upload_from_parts(
 
 
 def do_body_work(
-    info: MultipartUploadInfo,
+    s3_client: BaseClient,
     source_bucket: str,
     max_workers: int,
     merge_state: MergeState,
@@ -144,7 +144,6 @@ def do_body_work(
 
     futures: list[Future[FinishedPiece | Exception]] = []
     parts = list(merge_state.all_parts)
-    s3_client = info.s3_client
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         semaphore = Semaphore(max_workers)
@@ -248,7 +247,7 @@ class S3MultiPartUploader:
         bucket: str,
         dst_key: str,
         chunk_size: int,
-    ) -> tuple[MultipartUploadInfo, MergeState]:
+    ) -> MergeState:
         info: MultipartUploadInfo = begin_upload(
             s3_client=self.client,
             parts=parts,
@@ -264,7 +263,7 @@ class S3MultiPartUploader:
             finished=[],
             all_parts=parts,
         )
-        return info, merge_state
+        return merge_state
 
     def start_upload_resume(
         self,
@@ -276,12 +275,11 @@ class S3MultiPartUploader:
 
     def start_upload(
         self,
-        info: MultipartUploadInfo,
         state: MergeState,
         max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> str | Exception:
         return do_body_work(
-            info=info,
+            s3_client=self.client,
             source_bucket=state.bucket,
             max_workers=max_workers,
             merge_state=state,
