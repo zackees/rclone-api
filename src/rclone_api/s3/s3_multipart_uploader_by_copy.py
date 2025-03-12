@@ -32,7 +32,7 @@ class MultipartUploadInfo:
 
 
 def upload_part_copy_task(
-    info: MultipartUploadInfo,
+    s3_client: BaseClient,
     state: MergeState,
     source_bucket: str,
     source_key: str,
@@ -77,7 +77,7 @@ def upload_part_copy_task(
             }
 
             # Execute the copy operation
-            part = info.s3_client.upload_part_copy(**params)
+            part = s3_client.upload_part_copy(**params)
 
             # Extract ETag from the response
             etag = part["CopyPartResult"]["ETag"]
@@ -144,6 +144,7 @@ def do_body_work(
 
     futures: list[Future[FinishedPiece | Exception]] = []
     parts = list(merge_state.all_parts)
+    s3_client = info.s3_client
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         semaphore = Semaphore(max_workers)
@@ -151,14 +152,14 @@ def do_body_work(
             part_number, s3_key = part.part_number, part.s3_key
 
             def task(
-                info=info,
+                s3_client=s3_client,
                 state=merge_state,
                 source_bucket=source_bucket,
                 s3_key=s3_key,
                 part_number=part_number,
             ):
                 out = upload_part_copy_task(
-                    info=info,
+                    s3_client=s3_client,
                     state=state,
                     source_bucket=source_bucket,
                     source_key=s3_key,
