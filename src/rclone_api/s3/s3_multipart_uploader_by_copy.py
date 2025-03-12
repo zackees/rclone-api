@@ -184,9 +184,10 @@ def upload_part_copy_task(
 
         except Exception as e:
             msg = f"Error copying {copy_source} -> {info.object_name}: {e}, params={params}"
-            if "NoSuchKey" in str(e):
+            if "An error occurred (InternalError)" in str(e):
                 locked_print(msg)
-                return e
+            elif "NoSuchKey" in str(e):
+                locked_print(msg)
             if retry == retries - 1:
                 locked_print(msg)
                 return e
