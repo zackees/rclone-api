@@ -7,7 +7,7 @@ from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
     Part,
-    S3MultiPartUploader,
+    S3MultiPartMerger,
 )
 
 _TIMEOUT_READ = 900
@@ -54,9 +54,9 @@ def _parse_args() -> Args:
     return out
 
 
-def _begin_new_upload(
+def _begin_new_merge(
     rclone: Rclone, info: InfoJson, dst: str
-) -> S3MultiPartUploader | Exception:
+) -> S3MultiPartMerger | Exception:
     from rclone_api.s3.create import (
         BaseClient,
         S3Config,
@@ -109,22 +109,22 @@ def _begin_new_upload(
         dst_dir = os.path.dirname(parts_path)
         dst_key = f"{dst_dir}/{dst_name}"
 
-        uploader: S3MultiPartUploader = S3MultiPartUploader(
+        merger: S3MultiPartMerger = S3MultiPartMerger(
             s3_client=s3_client,
             verbose=True,
         )
 
-        uploader.begin_new_upload(
+        merger.begin_new_merge(
             parts=parts,
             bucket=s3_creds.bucket_name,
             dst_key=dst_key,
         )
-        return uploader
+        return merger
     except Exception as e:
         return e
 
 
-def _finish_upload(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+def _finish_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     size = info.size
     parts_dir = info.parts_dir
     if not rclone.exists(dst):
@@ -139,23 +139,23 @@ def _finish_upload(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None
     return None
 
 
-def do_finish_part(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
+def perform_merge(rclone: Rclone, info: InfoJson, dst: str) -> Exception | None:
     size = info.size
     parts_dir = info.parts_dir
     print(f"Finishing upload: {dst}")
     print(f"Parts dir: {parts_dir}")
     print(f"Size: {size}")
-    uploader: S3MultiPartUploader | Exception = _begin_new_upload(
+    merger: S3MultiPartMerger | Exception = _begin_new_merge(
         rclone=rclone, info=info, dst=dst
     )
-    if isinstance(uploader, Exception):
-        return uploader
+    if isinstance(merger, Exception):
+        return merger
 
-    err = uploader.start_upload(max_workers=_MAX_WORKERS)
+    err = merger.merge(max_workers=_MAX_WORKERS)
     if isinstance(err, Exception):
         return err
 
-    err = _finish_upload(rclone=rclone, info=info, dst=dst)
+    err = _finish_merge(rclone=rclone, info=info, dst=dst)
     return err
 
 
@@ -171,7 +171,7 @@ def main() -> int:
             f"Info file not found, has the upload finished? {info_json}"
         )
     print(info)
-    do_finish_part(rclone=rclone, info=info, dst=args.dst)
+    perform_merge(rclone=rclone, info=info, dst=args.dst)
     return 0
 
 
