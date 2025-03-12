@@ -139,12 +139,12 @@ def complete_multipart_upload_from_parts(
 def do_body_work(
     info: MultipartUploadInfo,
     source_bucket: str,
-    parts: list[Part],
     max_workers: int,
     merge_state: MergeState,
 ) -> str | Exception:
 
     futures: list[Future[FinishedPiece | Exception]] = []
+    parts = list(merge_state.all_parts)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         semaphore = Semaphore(max_workers)
@@ -261,10 +261,12 @@ def finish_multipart_upload_from_keys(
         The URL of the completed object
     """
 
+    merge_state = MergeState(finished=[], all_parts=parts)
+
     # Create upload info
     info = begin_upload(
         s3_client=s3_client,
-        parts=parts,
+        parts=merge_state.all_parts,
         destination_bucket=destination_bucket,
         destination_key=destination_key,
         chunk_size=chunk_size,
@@ -273,9 +275,8 @@ def finish_multipart_upload_from_keys(
     out = do_body_work(
         info=info,
         source_bucket=source_bucket,
-        parts=parts,
         max_workers=max_workers,
-        merge_state=MergeState(finished=[], all_parts=parts),
+        merge_state=merge_state,
     )
 
     return out
@@ -321,7 +322,6 @@ class S3MultiPartUploader:
         return do_body_work(
             info=info,
             source_bucket=info.bucket_name,
-            parts=parts,
             max_workers=max_workers,
             merge_state=MergeState(finished=[], all_parts=parts),
         )
