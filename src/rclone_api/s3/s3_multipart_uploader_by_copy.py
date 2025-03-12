@@ -133,7 +133,6 @@ def upload_part_copy_task(
     source_bucket: str,
     source_key: str,
     part_number: int,
-    retries: int = 3,
 ) -> FinishedPiece | Exception:
     """
     Upload a part by copying from an existing S3 object.
@@ -152,8 +151,8 @@ def upload_part_copy_task(
     copy_source = {"Bucket": source_bucket, "Key": source_key}
 
     # from botocore.exceptions import NoSuchKey
-
-    retries = retries + 1  # Add one for the initial attempt
+    default_retries = 9
+    retries = default_retries + 1  # Add one for the initial attempt
     for retry in range(retries):
         params: dict = {}
         try:
@@ -193,6 +192,9 @@ def upload_part_copy_task(
                 return e
             else:
                 locked_print(f"{msg}, retrying")
+                # sleep
+                sleep_time = 2**retry
+                locked_print(f"Sleeping for {sleep_time} seconds")
                 continue
 
     return Exception("Should not reach here")
@@ -236,7 +238,6 @@ def do_body_work(
     source_bucket: str,
     parts: list[Part],
     max_workers: int,
-    retries: int,
 ) -> str | Exception:
 
     futures: list[Future[FinishedPiece | Exception]] = []
@@ -253,14 +254,12 @@ def do_body_work(
                 source_bucket=source_bucket,
                 s3_key=s3_key,
                 part_number=part_number,
-                retries=retries,
             ):
                 return upload_part_copy_task(
                     info=info,
                     source_bucket=source_bucket,
                     source_key=s3_key,
                     part_number=part_number,
-                    retries=retries,
                 )
 
             fut = executor.submit(task)
@@ -338,7 +337,6 @@ def finish_multipart_upload_from_keys(
     destination_key: str,
     chunk_size: int,  # 5MB default
     max_workers: int = 100,
-    retries: int = 3,
 ) -> str | Exception:
     """
     Finish a multipart upload by copying parts from existing S3 objects.
@@ -371,13 +369,11 @@ def finish_multipart_upload_from_keys(
         source_bucket=source_bucket,
         parts=parts,
         max_workers=max_workers,
-        retries=retries,
     )
 
     return out
 
 
-_DEFAULT_RETRIES = 20
 _DEFAULT_MAX_WORKERS = 10
 
 
@@ -405,7 +401,6 @@ class S3MultiPartUploader:
         self,
         info: MultipartUploadInfo,
         state: MergeState,
-        retries: int = _DEFAULT_RETRIES,
         max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> MultipartUploadInfo | Exception:
         return Exception("Not implemented")
@@ -414,7 +409,6 @@ class S3MultiPartUploader:
         self,
         info: MultipartUploadInfo,
         parts: list[Part],
-        retries: int = _DEFAULT_RETRIES,
         max_workers: int = _DEFAULT_MAX_WORKERS,
     ) -> str | Exception:
         return do_body_work(
@@ -422,5 +416,4 @@ class S3MultiPartUploader:
             source_bucket=info.bucket_name,
             parts=parts,
             max_workers=max_workers,
-            retries=retries,
         )
