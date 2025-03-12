@@ -18,6 +18,8 @@ from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
 from rclone_api.util import locked_print
 
+_DEFAULT_MAX_WORKERS = 10
+
 
 @dataclass
 class MultipartUploadInfo:
@@ -280,9 +282,6 @@ def finish_multipart_upload_from_keys(
     )
 
     return out
-
-
-_DEFAULT_MAX_WORKERS = 10
 
 
 class S3MultiPartUploader:
