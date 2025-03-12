@@ -106,11 +106,24 @@ def _fetch_all_names(
     return filtered
 
 
-def _get_info_json(self: RcloneImpl, src: str, src_info: str) -> dict:
+def _get_info_json(self: RcloneImpl, src: str | None, src_info: str) -> dict:
     from rclone_api.file import File
+
+    data: dict
+    text: str
+    if src is None:
+        # just try to load the file
+        text_or_err = self.read_text(src_info)
+        if isinstance(text_or_err, Exception):
+            raise FileNotFoundError(f"Could not load {src_info}: {text_or_err}")
+        assert isinstance(text_or_err, str)
+        text = text_or_err
+        data = json.loads(text)
+        return data
 
     src_stat: File | Exception = self.stat(src)
     if isinstance(src_stat, Exception):
+        # just try to load the file
         raise FileNotFoundError(f"Failed to stat {src}: {src_stat}")
 
     now: datetime = datetime.now()
@@ -133,12 +146,11 @@ def _get_info_json(self: RcloneImpl, src: str, src_info: str) -> dict:
         warnings.warn(f"Failed to read {src_info}: {text_or_err}")
         return new_data
     assert isinstance(text_or_err, str)
-    text: str = text_or_err
+    text = text_or_err
 
     if err is not None:
         return new_data
 
-    data: dict = {}
     try:
         data = json.loads(text)
         return data
@@ -168,13 +180,14 @@ def _save_info_json(self: RcloneImpl, src: str, data: dict) -> None:
 
 
 class InfoJson:
-    def __init__(self, rclone: RcloneImpl, src: str, src_info: str) -> None:
+    def __init__(self, rclone: RcloneImpl, src: str | None, src_info: str) -> None:
         self.rclone = rclone
         self.src = src
         self.src_info = src_info
         self.data: dict = {}
 
     def load(self) -> bool:
+        """Returns true if the file exist and is now loaded."""
         self.data = _get_info_json(self.rclone, self.src, self.src_info)
         return not self.data.get("new", False)
 
@@ -194,16 +207,32 @@ class InfoJson:
         part_numbers = [int(name.split("_")[0].split(".")[1]) for name in names]
         return part_numbers
 
+    def compute_all_parts(self) -> list[PartInfo] | Exception:
+        # full_part_infos: list[PartInfo] | Exception = PartInfo.split_parts(
+        # src_size, SizeSuffix("96MB")
+        try:
+
+            src_size = self.size
+            chunk_size = self.chunksize
+            assert isinstance(src_size, SizeSuffix)
+            assert isinstance(chunk_size, SizeSuffix)
+            first_part = self.data["first_part"]
+            last_part = self.data["last_part"]
+            full_part_infos: list[PartInfo] = PartInfo.split_parts(src_size, chunk_size)
+            return full_part_infos[first_part : last_part + 1]
+        except Exception as e:
+            return e
+
     @property
     def new(self) -> bool:
         return self.data.get("new", False)
 
     @property
     def chunksize(self) -> SizeSuffix | None:
-        chunksize: str | None = self.data.get("chunksize")
-        if chunksize is None:
+        chunksize_int: int | None = self.data.get("chunksize_int")
+        if chunksize_int is None:
             return None
-        return SizeSuffix(chunksize)
+        return SizeSuffix(chunksize_int)
 
     @chunksize.setter
     def chunksize(self, value: SizeSuffix) -> None:
@@ -219,20 +248,23 @@ class InfoJson:
         self.data["src_modtime"] = value.isoformat()
 
     @property
-    def first_part(self) -> int | None:
+    def size(self) -> SizeSuffix:
+        return SizeSuffix(self.data["size"])
+
+    def _get_first_part(self) -> int | None:
         return self.data.get("first_part")
 
-    @first_part.setter
-    def first_part(self, value: int) -> None:
+    def _set_first_part(self, value: int) -> None:
         self.data["first_part"] = value
 
-    @property
-    def last_part(self) -> int | None:
+    def _get_last_part(self) -> int | None:
         return self.data.get("last_part")
 
-    @last_part.setter
-    def last_part(self, value: int) -> None:
+    def _set_last_part(self, value: int) -> None:
         self.data["last_part"] = value
+
+    first_part: int | None = property(_get_first_part, _set_first_part)  # type: ignore
+    last_part: int | None = property(_get_last_part, _set_last_part)  # type: ignore
 
     @property
     def hash(self) -> str | None:

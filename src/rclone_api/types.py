@@ -309,6 +309,13 @@ class Range:
         val = f"bytes={self.start.as_int()}-{last.as_int()}"
         return {"Range": val}
 
+    def __repr__(self) -> str:
+        length = self.end - self.start
+        return f"Range(start={self.start}, length={length})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 _MAX_PART_NUMBER = 10000
 
@@ -387,3 +394,9 @@ class PartInfo:
         end = SizeSuffix(self.range.end._size).as_int()
         dst_name = f"part.{partnumber}_{offset}-{end}"
         return dst_name
+
+    def __repr__(self) -> str:
+        return f"PartInfo(part_number={self.part_number}, range={self.range})"
+
+    def __str__(self) -> str:
+        return self.__repr__()

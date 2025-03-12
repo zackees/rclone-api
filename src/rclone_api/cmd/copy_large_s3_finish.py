@@ -2,7 +2,11 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from rclone_api import Rclone, SizeSuffix
+from rclone_api import Rclone
+from rclone_api.detail.copy_file_parts import InfoJson
+from rclone_api.types import (
+    PartInfo,
+)
 
 DATA_SOURCE = (
     "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
@@ -33,11 +37,8 @@ DATA_SOURCE = (
 @dataclass
 class Args:
     config_path: Path
-    src: str
-    dst: str
-    chunk_size: SizeSuffix
-    retries: int
-    save_state_json: Path
+    src: str  # like dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts/ (info.json will be located here)
+    dst: str  # like dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst
     verbose: bool
 
 
@@ -62,13 +63,6 @@ def _parse_args() -> Args:
         type=str,
         default="128MB",  # if this is too low or too high an s3 service
     )
-    parser.add_argument("--retries", help="Number of retries", type=int, default=3)
-    parser.add_argument(
-        "--resume-json",
-        help="Path to resumable JSON file",
-        type=Path,
-        default="resume.json",
-    )
 
     args = parser.parse_args()
     config: Path | None = args.config
@@ -81,56 +75,58 @@ def _parse_args() -> Args:
         config_path=config,
         src=args.src,
         dst=args.dst,
-        chunk_size=SizeSuffix(args.chunk_size),
-        read_threads=args.read_threads,
-        write_threads=args.write_threads,
-        retries=args.retries,
-        save_state_json=args.resume_json,
         verbose=args.verbose,
     )
     return out
+
+
+# from dataclasses import dataclass
+
+# def parse_info_json(text: str) -> UploadInfo:
+#     import json
+#     data = json.loads(text)
+#     chunk_size = data["chunksize_int"]
+#     first_part = data["first_part"]
+#     last_part = data["last_part"]
+#     assert isinstance(chunk_size, int)
+#     assert isinstance(first_part, int)
+#     assert isinstance(last_part, int)
+#     assert first_part <= last_part
+#     parts: list[str] = []
+#     fmt = "part.{:05d}_{}-{}"
+#     for i in range(first_part, last_part + 1):
+#         offset: int = i * chunk_size
+#         end: int = (i + 1) * chunk_size
+#         part = fmt.format(i, offset, end)
+#         parts.append(part)
+#     return UploadInfo(chunk_size=chunk_size, parts=parts)
+
+
+def do_finish_part(info: InfoJson) -> None:
+    all_parts: list[PartInfo] | Exception = info.compute_all_parts()
+    print(all_parts)
 
 
 def main() -> int:
     """Main entry point."""
     args = _parse_args()
     rclone = Rclone(rclone_conf=args.config_path)
-    # unit_chunk = args.chunk_size / args.threads
-    # rslt: MultiUploadResult = rclone.copy_file_resumable_s3(
-    #     src=args.src,
-    #     dst=args.dst,
-    #     chunk_size=args.chunk_size,
-    #     read_threads=args.read_threads,
-    #     write_threads=args.write_threads,
-    #     retries=args.retries,
-    #     save_state_json=args.save_state_json,
-    #     verbose=args.verbose,
-    # )
-    err: Exception | None = rclone.copy_file_parts(
-        src=args.src,
-        dst_dir=args.dst,
-        threads=8,
-        # verbose=args.verbose,
-    )
-    if err is not None:
-        print(f"Error: {err}")
-        raise err
+    info_json = f"{args.src}/info.json".replace("//", "/")
+    info = InfoJson(rclone.impl, src=None, src_info=info_json)
+    loaded = info.load()
+    assert loaded
+    print(info)
+    do_finish_part(info)
     return 0
 
 
 if __name__ == "__main__":
     import sys
 
-    # here = Path(__file__).parent
-    # project_root = here.parent.parent.parent
-    # print(f"project_root: {project_root}")
-    # os.chdir(str(project_root))
-    # cwd = Path(__file__).parent
-    # print(f"cwd: {cwd}")
     sys.argv.append("--config")
     sys.argv.append("rclone.conf")
     sys.argv.append(
-        "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
+        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts/"
     )
     sys.argv.append(
         "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
