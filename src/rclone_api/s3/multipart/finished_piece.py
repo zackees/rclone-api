@@ -17,7 +17,9 @@ class FinishedPiece:
         return json.dumps(self.to_json(), indent=0)
 
     @staticmethod
-    def to_json_array(parts: list["FinishedPiece | EndOfStream"]) -> list[dict]:
+    def to_json_array(
+        parts: list["FinishedPiece | EndOfStream"] | list["FinishedPiece"],
+    ) -> list[dict]:
         non_none: list[FinishedPiece] = []
         for p in parts:
             if not isinstance(p, EndOfStream):

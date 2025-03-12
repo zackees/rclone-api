@@ -6,6 +6,7 @@ This module provides functionality for S3 multipart uploads, including copying p
 from existing S3 objects using upload_part_copy.
 """
 
+import json
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,23 @@ from rclone_api.util import locked_print
 class Part:
     part_number: int
     s3_key: str
+
+
+@dataclass
+class MergeJson:
+    finished: list[FinishedPiece]
+
+    def to_json(self) -> dict:
+        return {"finished": FinishedPiece.to_json_array(self.finished)}
+
+    def to_json_str(self) -> str:
+        return json.dumps(self.to_json(), indent=1)
+    
+    def __str__(self):
+        return self.to_json_str()
+    
+    def __repr__(self):
+        return self.to_json_str()
 
 
 @dataclass
