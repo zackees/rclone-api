@@ -17,7 +17,6 @@ from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
     BaseClient,
     S3Config,
-    S3Credentials,
     create_s3_client,
 )
 from rclone_api.s3.merge_state import MergeState, Part
@@ -306,13 +305,13 @@ class S3MultiPartMerger:
     def __init__(
         self,
         rclone_impl: RcloneImpl,
-        s3_creds: S3Credentials,
         info: InfoJson,
         s3_config: S3Config | None = None,
         verbose: bool = False,
     ) -> None:
         self.rclone_impl: RcloneImpl = rclone_impl
         self.info = info
+        self.s3_creds = rclone_impl.get_s3_credentials(remote=info.dst)
         self.verbose = verbose
         s3_config = s3_config or S3Config(
             verbose=verbose,
@@ -321,9 +320,13 @@ class S3MultiPartMerger:
             max_pool_connections=DEFAULT_MAX_WORKERS,
         )
         self.max_workers = s3_config.max_pool_connections or DEFAULT_MAX_WORKERS
-        self.client = create_s3_client(s3_creds=s3_creds, s3_config=s3_config)
+        self.client = create_s3_client(s3_creds=self.s3_creds, s3_config=s3_config)
         self.state: MergeState | None = None
         self.write_thread: WriteMergeStateThread | None = None
+
+    @property
+    def bucket(self) -> str:
+        return self.s3_creds.bucket_name
 
     def start_write_thread(self) -> None:
         assert self.state is not None

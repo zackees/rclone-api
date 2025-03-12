@@ -8,9 +8,6 @@ from pathlib import Path
 from rclone_api import Rclone
 from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.rclone_impl import RcloneImpl
-from rclone_api.s3.create import (
-    S3Credentials,
-)
 from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.s3_multipart_uploader_by_copy import (
     S3MultiPartMerger,
@@ -57,16 +54,13 @@ def _begin_or_resume_merge(
     rclone: RcloneImpl, info: InfoJson
 ) -> S3MultiPartMerger | Exception:
     try:
-        dst = info.dst
-        s3_creds: S3Credentials = rclone.get_s3_credentials(remote=dst)
         merger: S3MultiPartMerger = S3MultiPartMerger(
             rclone_impl=rclone,
             info=info,
-            s3_creds=s3_creds,
             verbose=True,
         )
 
-        s3_bucket = s3_creds.bucket_name
+        s3_bucket = merger.bucket
         is_done = info.fetch_is_done()
         assert is_done, f"Upload is not done: {info}"
 
@@ -118,7 +112,7 @@ def _begin_or_resume_merge(
         err = merger.begin_new_merge(
             merge_path=merge_path,
             parts=parts,
-            bucket=s3_creds.bucket_name,
+            bucket=merger.bucket,
             dst_key=dst_key,
         )
         if isinstance(err, Exception):
