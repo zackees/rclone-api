@@ -8,7 +8,7 @@ from existing S3 objects using upload_part_copy.
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
@@ -65,7 +65,6 @@ class MergeState:
         self.dst_key: str = dst_key
         self.finished: list[FinishedPiece] = list(finished)
         self.all_parts: list[Part] = list(all_parts)
-        self.callbacks: list[Callable[[FinishedPiece], None]] = []
 
     def on_finished(self, finished_piece: FinishedPiece) -> None:
         self.finished.append(finished_piece)
