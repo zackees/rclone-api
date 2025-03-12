@@ -194,7 +194,7 @@ def begin_upload(
     bucket: str,
     dst_key: str,
     chunk_size: int,
-) -> MultipartUploadInfo:
+) -> str:
     """
     Finish a multipart upload by copying parts from existing S3 objects.
 
@@ -209,7 +209,7 @@ def begin_upload(
         byte_ranges: Optional list of byte ranges corresponding to source_keys
 
     Returns:
-        The URL of the completed object
+        The upload id of the multipart upload
     """
 
     # Initiate multipart upload
@@ -224,14 +224,7 @@ def begin_upload(
     mpu = s3_client.create_multipart_upload(**create_params)
     print(f"Created multipart upload: {mpu}")
     upload_id = mpu["UploadId"]
-
-    # Create upload info
-    info = MultipartUploadInfo(
-        s3_client=s3_client,
-        upload_id=upload_id,
-        chunk_size=chunk_size,
-    )
-    return info
+    return upload_id
 
 
 class S3MultiPartUploader:
@@ -246,14 +239,13 @@ class S3MultiPartUploader:
         dst_key: str,
         chunk_size: int,
     ) -> MergeState:
-        info: MultipartUploadInfo = begin_upload(
+        upload_id: str = begin_upload(
             s3_client=self.client,
             parts=parts,
             bucket=bucket,
             dst_key=dst_key,
             chunk_size=chunk_size,
         )
-        upload_id = info.upload_id
         merge_state = MergeState(
             upload_id=upload_id,
             bucket=bucket,
