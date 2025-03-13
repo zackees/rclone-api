@@ -16,7 +16,7 @@ Got a lot of data to transfer quickly? This package is for you.
 
 This library was built out of necessity to transfer large amounts of AI training data. Aggressive default means this api will transfer faster than rclone does in stock settings.
 
-You must have rclone in your path to use this library. You'd want this anyway because rclone is still under heavy developement.
+You must have [rclone](https://rclone.org/) in your path to use this library. You'd want this anyway because rclone is still under heavy developement.
 
 # Install
 
@@ -28,6 +28,7 @@ In addition to providing easy python use for rclone, this package provides addit
 
   * Resumable multi-part uploads when s3 is the destination.
   * Diffing src/dst repos as a stream of `list[str]`.
+  * Dumping repo information to an sqlite/postgres/mysql database.
   * Efficient copying of byte ranges of a file.
   * Aggressive default settings for copying / syncing operations for extreme performance.
   * Some platform specific fixes.
