@@ -22,6 +22,7 @@ dependencies = [
     "sqlmodel>=0.0.23",
     "psycopg2-binary>=2.9.10",
     "httpx>=0.28.1",
+    "download>=0.3.5",
 ]
 
 # Change this with the version number bump.
