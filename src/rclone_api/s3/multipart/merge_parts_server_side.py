@@ -15,7 +15,6 @@ from queue import Queue
 from threading import Semaphore, Thread
 from typing import Callable
 
-from rclone_api.detail.copy_file_parts import InfoJson
 from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
     BaseClient,
@@ -23,6 +22,7 @@ from rclone_api.s3.create import (
     create_s3_client,
 )
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
+from rclone_api.s3.multipart.info_json import InfoJson
 from rclone_api.s3.multipart.merge_state import MergeState, Part
 from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print
