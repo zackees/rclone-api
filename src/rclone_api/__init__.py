@@ -81,7 +81,8 @@ class Rclone:
 
         Downloads the latest rclone binary and replaces the current one.
 
-        If rclone is in your path then this will download and install, but do nothing.
+        If an external rclone is already in your path then although upgrade_rclone
+        will download the latest version, it will not affect the rclone selected.
 
         Returns:
             Path to the upgraded rclone executable
