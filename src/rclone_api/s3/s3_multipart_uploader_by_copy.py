@@ -336,7 +336,7 @@ def _begin_or_resume_merge(
             merge_data = json.loads(merge_json_text)
             merge_state = MergeState.from_json(rclone_impl=rclone, json=merge_data)
             if isinstance(merge_state, MergeState):
-                merger.begin_resume_merge(merge_state=merge_state)
+                merger._begin_resume_merge(merge_state=merge_state)
                 return merger
             warnings.warn(f"Failed to resume merge: {merge_state}, starting new merge")
 
@@ -373,7 +373,7 @@ def _begin_or_resume_merge(
         dst_dir = os.path.dirname(parts_path)
         dst_key = f"{dst_dir}/{dst_name}"
 
-        err = merger.begin_new_merge(
+        err = merger._begin_new_merge(
             merge_path=merge_path,
             parts=parts,
             bucket=merger.bucket,
@@ -428,7 +428,7 @@ class S3MultiPartMerger:
             merge_state=self.state,
         )
 
-    def begin_new_merge(
+    def _begin_new_merge(
         self,
         parts: list[Part],
         merge_path: str,
@@ -457,13 +457,13 @@ class S3MultiPartMerger:
         except Exception as e:
             return e
 
-    def begin_resume_merge(
+    def _begin_resume_merge(
         self,
         merge_state: MergeState,
     ) -> None:
         self.state = merge_state
 
-    def on_piece_finished(self, finished_piece: FinishedPiece | EndOfStream) -> None:
+    def _on_piece_finished(self, finished_piece: FinishedPiece | EndOfStream) -> None:
         assert self.write_thread is not None
         assert self.state is not None
         if isinstance(finished_piece, EndOfStream):
@@ -483,7 +483,7 @@ class S3MultiPartMerger:
             s3_client=self.client,
             merge_state=state,
             max_workers=self.max_workers,
-            on_finished=self.on_piece_finished,
+            on_finished=self._on_piece_finished,
         )
         if isinstance(err, Exception):
             return err
