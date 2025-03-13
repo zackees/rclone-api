@@ -88,8 +88,8 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
 
     def test_copy_parts(self) -> None:
         src_file = "dst:rclone-api-unit-test/zachs_video/global_alliance.mp4"
-        dst_dir = "dst:rclone-api-unit-test/test_data/global_alliance.mp4-parts/"
-        dst_file = src_file.replace("-parts", "")
+        dst = "dst:rclone-api-unit-test/test_data/global_alliance.mp4"
+        dst_dir = "dst:rclone-api-unit-test/test_data/global_alliance.mp4-parts"
 
         # print(f"BUCKET_KEY_SECRET: {SECRET_ACCESS_KEY}")
         config_text = _generate_rclone_config(PORT)
@@ -110,7 +110,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
 
         err = rclone.copy_file_s3_resumable(
             src=src_file,
-            dst_dir=dst_dir,
+            dst=dst,
             part_infos=part_infos,
         )
 
@@ -119,11 +119,11 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         # Second time should go fast.
         rclone.copy_file_s3_resumable(
             src=src_file,
-            dst_dir=dst_dir,
+            dst=dst,
             part_infos=part_infos,
         )
 
-        dir_listing = rclone.ls(dst_file)
+        dir_listing = rclone.ls(dst)
         print(f"dir_listing: {dir_listing}")
         self.assertEqual(len(dir_listing.files), 1)
         expected_files = dir_listing.files[0]
@@ -131,9 +131,9 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         self.assertEqual(expected_files.name, "global_alliance.mp4")
         self.assertEqual(expected_files.size, src_size)
 
-        dst_dir_listing = rclone.ls(dst_dir)
+        dst_dir_listing = rclone.ls(dst)
         print(f"dst_dir_listing: {dst_dir_listing}")
-        self.assertEqual(len(dst_dir_listing.files), 0)
+        self.assertEqual(len(dst_dir_listing.files), 1)
         self.assertEqual(len(dst_dir_listing.dirs), 0)
 
         rclone.purge(dst_dir)

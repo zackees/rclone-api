@@ -1,4 +1,5 @@
 import argparse
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -89,7 +90,7 @@ def main() -> int:
     # )
     err: Exception | None = rclone.copy_file_s3_resumable(
         src=args.src,
-        dst_dir=args.dst,
+        dst=args.dst,
     )
     if err is not None:
         print(f"Error: {err}")
@@ -98,20 +99,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    import sys
 
-    # here = Path(__file__).parent
-    # project_root = here.parent.parent.parent
-    # print(f"project_root: {project_root}")
-    # os.chdir(str(project_root))
-    # cwd = Path(__file__).parent
-    # print(f"cwd: {cwd}")
     sys.argv.append("--config")
     sys.argv.append("rclone.conf")
     sys.argv.append(
         "45061:aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     sys.argv.append(
-        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts"
+        "dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst"
     )
     main()

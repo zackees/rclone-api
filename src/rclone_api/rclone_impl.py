@@ -786,7 +786,7 @@ class RcloneImpl:
     def copy_file_s3_resumable(
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
-        dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/
+        dst: str,  # dst:/Bucket/path/myfile.large
         part_infos: list[PartInfo] | None = None,
         upload_threads: int = 8,
         merge_threads: int = 4,
@@ -795,6 +795,10 @@ class RcloneImpl:
         from rclone_api.detail.copy_file_parts_resumable import (
             copy_file_parts_resumable,
         )
+
+        if dst.endswith("/"):
+            dst = dst[:-1]
+        dst_dir = f"{dst}-parts"
 
         out = copy_file_parts_resumable(
             self=self,

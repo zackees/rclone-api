@@ -399,7 +399,7 @@ class Rclone:
     def copy_file_s3_resumable(
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
-        dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/part.{part_number:05d}.start-end
+        dst: str,  # dst:/Bucket/path/myfile.large.zst
         part_infos: list[PartInfo] | None = None,
         upload_threads: int = 8,  # Number of reader and writer threads to use
         merge_threads: int = 4,  # Number of threads to use for merging the parts
@@ -407,7 +407,7 @@ class Rclone:
         """Copy a file in parts."""
         return self.impl.copy_file_s3_resumable(
             src=src,
-            dst_dir=dst_dir,
+            dst=dst,
             part_infos=part_infos,
             upload_threads=upload_threads,
             merge_threads=merge_threads,
