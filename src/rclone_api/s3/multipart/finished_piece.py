@@ -10,7 +10,9 @@ class FinishedPiece:
     etag: str
 
     def to_json(self) -> dict:
-        return {"part_number": self.part_number, "etag": self.etag}
+        # return {"part_number": self.part_number, "etag": self.etag}
+        # amazon s3 style dict
+        return {"PartNumber": self.part_number, "ETag": self.etag}
 
     @staticmethod
     def to_json_array(
