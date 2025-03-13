@@ -1,9 +1,11 @@
 # rclone-api
 
+<hide>
 [![Linting](https://github.com/zackees/rclone-api/actions/workflows/lint.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/lint.yml)
 [![MacOS_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_macos.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_macos.yml)
 [![Ubuntu_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_ubuntu.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_ubuntu.yml)
 [![Win_Tests](https://github.com/zackees/rclone-api/actions/workflows/push_win.yml/badge.svg)](https://github.com/zackees/rclone-api/actions/workflows/push_win.yml)
+</hide>
 
 Robust Rclone python api. You must have rclone in your path to use this library.
 
