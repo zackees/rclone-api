@@ -148,7 +148,7 @@ class RcloneImpl:
 
     def ls_stream(
         self,
-        path: str,
+        src: str,
         max_depth: int = -1,
         fast_list: bool = False,
     ) -> FilesStream:
@@ -160,7 +160,7 @@ class RcloneImpl:
             max_depth: Maximum recursion depth (-1 for unlimited)
             fast_list: Use fast list (only use when getting THE entire data repository from the root/bucket, or it's small)
         """
-        cmd = ["lsjson", path, "--files-only"]
+        cmd = ["lsjson", src, "--files-only"]
         recurse = max_depth < 0 or max_depth > 1
         if recurse:
             cmd.append("-R")
@@ -168,7 +168,7 @@ class RcloneImpl:
                 cmd += ["--max-depth", str(max_depth)]
         if fast_list:
             cmd.append("--fast-list")
-        streamer = FilesStream(path, self._launch_process(cmd, capture=True))
+        streamer = FilesStream(src, self._launch_process(cmd, capture=True))
         return streamer
 
     def save_to_db(
@@ -197,7 +197,7 @@ class RcloneImpl:
 
     def ls(
         self,
-        path: Dir | Remote | str | None = None,
+        src: Dir | Remote | str | None = None,
         max_depth: int | None = None,
         glob: str | None = None,
         order: Order = Order.NORMAL,
@@ -206,14 +206,14 @@ class RcloneImpl:
         """List files in the given path.
 
         Args:
-            path: Remote path or Remote object to list
+            src: Remote path or Remote object to list
             max_depth: Maximum recursion depth (0 means no recursion)
 
         Returns:
             List of File objects found at the path
         """
 
-        if path is None:
+        if src is None:
             # list remotes instead
             list_remotes: list[Remote] = self.listremotes()
             dirs: list[Dir] = [Dir(remote) for remote in list_remotes]
@@ -222,9 +222,9 @@ class RcloneImpl:
             rpaths = [d.path for d in dirs]
             return DirListing(rpaths)
 
-        if isinstance(path, str):
-            path = Dir(
-                to_path(path, self)
+        if isinstance(src, str):
+            src = Dir(
+                to_path(src, self)
             )  # assume it's a directory if ls is being called.
 
         cmd = ["lsjson"]
@@ -237,15 +237,15 @@ class RcloneImpl:
         if listing_option != ListingOption.ALL:
             cmd.append(f"--{listing_option.value}")
 
-        cmd.append(str(path))
-        remote = path.remote if isinstance(path, Dir) else path
+        cmd.append(str(src))
+        remote = src.remote if isinstance(src, Dir) else src
         assert isinstance(remote, Remote)
 
         cp = self._run(cmd, check=True)
         text = cp.stdout
         parent_path: str | None = None
-        if isinstance(path, Dir):
-            parent_path = path.path.path
+        if isinstance(src, Dir):
+            parent_path = src.path.path
         paths: list[RPath] = RPath.from_json_str(text, remote, parent_path=parent_path)
         # print(parent_path)
         for o in paths:
@@ -261,10 +261,10 @@ class RcloneImpl:
             random.shuffle(paths)
         return DirListing(paths)
 
-    def print(self, path: str) -> Exception | None:
+    def print(self, src: str) -> Exception | None:
         """Print the contents of a file."""
         try:
-            text_or_err = self.read_text(path)
+            text_or_err = self.read_text(src)
             if isinstance(text_or_err, Exception):
                 return text_or_err
             print(text_or_err)
@@ -372,7 +372,7 @@ class RcloneImpl:
 
     def walk(
         self,
-        path: Dir | Remote | str,
+        src: Dir | Remote | str,
         max_depth: int = -1,
         breadth_first: bool = True,
         order: Order = Order.NORMAL,
@@ -380,20 +380,20 @@ class RcloneImpl:
         """Walk through the given path recursively.
 
         Args:
-            path: Remote path or Remote object to walk through
+            src: Remote path or Remote object to walk through
             max_depth: Maximum depth to traverse (-1 for unlimited)
 
         Yields:
             DirListing: Directory listing for each directory encountered
         """
         dir_obj: Dir
-        if isinstance(path, Dir):
+        if isinstance(src, Dir):
             # Create a Remote object for the path
-            remote = path.remote
+            remote = src.remote
             rpath = RPath(
                 remote=remote,
-                path=path.path.path,
-                name=path.path.name,
+                path=src.path.path,
+                name=src.path.name,
                 size=0,
                 mime_type="inode/directory",
                 mod_time="",
@@ -401,13 +401,13 @@ class RcloneImpl:
             )
             rpath.set_rclone(self)
             dir_obj = Dir(rpath)
-        elif isinstance(path, str):
-            dir_obj = Dir(to_path(path, self))
-        elif isinstance(path, Remote):
-            dir_obj = Dir(path)
+        elif isinstance(src, str):
+            dir_obj = Dir(to_path(src, self))
+        elif isinstance(src, Remote):
+            dir_obj = Dir(src)
         else:
-            dir_obj = Dir(path)  # shut up pyright
-            assert f"Invalid type for path: {type(path)}"
+            dir_obj = Dir(src)  # shut up pyright
+            assert f"Invalid type for path: {type(src)}"
 
         yield from walk(
             dir_obj, max_depth=max_depth, breadth_first=breadth_first, order=order
@@ -441,11 +441,11 @@ class RcloneImpl:
         )
 
     def cleanup(
-        self, path: str, other_args: list[str] | None = None
+        self, src: str, other_args: list[str] | None = None
     ) -> CompletedProcess:
         """Cleanup any resources used by the Rclone instance."""
         # rclone cleanup remote:path [flags]
-        cmd = ["cleanup", path]
+        cmd = ["cleanup", src]
         if other_args:
             cmd += other_args
         out = self._run(cmd)
@@ -670,11 +670,11 @@ class RcloneImpl:
         cp = self._run(cmd_list, check=check, capture=False)
         return CompletedProcess.from_subprocess(cp)
 
-    def purge(self, path: Dir | str) -> CompletedProcess:
+    def purge(self, src: Dir | str) -> CompletedProcess:
         """Purge a directory"""
         # path should always be a string
-        path = path if isinstance(path, str) else str(path.path)
-        cmd_list: list[str] = ["purge", str(path)]
+        src = src if isinstance(src, str) else str(src.path)
+        cmd_list: list[str] = ["purge", str(src)]
         cp = self._run(cmd_list)
         return CompletedProcess.from_subprocess(cp)
 
@@ -761,9 +761,9 @@ class RcloneImpl:
         out = self.delete_files(files)
         return out
 
-    def exists(self, path: Dir | Remote | str | File) -> bool:
+    def exists(self, src: Dir | Remote | str | File) -> bool:
         """Check if a file or directory exists."""
-        arg: str = convert_to_str(path)
+        arg: str = convert_to_str(src)
         assert isinstance(arg, str)
         try:
             dir_listing = self.ls(arg)

@@ -190,7 +190,7 @@ class Rclone:
 
     def ls_stream(
         self,
-        path: str,
+        src: str,
         max_depth: int = -1,
         fast_list: bool = False,
     ) -> FilesStream:
@@ -201,14 +201,14 @@ class Rclone:
         results incrementally rather than collecting them all at once.
 
         Args:
-            path: Remote path to list
+            src: Remote path to list
             max_depth: Maximum recursion depth (-1 for unlimited)
             fast_list: Use fast list (only recommended for listing entire repositories or small datasets)
 
         Returns:
             A stream of file entries that can be iterated over
         """
-        return self.impl.ls_stream(path=path, max_depth=max_depth, fast_list=fast_list)
+        return self.impl.ls_stream(src=src, max_depth=max_depth, fast_list=fast_list)
 
     def save_to_db(
         self,
@@ -235,7 +235,7 @@ class Rclone:
 
     def ls(
         self,
-        path: Dir | Remote | str | None = None,
+        src: Dir | Remote | str | None = None,
         max_depth: int | None = None,
         glob: str | None = None,
         order: Order = Order.NORMAL,
@@ -247,7 +247,7 @@ class Rclone:
         Provides a detailed listing with file metadata.
 
         Args:
-            path: Path to list (Dir, Remote, or string path)
+            src: Path to list (Dir, Remote, or string path)
             max_depth: Maximum recursion depth (None for default)
             glob: Optional glob pattern to filter results
             order: Sorting order for the results
@@ -257,7 +257,7 @@ class Rclone:
             DirListing object containing the results
         """
         return self.impl.ls(
-            path=path,
+            src=src,
             max_depth=max_depth,
             glob=glob,
             order=order,
@@ -325,7 +325,7 @@ class Rclone:
 
     def walk(
         self,
-        path: Dir | Remote | str,
+        src: Dir | Remote | str,
         max_depth: int = -1,
         breadth_first: bool = True,
         order: Order = Order.NORMAL,
@@ -337,7 +337,7 @@ class Rclone:
         and yields their contents.
 
         Args:
-            path: Remote path, Dir, or Remote object to walk through
+            src: Remote path, Dir, or Remote object to walk through
             max_depth: Maximum depth to traverse (-1 for unlimited)
             breadth_first: If True, use breadth-first traversal, otherwise depth-first
             order: Sorting order for directory entries
@@ -346,7 +346,7 @@ class Rclone:
             DirListing: Directory listing for each directory encountered
         """
         return self.impl.walk(
-            path=path, max_depth=max_depth, breadth_first=breadth_first, order=order
+            src=src, max_depth=max_depth, breadth_first=breadth_first, order=order
         )
 
     def scan_missing_folders(
@@ -376,7 +376,7 @@ class Rclone:
         )
 
     def cleanup(
-        self, path: str, other_args: list[str] | None = None
+        self, src: str, other_args: list[str] | None = None
     ) -> CompletedProcess:
         """
         Cleanup any resources used by the Rclone instance.
@@ -384,13 +384,13 @@ class Rclone:
         Removes temporary files and directories created by rclone.
 
         Args:
-            path: Path to clean up
+            src: Path to clean up
             other_args: Additional command-line arguments
 
         Returns:
             CompletedProcess with the result of the cleanup operation
         """
-        return self.impl.cleanup(path=path, other_args=other_args)
+        return self.impl.cleanup(src=src, other_args=other_args)
 
     def copy_to(
         self,
@@ -527,19 +527,19 @@ class Rclone:
             other_args=other_args,
         )
 
-    def purge(self, path: Dir | str) -> CompletedProcess:
+    def purge(self, src: Dir | str) -> CompletedProcess:
         """
         Purge a directory.
 
         Removes a directory and all its contents.
 
         Args:
-            path: Rclone style path
+            src: Rclone style path
 
         Returns:
             CompletedProcess with the result of the purge operation
         """
-        return self.impl.purge(path=path)
+        return self.impl.purge(src=src)
 
     def delete_files(
         self,
@@ -573,17 +573,17 @@ class Rclone:
             other_args=other_args,
         )
 
-    def exists(self, path: Dir | Remote | str | File) -> bool:
+    def exists(self, src: Dir | Remote | str | File) -> bool:
         """
         Check if a file or directory exists.
 
         Args:
-            path: Path to check (Dir, Remote, File, or path string)
+            src: Path to check (Dir, Remote, File, or path string)
 
         Returns:
             True if the path exists, False otherwise
         """
-        return self.impl.exists(path=path)
+        return self.impl.exists(src=src)
 
     def is_synced(self, src: str | Dir, dst: str | Dir) -> bool:
         """
