@@ -119,6 +119,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
     def test_copy_parts(self) -> None:
         src_file = "dst:rclone-api-unit-test/zachs_video/global_alliance.mp4"
         dst_dir = "dst:rclone-api-unit-test/test_data/global_alliance.mp4-parts/"
+        dst_file = src_file.replace("-parts", "")
 
         # print(f"BUCKET_KEY_SECRET: {SECRET_ACCESS_KEY}")
         config_text = _generate_rclone_config(PORT)
@@ -160,7 +161,11 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         out = rclone.impl.read_text(f"{dst_dir}/hello.txt")
         print(f"out: {out}")
 
-        dir_listing = rclone.ls(dst_dir)
+        expected_dst_file_exists = rclone.impl.exists(dst_file)
+        print(f"expected_dst_file_exists: {expected_dst_file_exists}")
+        self.assertTrue(expected_dst_file_exists)
+
+        dir_listing = rclone.ls(dst_file)
         print(f"dir_listing: {dir_listing}")
 
         rclone.purge(dst_dir)
