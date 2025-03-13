@@ -97,7 +97,7 @@ class Rclone:
     def save_to_db(
         self,
         src: str,
-        db_url: str,
+        db_url: str,  # sqalchemy style url, use sqlite:///data.db or mysql://user:pass@localhost/db or postgres://user:pass@localhost/db
         max_depth: int = -1,
         fast_list: bool = False,
     ) -> None:
