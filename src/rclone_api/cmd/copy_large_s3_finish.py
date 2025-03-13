@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rclone_api import Rclone
-from rclone_api.s3.multipart.merge_parts_server_side import (
+from rclone_api.s3.multipart.upload_parts_server_side_merge import (
     s3_server_side_multi_part_merge,
 )
 

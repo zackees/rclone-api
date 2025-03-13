@@ -10,7 +10,7 @@ from rclone_api.s3.basic_ops import (
     upload_file,
 )
 from rclone_api.s3.create import S3Config, create_s3_client
-from rclone_api.s3.multipart.upload_inline import (
+from rclone_api.s3.multipart.upload_parts_inline import (
     MultiUploadResult,
     upload_file_multipart,
 )

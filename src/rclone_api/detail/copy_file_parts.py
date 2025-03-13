@@ -14,10 +14,10 @@ def copy_file_parts(
     verbose: bool | None = None,
 ) -> Exception | None:
     # _upload_parts
-    from rclone_api.s3.multipart.merge_parts_server_side import (
+    from rclone_api.s3.multipart.upload_parts_resumable import upload_parts_resumable
+    from rclone_api.s3.multipart.upload_parts_server_side_merge import (
         s3_server_side_multi_part_merge,
     )
-    from rclone_api.s3.multipart.upload_parts_resumable import upload_parts_resumable
 
     if verbose is None:
         verbose = self.get_verbose()

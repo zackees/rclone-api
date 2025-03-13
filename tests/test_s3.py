@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from rclone_api.file_part import FilePart
 from rclone_api.s3.api import S3Client
 from rclone_api.s3.create import S3Provider
-from rclone_api.s3.multipart.upload_inline import MultiUploadResult
+from rclone_api.s3.multipart.upload_parts_inline import MultiUploadResult
 from rclone_api.s3.types import S3Credentials, S3MutliPartUploadConfig, S3UploadTarget
 
 load_dotenv()
