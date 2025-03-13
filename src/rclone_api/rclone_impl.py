@@ -6,7 +6,6 @@ import os
 import random
 import subprocess
 import time
-import traceback
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
@@ -34,10 +33,7 @@ from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.s3.create import S3Credentials
 from rclone_api.s3.types import (
-    MultiUploadResult,
-    S3MutliPartUploadConfig,
     S3Provider,
-    S3UploadTarget,
 )
 from rclone_api.types import (
     ListingOption,
@@ -937,111 +933,6 @@ class RcloneImpl:
             endpoint_url=section.endpoint(),
         )
         return s3_creds
-
-    def copy_file_resumable_s3(
-        self,
-        src: str,
-        dst: str,
-        save_state_json: Path,
-        chunk_size: SizeSuffix | None = None,
-        read_threads: int = 8,
-        write_threads: int = 8,
-        retries: int = 3,
-        verbose: bool | None = None,
-        max_chunks_before_suspension: int | None = None,
-        backend_log: Path | None = None,
-    ) -> MultiUploadResult:
-        """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
-        from rclone_api.http_server import HttpFetcher, HttpServer
-        from rclone_api.s3.api import S3Client
-        from rclone_api.util import S3PathInfo, split_s3_path
-
-        verbose = get_verbose(verbose)
-
-        def verbose_print(*args, **kwargs):
-            if verbose:
-                print(*args, **kwargs)
-
-        src_path = Path(src)
-        name = src_path.name
-        src_parent_path = Path(src).parent.as_posix()
-
-        size_result: SizeResult | Exception = self.size_files(src_parent_path, [name])
-        if isinstance(size_result, Exception):
-            raise size_result
-        target_size = SizeSuffix(size_result.total_size)
-
-        chunk_size = chunk_size or SizeSuffix("64M")
-        MAX_CHUNKS = 10000
-        min_chunk_size = SizeSuffix(size_result.total_size // (MAX_CHUNKS - 1))
-        if min_chunk_size > chunk_size:
-            warnings.warn(
-                f"Chunk size {chunk_size} is too small for file size {size_result.total_size}, setting to {min_chunk_size}"
-            )
-            chunk_size = SizeSuffix(min_chunk_size)
-
-        if target_size < SizeSuffix("5M"):
-            # fallback to normal copy
-            completed_proc = self.copy_to(src, dst, check=True)
-            if completed_proc.ok:
-                return MultiUploadResult.UPLOADED_FRESH
-
-        if size_result.total_size <= 0:
-            raise ValueError(
-                f"File {src} has size {size_result.total_size}, is this a directory?"
-            )
-
-        path_info: S3PathInfo = split_s3_path(dst)
-        # remote = path_info.remote
-        bucket_name = path_info.bucket
-        s3_key = path_info.key
-        s3_creds: S3Credentials = self.get_s3_credentials(dst, verbose=verbose)
-
-        port = random.randint(10000, 20000)
-        http_server: HttpServer = self.serve_http(
-            src=src_path.parent.as_posix(),
-            addr=f"localhost:{port}",
-            serve_http_log=backend_log,
-        )
-        chunk_fetcher: HttpFetcher = http_server.get_fetcher(
-            path=src_path.name,
-            n_threads=read_threads,
-        )
-
-        client = S3Client(s3_creds)
-        upload_config: S3MutliPartUploadConfig = S3MutliPartUploadConfig(
-            chunk_size=chunk_size.as_int(),
-            chunk_fetcher=chunk_fetcher.bytes_fetcher,
-            max_write_threads=write_threads,
-            retries=retries,
-            resume_path_json=save_state_json,
-            max_chunks_before_suspension=max_chunks_before_suspension,
-        )
-
-        verbose_print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
-        verbose_print(f"Source: {src_path}")
-        verbose_print(f"bucket_name: {bucket_name}")
-        verbose_print(f"upload_config: {upload_config}")
-
-        upload_target = S3UploadTarget(
-            src_file=src_path,
-            src_file_size=size_result.total_size,
-            bucket_name=bucket_name,
-            s3_key=s3_key,
-        )
-
-        try:
-            out: MultiUploadResult = client.upload_file_multipart(
-                upload_target=upload_target,
-                upload_config=upload_config,
-            )
-            return out
-        except Exception as e:
-            verbose_print(f"Error uploading file: {e}")
-            traceback.print_exc()
-            raise
-        finally:
-            chunk_fetcher.shutdown()
 
     def copy_bytes(
         self,

@@ -86,36 +86,6 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
-    @unittest.skip("Skip for now - long running test")
-    def test_upload_chunks(self) -> None:
-        """Test basic Webdav serve functionality."""
-        # config = _generate_rclone_config(PORT)
-        BUCKET_NAME: str | None = os.getenv("B2_BUCKET_NAME")
-        ACCESS_KEY_ID: str | None = os.getenv("B2_ACCESS_KEY_ID")
-        SECRET_ACCESS_KEY: str | None = os.getenv("B2_SECRET_ACCESS_KEY")
-        ENDPOINT_URL: str | None = os.getenv("B2_ENDPOINT_URL")
-        assert BUCKET_NAME
-        assert ACCESS_KEY_ID
-        assert SECRET_ACCESS_KEY
-        assert ENDPOINT_URL
-        print(f"BUCKET_KEY_SECRET: {SECRET_ACCESS_KEY}")
-        config_text = _generate_rclone_config(PORT)
-        _CONFIG_PATH.write_text(config_text, encoding="utf-8")
-        print(f"Config file written to: {_CONFIG_PATH}")
-        rclone = Rclone(_CONFIG_PATH)
-        save_state_json = Path("state.json")
-        if save_state_json.exists():
-            save_state_json.unlink()
-        rclone.copy_file_resumable_s3(
-            src="dst:rclone-api-unit-test/zachs_video/perpetualmaniac_an_authoritative_school_teacher_forcing_a_stude_c65528d3-aa6f-4777-a56b-a919856d44e1.png",
-            dst="dst:rclone-api-unit-test/test_data/test.torrent.testwrite",
-            chunk_size=SizeSuffix("16MB"),
-            retries=0,
-            save_state_json=save_state_json,
-            max_chunks_before_suspension=1,
-        )
-        print("Done")
-
     def test_copy_parts(self) -> None:
         src_file = "dst:rclone-api-unit-test/zachs_video/global_alliance.mp4"
         dst_dir = "dst:rclone-api-unit-test/test_data/global_alliance.mp4-parts/"

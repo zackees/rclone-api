@@ -366,33 +366,6 @@ class Rclone:
         """Read text from a file."""
         return self.impl.read_text(src=src)
 
-    def copy_file_resumable_s3(
-        self,
-        src: str,
-        dst: str,
-        save_state_json: Path,
-        chunk_size: SizeSuffix | None = None,
-        read_threads: int = 8,
-        write_threads: int = 8,
-        retries: int = 3,
-        verbose: bool | None = None,
-        max_chunks_before_suspension: int | None = None,
-        backend_log: Path | None = None,
-    ) -> MultiUploadResult:
-        """For massive files that rclone can't handle in one go, this function will copy the file in chunks to an S3 store"""
-        return self.impl.copy_file_resumable_s3(
-            src=src,
-            dst=dst,
-            save_state_json=save_state_json,
-            chunk_size=chunk_size,
-            read_threads=read_threads,
-            write_threads=write_threads,
-            retries=retries,
-            verbose=verbose,
-            max_chunks_before_suspension=max_chunks_before_suspension,
-            backend_log=backend_log,
-        )
-
     def copy_bytes(
         self,
         src: str,
