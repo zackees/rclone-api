@@ -14,6 +14,12 @@ class Args:
     src: str  # like dst:TorrentBooks/aa_misc_data/aa_misc_data/world_lending_library_2024_11.tar.zst-parts/ (info.json will be located here)
     verbose: bool
 
+    def __repr__(self):
+        return f"Args(config_path={self.config_path}, src={self.src}, verbose={self.verbose})"
+
+    def __str__(self):
+        return repr(self)
+
 
 def list_files(rclone: Rclone, path: str):
     """List files in a remote path."""
@@ -53,7 +59,9 @@ def _get_info_path(src: str) -> str:
 
 def main() -> int:
     """Main entry point."""
+    print("Starting...")
     args = _parse_args()
+    print(f"args: {args}")
     rclone = Rclone(rclone_conf=args.config_path)
     info_path = _get_info_path(src=args.src)
     s3_server_side_multi_part_merge(
