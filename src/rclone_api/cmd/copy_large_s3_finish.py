@@ -31,7 +31,7 @@ def list_files(rclone: Rclone, path: str):
 def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description="List files in a remote path.")
     parser.add_argument("src", help="Directory that holds the info.json file")
-    parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
+    parser.add_argument("--no-verbose", help="Verbose output", action="store_true")
     parser.add_argument(
         "--config", help="Path to rclone config file", type=Path, required=False
     )
@@ -45,7 +45,7 @@ def _parse_args() -> Args:
     out = Args(
         config_path=config,
         src=args.src,
-        verbose=args.verbose,
+        verbose=not args.no_verbose,
     )
     return out
 
@@ -65,7 +65,7 @@ def main() -> int:
     rclone = Rclone(rclone_conf=args.config_path)
     info_path = _get_info_path(src=args.src)
     s3_server_side_multi_part_merge(
-        rclone=rclone.impl, info_path=info_path, max_workers=5
+        rclone=rclone.impl, info_path=info_path, max_workers=5, verbose=args.verbose
     )
     return 0
 
