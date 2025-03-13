@@ -24,8 +24,6 @@ You must have rclone in your path to use this library. You'd want this anyway be
 
 # Quick
 
-When you instantiate rclone you will either give it the text content of an `rclone.conf` file as a string, or a file path where it can be found.
-
 In addition to providing easy python use for rclone, this package provides additional features:
 
   * Resumable multi-part uploads when s3 is the destination.
