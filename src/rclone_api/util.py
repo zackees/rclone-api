@@ -1,5 +1,6 @@
 import atexit
 import os
+import platform
 import random
 import shutil
 import signal
@@ -11,9 +12,11 @@ from threading import Lock
 from typing import Any
 
 import psutil
+from appdirs import user_cache_dir
 
 from rclone_api.config import Config
 from rclone_api.dir import Dir
+from rclone_api.install import rclone_download
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
 from rclone_api.types import S3PathInfo
@@ -25,6 +28,11 @@ _PRINT_LOCK = Lock()
 _TMP_CONFIG_DIR = Path(".") / ".rclone" / "tmp_config"
 _RCLONE_CONFIGS_LIST: list[Path] = []
 _DO_CLEANUP = os.getenv("RCLONE_API_CLEANUP", "1") == "1"
+_CACHE_DIR = Path(user_cache_dir("rclone_api"))
+
+_RCLONE_EXE = _CACHE_DIR / "rclone"
+if platform.system() == "Windows":
+    _RCLONE_EXE = _RCLONE_EXE.with_suffix(".exe")
 
 
 def _clean_configs(signum=None, frame=None) -> None:
@@ -151,11 +159,11 @@ def get_check(check: bool | None) -> bool:
 
 def get_rclone_exe(rclone_exe: Path | None) -> Path:
     if rclone_exe is None:
-
         rclone_which_path = shutil.which("rclone")
-        if rclone_which_path is None:
-            raise ValueError("rclone executable not found")
-        return Path(rclone_which_path)
+        if rclone_which_path is not None:
+            return Path(rclone_which_path)
+        rclone_download(out=_RCLONE_EXE, replace=False)
+        return _RCLONE_EXE
     return rclone_exe
 
 
