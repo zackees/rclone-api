@@ -315,13 +315,14 @@ def _get_merge_path(info_path: str) -> str:
 def _begin_or_resume_merge(
     rclone: RcloneImpl,
     info: InfoJson,
+    verbose: bool = False,
     max_workers: int = DEFAULT_MAX_WORKERS,
 ) -> "S3MultiPartMerger | Exception":
     try:
         merger: S3MultiPartMerger = S3MultiPartMerger(
             rclone_impl=rclone,
             info=info,
-            verbose=True,
+            verbose=verbose,
             max_workers=max_workers,
         )
 
@@ -412,9 +413,11 @@ class S3MultiPartMerger:
 
     @staticmethod
     def create(
-        rclone: RcloneImpl, info: InfoJson, max_workers: int
+        rclone: RcloneImpl, info: InfoJson, max_workers: int, verbose: bool
     ) -> "S3MultiPartMerger | Exception":
-        return _begin_or_resume_merge(rclone=rclone, info=info, max_workers=max_workers)
+        return _begin_or_resume_merge(
+            rclone=rclone, info=info, max_workers=max_workers, verbose=verbose
+        )
 
     @property
     def bucket(self) -> str:
@@ -494,7 +497,10 @@ class S3MultiPartMerger:
 
 
 def s3_server_side_multi_part_merge(
-    rclone: RcloneImpl, info_path: str, max_workers: int = DEFAULT_MAX_WORKERS
+    rclone: RcloneImpl,
+    info_path: str,
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    verbose: bool = False,
 ) -> Exception | None:
     info = InfoJson(rclone, src=None, src_info=info_path)
     loaded = info.load()
@@ -503,7 +509,7 @@ def s3_server_side_multi_part_merge(
             f"Info file not found, has the upload finished? {info_path}"
         )
     merger: S3MultiPartMerger | Exception = S3MultiPartMerger.create(
-        rclone=rclone, info=info, max_workers=max_workers
+        rclone=rclone, info=info, max_workers=max_workers, verbose=verbose
     )
     if isinstance(merger, Exception):
         return merger

@@ -57,7 +57,7 @@ def main() -> int:
     rclone = Rclone(rclone_conf=args.config_path)
     info_path = _get_info_path(src=args.src)
     s3_server_side_multi_part_merge(
-        rclone=rclone.impl, info_path=info_path, max_workers=1
+        rclone=rclone.impl, info_path=info_path, max_workers=5
     )
     return 0
 
