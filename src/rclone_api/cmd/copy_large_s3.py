@@ -87,7 +87,7 @@ def main() -> int:
     #     save_state_json=args.save_state_json,
     #     verbose=args.verbose,
     # )
-    err: Exception | None = rclone.copy_file_parts(
+    err: Exception | None = rclone.copy_file_s3_resumable(
         src=args.src,
         dst_dir=args.dst,
     )

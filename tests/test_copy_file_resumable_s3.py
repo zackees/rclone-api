@@ -138,7 +138,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             size=src_size, target_chunk_size=src_size / 2
         )
 
-        err = rclone.copy_file_parts(
+        err = rclone.copy_file_s3_resumable(
             src=src_file,
             dst_dir=dst_dir,
             part_infos=part_infos,
@@ -147,7 +147,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         assert not isinstance(err, Exception)
 
         # Second time should go fast.
-        rclone.copy_file_parts(
+        rclone.copy_file_s3_resumable(
             src=src_file,
             dst_dir=dst_dir,
             part_infos=part_infos,

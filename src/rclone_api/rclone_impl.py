@@ -787,7 +787,7 @@ class RcloneImpl:
         except subprocess.CalledProcessError:
             return False
 
-    def copy_file_parts(
+    def copy_file_s3_resumable(
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
         dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/
@@ -956,6 +956,12 @@ class RcloneImpl:
         from rclone_api.s3.api import S3Client
         from rclone_api.util import S3PathInfo, split_s3_path
 
+        verbose = get_verbose(verbose)
+
+        def verbose_print(*args, **kwargs):
+            if verbose:
+                print(*args, **kwargs)
+
         src_path = Path(src)
         name = src_path.name
         src_parent_path = Path(src).parent.as_posix()
@@ -1012,10 +1018,10 @@ class RcloneImpl:
             max_chunks_before_suspension=max_chunks_before_suspension,
         )
 
-        print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
-        print(f"Source: {src_path}")
-        print(f"bucket_name: {bucket_name}")
-        print(f"upload_config: {upload_config}")
+        verbose_print(f"Uploading {name} to {s3_key} in bucket {bucket_name}")
+        verbose_print(f"Source: {src_path}")
+        verbose_print(f"bucket_name: {bucket_name}")
+        verbose_print(f"upload_config: {upload_config}")
 
         upload_target = S3UploadTarget(
             src_file=src_path,
@@ -1031,7 +1037,7 @@ class RcloneImpl:
             )
             return out
         except Exception as e:
-            print(f"Error uploading file: {e}")
+            verbose_print(f"Error uploading file: {e}")
             traceback.print_exc()
             raise
         finally:

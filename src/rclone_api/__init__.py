@@ -423,7 +423,7 @@ class Rclone:
         """Copy a remote to another remote."""
         return self.impl.copy_remote(src=src, dst=dst, args=args)
 
-    def copy_file_parts(
+    def copy_file_s3_resumable(
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
         dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/part.{part_number:05d}.start-end
@@ -432,7 +432,7 @@ class Rclone:
         merge_threads: int = 4,  # Number of threads to use for merging the parts
     ) -> Exception | None:
         """Copy a file in parts."""
-        return self.impl.copy_file_parts(
+        return self.impl.copy_file_s3_resumable(
             src=src,
             dst_dir=dst_dir,
             part_infos=part_infos,
