@@ -166,7 +166,10 @@ def get_rclone_exe(rclone_exe: Path | None) -> Path:
         return _RCLONE_EXE
     return rclone_exe
 
-def 
+
+def upgrade_rclone() -> Path:
+    rclone_download(out=_RCLONE_EXE, replace=True)
+    return _RCLONE_EXE
 
 
 def rclone_execute(

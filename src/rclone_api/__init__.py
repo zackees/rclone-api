@@ -74,6 +74,22 @@ class Rclone:
     implementation details and providing a clean, consistent interface.
     """
 
+    @staticmethod
+    def upgrade_rclone() -> Path:
+        """
+        Upgrade the rclone executable to the latest version.
+
+        Downloads the latest rclone binary and replaces the current one.
+
+        If rclone is in your path then this will download and install, but do nothing.
+
+        Returns:
+            Path to the upgraded rclone executable
+        """
+        from rclone_api.util import upgrade_rclone
+
+        return upgrade_rclone()
+
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
     ) -> None:
