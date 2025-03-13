@@ -1,4 +1,9 @@
-# Import logging module to activate default configuration
+"""
+Rclone API - Python interface for the Rclone command-line tool.
+
+This package provides a high-level API for interacting with Rclone,
+allowing file operations across various cloud storage providers.
+"""
 
 from datetime import datetime
 from pathlib import Path
@@ -25,16 +30,32 @@ from .rpath import RPath
 from .s3.types import MultiUploadResult
 from .types import ListingOption, Order, PartInfo, SizeResult, SizeSuffix
 
+# Set up default logging configuration when the package is imported
 setup_default_logging()
 
 
 def rclone_verbose(val: bool | None) -> bool:
+    """
+    Get or set the global verbosity setting for rclone operations.
+    
+    Args:
+        val: If provided, sets the verbosity level. If None, returns the current setting.
+        
+    Returns:
+        The current verbosity setting after any change.
+    """
     from rclone_api.rclone_impl import rclone_verbose as _rclone_verbose
 
     return _rclone_verbose(val)
 
 
 class Rclone:
+    """
+    Main interface for interacting with Rclone.
+    
+    This class provides methods for all major Rclone operations including
+    file transfers, listing, mounting, and remote management.
+    """
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
     ) -> None:
@@ -85,12 +106,15 @@ class Rclone:
         fast_list: bool = False,
     ) -> FilesStream:
         """
-        List files in the given path
-
+        List files in the given path as a stream of results.
+        
         Args:
-            src: Remote path to list
+            path: Remote path to list
             max_depth: Maximum recursion depth (-1 for unlimited)
-            fast_list: Use fast list (only use when getting THE entire data repository from the root/bucket, or it's small)
+            fast_list: Use fast list (only recommended for listing entire repositories or small datasets)
+            
+        Returns:
+            A stream of file entries that can be iterated over
         """
         return self.impl.ls_stream(path=path, max_depth=max_depth, fast_list=fast_list)
 
@@ -171,12 +195,15 @@ class Rclone:
         breadth_first: bool = True,
         order: Order = Order.NORMAL,
     ) -> Generator[DirListing, None, None]:
-        """Walk through the given path recursively.
-
+        """
+        Walk through the given path recursively, yielding directory listings.
+        
         Args:
-            path: Remote path or Remote object to walk through
+            path: Remote path, Dir, or Remote object to walk through
             max_depth: Maximum depth to traverse (-1 for unlimited)
-
+            breadth_first: If True, use breadth-first traversal, otherwise depth-first
+            order: Sorting order for directory entries
+            
         Yields:
             DirListing: Directory listing for each directory encountered
         """
@@ -191,17 +218,17 @@ class Rclone:
         max_depth: int = -1,
         order: Order = Order.NORMAL,
     ) -> Generator[Dir, None, None]:
-        """Walk through the given path recursively.
-
-        WORK IN PROGRESS!!
-
+        """
+        Find folders that exist in source but are missing in destination.
+        
         Args:
-            src: Source directory or Remote to walk through
-            dst: Destination directory or Remote to walk through
+            src: Source directory or Remote to scan
+            dst: Destination directory or Remote to compare against
             max_depth: Maximum depth to traverse (-1 for unlimited)
-
+            order: Sorting order for directory entries
+            
         Yields:
-            DirListing: Directory listing for each directory encountered
+            Dir: Each directory that exists in source but not in destination
         """
         return self.impl.scan_missing_folders(
             src=src, dst=dst, max_depth=max_depth, order=order
@@ -404,7 +431,22 @@ class Rclone:
         upload_threads: int = 8,  # Number of reader and writer threads to use
         merge_threads: int = 4,  # Number of threads to use for merging the parts
     ) -> Exception | None:
-        """Copy a file in parts."""
+        """
+        Copy a large file to S3 with resumable upload capability.
+        
+        This method splits the file into parkl,ts for parallel upload and can
+        resume interrupted transfers using an custom algorithm in python.
+        
+        Args:
+            src: Source file path (format: remote:bucket/path/file)
+            dst: Destination file path (format: remote:bucket/path/file)
+            part_infos: Optional list of part information for resuming uploads
+            upload_threads: Number of parallel upload threads
+            merge_threads: Number of threads for merging uploaded parts
+            
+        Returns:
+            None if successful, Exception if an error occurred
+        """
         return self.impl.copy_file_s3_resumable(
             src=src,
             dst=dst,
@@ -457,12 +499,19 @@ class Rclone:
         addr: str = "localhost:8080",
         other_args: list[str] | None = None,
     ) -> HttpServer:
-        """Serve a remote or directory via HTTP. The returned HttpServer has a client which can be used to
-        fetch files or parts.
-
+        """
+        Serve a remote or directory via HTTP.
+        
+        Creates an HTTP server that provides access to the specified remote.
+        The returned HttpServer object includes a client for fetching files.
+        
         Args:
             src: Remote or directory to serve
             addr: Network address and port to serve on (default: localhost:8080)
+            other_args: Additional arguments to pass to rclone
+            
+        Returns:
+            HttpServer object with methods for accessing the served content
         """
         return self.impl.serve_http(src=src, addr=addr, other_args=other_args)
 
