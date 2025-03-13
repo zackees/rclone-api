@@ -86,7 +86,10 @@ class HttpServer:
                                 assert response.is_closed
                     # print(f"Downloaded bytes {start}-{end} to {dst}")
                     if range:
-                        print(f"Downloaded bytes {range.start}-{range.end} to {dst}")
+                        length = range.end - range.start
+                        print(
+                            f"Downloaded bytes starting at {range.start} with size {length} to {dst}"
+                        )
                     else:
                         size = dst.stat().st_size
                         print(f"Downloaded {size} bytes to {dst}")

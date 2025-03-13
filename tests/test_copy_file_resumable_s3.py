@@ -153,20 +153,18 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             part_infos=part_infos,
         )
 
-        rclone.impl.write_text(
-            text="Hello, World!",
-            dst=f"{dst_dir}/hello.txt",
-        )
-
-        out = rclone.impl.read_text(f"{dst_dir}/hello.txt")
-        print(f"out: {out}")
-
-        expected_dst_file_exists = rclone.impl.exists(dst_file)
-        print(f"expected_dst_file_exists: {expected_dst_file_exists}")
-        self.assertTrue(expected_dst_file_exists)
-
         dir_listing = rclone.ls(dst_file)
         print(f"dir_listing: {dir_listing}")
+        self.assertEqual(len(dir_listing.files), 1)
+        expected_files = dir_listing.files[0]
+        print(f"expected_files: {expected_files}")
+        self.assertEqual(expected_files.name, "global_alliance.mp4")
+        self.assertEqual(expected_files.size, src_size)
+
+        dst_dir_listing = rclone.ls(dst_dir)
+        print(f"dst_dir_listing: {dst_dir_listing}")
+        self.assertEqual(len(dst_dir_listing.files), 0)
+        self.assertEqual(len(dst_dir_listing.dirs), 0)
 
         rclone.purge(dst_dir)
         print("Done")
