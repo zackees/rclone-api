@@ -794,6 +794,7 @@ class Rclone:
         src: Remote | Dir | str,
         outdir: Path,
         allow_writes: bool | None = False,
+        transfers: int | None = None,  # number of writes to perform in parallel
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
@@ -811,6 +812,7 @@ class Rclone:
             src: Remote or directory to mount
             outdir: Local path to mount to
             allow_writes: Whether to allow write operations
+            transfers: Number of parallel write operations
             use_links: Whether to use symbolic links
             vfs_cache_mode: VFS cache mode (e.g., "full", "minimal")
             verbose: Whether to show detailed output
@@ -826,6 +828,7 @@ class Rclone:
             src=src,
             outdir=outdir,
             allow_writes=allow_writes,
+            transfers=transfers,
             use_links=use_links,
             vfs_cache_mode=vfs_cache_mode,
             verbose=verbose,

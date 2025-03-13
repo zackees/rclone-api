@@ -996,6 +996,7 @@ class RcloneImpl:
         src: Remote | Dir | str,
         outdir: Path,
         allow_writes: bool | None = False,
+        transfers: int | None = None,
         use_links: bool | None = None,
         vfs_cache_mode: str | None = None,
         verbose: bool | None = None,
@@ -1036,6 +1037,9 @@ class RcloneImpl:
         if cache_dir:
             cmd_list.append("--cache-dir")
             cmd_list.append(str(cache_dir.absolute()))
+        if transfers is not None:
+            cmd_list.append("--transfers")
+            cmd_list.append(str(transfers))
         if debug_fuse:
             cmd_list.append("--debug-fuse")
         if verbose:
