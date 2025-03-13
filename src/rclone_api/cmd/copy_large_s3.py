@@ -90,8 +90,6 @@ def main() -> int:
     err: Exception | None = rclone.copy_file_parts(
         src=args.src,
         dst_dir=args.dst,
-        threads=8,
-        # verbose=args.verbose,
     )
     if err is not None:
         print(f"Error: {err}")

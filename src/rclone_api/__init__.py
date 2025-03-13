@@ -428,11 +428,16 @@ class Rclone:
         src: str,  # src:/Bucket/path/myfile.large.zst
         dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/part.{part_number:05d}.start-end
         part_infos: list[PartInfo] | None = None,
-        threads: int = 1,  # Number of reader and writer threads to use
+        upload_threads: int = 8,  # Number of reader and writer threads to use
+        merge_threads: int = 4,  # Number of threads to use for merging the parts
     ) -> Exception | None:
         """Copy a file in parts."""
         return self.impl.copy_file_parts(
-            src=src, dst_dir=dst_dir, part_infos=part_infos, threads=threads
+            src=src,
+            dst_dir=dst_dir,
+            part_infos=part_infos,
+            upload_threads=upload_threads,
+            merge_threads=merge_threads,
         )
 
     def mount(

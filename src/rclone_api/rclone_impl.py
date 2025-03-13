@@ -455,6 +455,9 @@ class RcloneImpl:
         out = self._run(cmd)
         return CompletedProcess.from_subprocess(out)
 
+    def get_verbose(self) -> bool:
+        return get_verbose(None)
+
     def copy_to(
         self,
         src: File | str,
@@ -789,7 +792,8 @@ class RcloneImpl:
         src: str,  # src:/Bucket/path/myfile.large.zst
         dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/
         part_infos: list[PartInfo] | None = None,
-        threads: int = 1,
+        upload_threads: int = 8,
+        merge_threads: int = 4,
     ) -> Exception | None:
         """Copy parts of a file from source to destination."""
         from rclone_api.detail.copy_file_parts import copy_file_parts
@@ -799,7 +803,8 @@ class RcloneImpl:
             src=src,
             dst_dir=dst_dir,
             part_infos=part_infos,
-            threads=threads,
+            upload_threads=upload_threads,
+            merge_threads=merge_threads,
         )
         return out
 

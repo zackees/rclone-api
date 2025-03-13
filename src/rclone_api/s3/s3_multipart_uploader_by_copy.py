@@ -520,5 +520,5 @@ def s3_server_side_multi_part_merge(
 
     err = merger.cleanup()
     if isinstance(err, Exception):
-        err
+        return err
     return None
