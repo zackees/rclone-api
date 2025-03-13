@@ -21,6 +21,7 @@ def copy_file_parts_resumable(
 
     if verbose is None:
         verbose = self.get_verbose()
+
     err: Exception | None = upload_parts_resumable(
         self=self,
         src=src,

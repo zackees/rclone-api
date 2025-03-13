@@ -13,7 +13,7 @@ import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
 from threading import Semaphore, Thread
-from typing import Callable
+from typing import Any, Callable
 
 from rclone_api.rclone_impl import RcloneImpl
 from rclone_api.s3.create import (
@@ -110,7 +110,7 @@ def _upload_part_copy_task(
 
 def _complete_multipart_upload_from_parts(
     s3_client: BaseClient, state: MergeState, finished_parts: list[FinishedPiece]
-) -> str:
+) -> Exception | None:
     """
     Complete a multipart upload using the provided parts.
 
@@ -124,17 +124,28 @@ def _complete_multipart_upload_from_parts(
     # Sort parts by part number to ensure correct order
     finished_parts.sort(key=lambda x: x.part_number)
     multipart_parts = FinishedPiece.to_json_array(finished_parts)
+    multipart_upload: dict = {
+        "Parts": multipart_parts,
+    }
+    response: Any = None
+    try:
+        # Complete the multipart upload
+        response = s3_client.complete_multipart_upload(
+            Bucket=state.bucket,
+            Key=state.dst_key,
+            UploadId=state.upload_id,
+            MultipartUpload=multipart_upload,
+        )
+    except Exception as e:
+        import traceback
 
-    # Complete the multipart upload
-    response = s3_client.complete_multipart_upload(
-        Bucket=state.bucket,
-        Key=state.dst_key,
-        UploadId=state.upload_id,
-        MultipartUpload={"Parts": multipart_parts},
-    )
+        stacktrace = traceback.format_exc()
+        warnings.warn(
+            f"Error completing multipart upload: {e}\n\n{response}\n\n{stacktrace}"
+        )
+        return e
 
-    # Return the URL of the completed object
-    return response.get("Location", f"s3://{state.bucket}/{state.dst_key}")
+    return None
 
 
 def _do_upload_task(
@@ -178,17 +189,22 @@ def _do_upload_task(
             while not semaphore.acquire(blocking=False):
                 time.sleep(0.1)
 
-        # Upload parts by copying from source objects
-        finished_parts: list[FinishedPiece] = []
+        final_fut = executor.submit(lambda: on_finished(EndOfStream()))
 
         for fut in futures:
             finished_part = fut.result()
             if isinstance(finished_part, Exception):
                 executor.shutdown(wait=True, cancel_futures=True)
                 return finished_part
-            finished_parts.append(finished_part)
+        final_fut.result()
 
-        on_finished(EndOfStream())
+        finished_parts = merge_state.finished
+        try:
+            assert len(finished_parts) == len(merge_state.all_parts)
+        except Exception:
+            return ValueError(
+                f"Finished parts mismatch: {len(finished_parts)} != {len(parts)}"
+            )
 
         try:
             # Complete the multipart upload

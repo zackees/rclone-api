@@ -12,7 +12,11 @@ class FinishedPiece:
     def to_json(self) -> dict:
         # return {"part_number": self.part_number, "etag": self.etag}
         # amazon s3 style dict
-        return {"PartNumber": self.part_number, "ETag": self.etag}
+        tag = self.etag
+        if not tag.startswith('"'):
+            tag = f'"{tag}"'
+        out = {"PartNumber": self.part_number, "ETag": self.etag}
+        return out
 
     def __post_init__(self):
         assert isinstance(self.part_number, int)
@@ -36,7 +40,8 @@ class FinishedPiece:
         # assert count_eos <= 1, "Only one EndOfStream should be present"
         if count_eos > 1:
             warnings.warn(f"Only one EndOfStream should be present, found {count_eos}")
-        return [p.to_json() for p in non_none]
+        out = [p.to_json() for p in non_none]
+        return out
 
     @staticmethod
     def from_json(json: dict | None) -> "FinishedPiece | EndOfStream":
@@ -44,6 +49,9 @@ class FinishedPiece:
             return EndOfStream()
         part_number = json.get("PartNumber")
         etag = json.get("ETag")
+        assert isinstance(etag, str)
+        # handle the double quotes around the etag
+        etag = etag.replace('"', "")
         assert isinstance(part_number, int)
         assert isinstance(etag, str)
         return FinishedPiece(part_number=part_number, etag=etag)

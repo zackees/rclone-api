@@ -121,19 +121,40 @@ def collapse_runs(numbers: list[int]) -> list[str]:
     return runs
 
 
+_MIN_PART_UPLOAD_SIZE = SizeSuffix("5MB")
+
+
+def _check_part_size(parts: list[PartInfo]) -> Exception | None:
+    if len(parts) == 0:
+        return Exception("No parts to upload")
+    part = parts[0]
+    chunk = part.range.end - part.range.start
+    if chunk < _MIN_PART_UPLOAD_SIZE:
+        return Exception(
+            f"Part size {chunk} is too small to upload. Minimum size for server side merge is {_MIN_PART_UPLOAD_SIZE}"
+        )
+    return None
+
+
 def upload_parts_resumable(
     self: RcloneImpl,
     src: str,  # src:/Bucket/path/myfile.large.zst
     dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/
     part_infos: list[PartInfo] | None = None,
     threads: int = 1,
+    verbose: bool | None = None,
 ) -> Exception | None:
     """Copy parts of a file from source to destination."""
     from rclone_api.util import random_str
 
+    def verbose_print(*args, **kwargs):
+        if verbose:
+            print(*args, **kwargs)
+
     if dst_dir.endswith("/"):
         dst_dir = dst_dir[:-1]
     src_size = self.size_file(src)
+
     if isinstance(src_size, Exception):
         return src_size
 
@@ -155,12 +176,16 @@ def upload_parts_resumable(
             return src_size
         part_infos = full_part_infos.copy()
 
+    err = _check_part_size(part_infos)
+    if err:
+        return err
+
     all_part_numbers: list[int] = [p.part_number for p in part_infos]
     src_info_json = f"{dst_dir}/info.json"
     info_json = InfoJson(self, src, src_info_json)
 
     if not info_json.load():
-        print(f"New: {src_info_json}")
+        verbose_print(f"New: {src_info_json}")
         # info_json.save()
 
     all_numbers_already_done: set[int] = set(
@@ -170,7 +195,7 @@ def upload_parts_resumable(
     first_part_number = part_infos[0].part_number
     last_part_number = part_infos[-1].part_number
 
-    print(
+    verbose_print(
         f"all_numbers_already_done: {collapse_runs(sorted(list(all_numbers_already_done)))}"
     )
 
@@ -179,13 +204,10 @@ def upload_parts_resumable(
         if part_info.part_number not in all_numbers_already_done:
             filtered_part_infos.append(part_info)
     part_infos = filtered_part_infos
-
     remaining_part_numbers: list[int] = [p.part_number for p in part_infos]
-    print(f"remaining_part_numbers: {collapse_runs(remaining_part_numbers)}")
-
+    verbose_print(f"remaining_part_numbers: {collapse_runs(remaining_part_numbers)}")
     num_remaining_to_upload = len(part_infos)
-
-    print(
+    verbose_print(
         f"num_remaining_to_upload: {num_remaining_to_upload} / {len(full_part_infos)}"
     )
 
