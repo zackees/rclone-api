@@ -1,6 +1,7 @@
 # rclone-api
 
-![perpetualmaniac_faster_400fd528-df15-4a04-8ad3-3cca786d7bca (1)](https://github.com/user-attachments/assets/c8253de2-0abb-42ef-9f51-278b1810dba7)
+
+![perpetualmaniac_faster_400fd528-df15-4a04-8ad3-3cca786d7bca (2)](https://github.com/user-attachments/assets/65138e38-b115-447c-849a-4adbd27e4b67)
 
 
 <!--
@@ -13,7 +14,7 @@
 
 Got a lot of data to transfer quickly? This package is for you.
 
-This library was built out of necessity to transfer large amounts of AI training data. Aggressive default means this api can transfer faster than rclone does.
+This library was built out of necessity to transfer large amounts of AI training data. Aggressive default means this api will transfer faster than rclone does in stock settings.
 
 You must have rclone in your path to use this library. You'd want this anyway because rclone is still under heavy developement.
 
