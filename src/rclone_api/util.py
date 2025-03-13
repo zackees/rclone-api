@@ -166,6 +166,8 @@ def get_rclone_exe(rclone_exe: Path | None) -> Path:
         return _RCLONE_EXE
     return rclone_exe
 
+def 
+
 
 def rclone_execute(
     cmd: list[str],

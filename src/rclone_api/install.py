@@ -70,16 +70,19 @@ def _find_rclone_exe(start: Path) -> Path | None:
 
 
 def rclone_download(out: Path, replace=False) -> Exception | None:
+    if out.exists() and not replace:
+        return None
     try:
         url = rclone_download_url()
         with TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
-            download(url, tmp, kind="zip", replace=replace)
+            download(url, tmp, kind="zip", replace=True)
             exe = _find_rclone_exe(tmp)
             if exe is None:
                 raise FileNotFoundError("rclone executable not found")
             if os.path.exists(out):
                 os.remove(out)
+            out.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(exe, out)
         _remove_signed_binary_requirements(out)
         _make_executable(out)
