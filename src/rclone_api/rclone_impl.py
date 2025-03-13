@@ -796,7 +796,7 @@ class RcloneImpl:
         merge_threads: int = 4,
     ) -> Exception | None:
         """Copy parts of a file from source to destination."""
-        from rclone_api.detail.copy_file_parts import copy_file_parts
+        from rclone_api.detail.copy_file_parts_resumable import copy_file_parts
 
         out = copy_file_parts(
             self=self,
