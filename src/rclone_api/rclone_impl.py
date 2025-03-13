@@ -860,15 +860,25 @@ class RcloneImpl:
 
     def size_file(self, src: str) -> SizeSuffix | Exception:
         """Get the size of a file or directory."""
-        src_parent = os.path.dirname(src)
-        src_name = os.path.basename(src)
-        out: SizeResult = self.size_files(src_parent, [src_name])
-        one_file = len(out.file_sizes) == 1
-        if not one_file:
-            return Exception(
-                f"More than one result returned, is this is a directory? {out}"
-            )
-        return SizeSuffix(out.total_size)
+        # src_parent = os.path.dirname(src)
+        # src_name = os.path.basename(src)
+        # can't use this because it's only one file.
+        # out: SizeResult = self.size_files(src_parent, [src_name])
+        # one_file = len(out.file_sizes) == 1
+        # if not one_file:
+        #     return Exception(
+        #         f"More than one result returned, is this is a directory? {out}"
+        #     )
+        # return SizeSuffix(out.total_size)
+        dirlist: DirListing = self.ls(
+            src, listing_option=ListingOption.FILES_ONLY, max_depth=0
+        )
+        if len(dirlist.files) == 0:
+            return FileNotFoundError(f"File not found: {src}")
+        if len(dirlist.files) > 1:
+            return Exception(f"More than one file found: {src}")
+        file: File = dirlist.files[0]
+        return SizeSuffix(file.size)
 
     def get_s3_credentials(
         self, remote: str, verbose: bool | None = None
@@ -950,7 +960,9 @@ class RcloneImpl:
         name = src_path.name
         src_parent_path = Path(src).parent.as_posix()
 
-        size_result: SizeResult = self.size_files(src_parent_path, [name])
+        size_result: SizeResult | Exception = self.size_files(src_parent_path, [name])
+        if isinstance(size_result, Exception):
+            raise size_result
         target_size = SizeSuffix(size_result.total_size)
 
         chunk_size = chunk_size or SizeSuffix("64M")
@@ -1293,10 +1305,18 @@ class RcloneImpl:
         other_args: list[str] | None = None,
         check: bool | None = False,
         verbose: bool | None = None,
-    ) -> SizeResult:
+    ) -> SizeResult | Exception:
         """Get the size of a list of files. Example of files items: "remote:bucket/to/file"."""
         verbose = get_verbose(verbose)
         check = get_check(check)
+        if len(files) < 2:
+            tmp = self.size_file(files[0])
+            if isinstance(tmp, Exception):
+                return tmp
+            assert isinstance(tmp, SizeSuffix)
+            return SizeResult(
+                prefix=src, total_size=tmp.as_int(), file_sizes={files[0]: tmp.as_int()}
+            )
         if fast_list or (other_args and "--fast-list" in other_args):
             warnings.warn(
                 "It's not recommended to use --fast-list with size_files as this will perform poorly on large repositories since the entire repository has to be scanned."

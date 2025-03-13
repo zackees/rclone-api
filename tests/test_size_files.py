@@ -69,7 +69,11 @@ class RcloneSizeFilesTester(unittest.TestCase):
                 is_first = False
             for file in dirlisting.files_relative(src):
                 files.append(file)
-        size_map: SizeResult = rclone.size_files(src=src, files=files, check=True)
+        size_map: SizeResult | Exception = rclone.size_files(
+            src=src, files=files, check=True
+        )
+        if isinstance(size_map, Exception):
+            self.fail(size_map)
         print(size_map)
         print("done")
 

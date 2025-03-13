@@ -117,8 +117,8 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         print("Done")
 
     def test_copy_parts(self) -> None:
-        src_file = "dst:rclone-api-unit-test/zachs_video/perpetualmaniac_an_authoritative_school_teacher_forcing_a_stude_c65528d3-aa6f-4777-a56b-a919856d44e1.png"
-        dst_dir = "dst:rclone-api-unit-test/test_data/test2.png-parts/"
+        src_file = "dst:rclone-api-unit-test/zachs_video/global_alliance.mp4"
+        dst_dir = "dst:rclone-api-unit-test/test_data/global_alliance.mp4-parts/"
 
         # print(f"BUCKET_KEY_SECRET: {SECRET_ACCESS_KEY}")
         config_text = _generate_rclone_config(PORT)
@@ -126,12 +126,15 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
         print(f"Config file written to: {_CONFIG_PATH}")
         rclone = Rclone(_CONFIG_PATH)
 
+        dirlisting = rclone.ls("dst:rclone-api-unit-test/zachs_video")
+        print(f"dirlisting: {dirlisting}")
+
         src_size: SizeSuffix | Exception = rclone.impl.size_file(src_file)
         assert isinstance(src_size, SizeSuffix)
 
         print(f"src_size: {src_size}")
         part_infos: list[PartInfo] = PartInfo.split_parts(
-            size=src_size, target_chunk_size=src_size / 9
+            size=src_size, target_chunk_size=src_size / 2
         )
 
         err = rclone.copy_file_parts(

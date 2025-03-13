@@ -215,7 +215,7 @@ class SizeSuffix:
         return self._size == SizeSuffix(other)._size
 
     def __ne__(self, other: object) -> bool:
-        return not self.__ne__(other)
+        return not self.__eq__(other)
 
     def __lt__(self, other: "int | SizeSuffix") -> bool:
         # if not isinstance(other, SizeSuffix):

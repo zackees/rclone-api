@@ -501,7 +501,7 @@ class Rclone:
         other_args: list[str] | None = None,
         check: bool | None = False,
         verbose: bool | None = None,
-    ) -> SizeResult:
+    ) -> SizeResult | Exception:
         """Get the size of a list of files. Example of files items: "remote:bucket/to/file"."""
         return self.impl.size_files(
             src=src,
