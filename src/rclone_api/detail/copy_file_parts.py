@@ -519,7 +519,7 @@ def copy_file_parts(
     verbose: bool | None = None,
 ) -> Exception | None:
     # _upload_parts
-    from rclone_api.s3.s3_multipart_uploader_by_copy import (
+    from rclone_api.s3.multipart.merge_parts_server_side import (
         s3_server_side_multi_part_merge,
     )
 

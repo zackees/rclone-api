@@ -22,8 +22,8 @@ from rclone_api.s3.create import (
     S3Config,
     create_s3_client,
 )
-from rclone_api.s3.merge_state import MergeState, Part
 from rclone_api.s3.multipart.finished_piece import FinishedPiece
+from rclone_api.s3.multipart.merge_state import MergeState, Part
 from rclone_api.types import EndOfStream
 from rclone_api.util import locked_print
 
