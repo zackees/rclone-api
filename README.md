@@ -35,13 +35,23 @@ In addition to providing easy python use for rclone, this package provides addit
   * Some platform specific fixes.
 
 
-# Examples
+## Example
 
 ```python
-from rclone_api import Rclone, DirListing
+
+from rclone_api import Rclone, DirListing, Config
+
+RCLONE_CONFIG = Config("""
+[dst]
+type = s3
+account = *********
+key = ************
+""")
+
+
 def test_ls_glob_png(self) -> None:
-    rclone = Rclone(_generate_rclone_config())
-    path = f"dst:{BUCKET_NAME}/zachs_video"
+    rclone = Rclone(RCLONE_CONFIG)
+    path = f"dst:{BUCKET_NAME}/my_data"
     listing: DirListing = rclone.ls(path, glob="*.png")
     self.assertGreater(len(listing.files), 0)
     for file in listing.files:
@@ -51,6 +61,8 @@ def test_ls_glob_png(self) -> None:
     # there should be no directories with this glob
     self.assertEqual(len(listing.dirs), 0)
 ```
+
+## API
 
 ```python
 
