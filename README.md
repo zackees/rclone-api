@@ -26,12 +26,22 @@ You must have [rclone](https://rclone.org/) in your path to use this library. Yo
 
 In addition to providing easy python use for rclone, this package provides additional features:
 
-  * Resumable multi-part uploads when s3 is the destination.
-  * Diffing src/dst repos as a stream of `list[str]`.
-  * Dumping repo information to an sqlite/postgres/mysql database.
-  * Efficient copying of byte ranges of a file.
   * Aggressive default settings for copying / syncing operations for extreme performance.
-  * Some platform specific fixes.
+  * Database Support: Dump repo information to an sqlite/postgres/mysql database.
+    * One repo path -> table.
+  * Scoped objects for:
+    * Mounts.
+    * File servers.
+    * Enforces correct cleanup
+  * Mounts are easier - platform specific setup and teardown.
+  * Resumable multi-part uploads when s3 is the destination.
+  * Fast diffing src/dst repos as a stream of `list[str]`.
+    * Find which files need are missing and need to be copied.
+    * Efficiently build pipelines to select copy strategy based on file size.
+  * Walk a directory.
+    * Breath first.
+    * Depth first.
+  * Use the HttpServer to slice out byte ranges from extremely large files.
 
 
 ## Example
@@ -524,12 +534,16 @@ class Rclone:
 ```
 
 
-To develop software, run `. ./activate`
+# Contributing
+
+```bash
+git clone https://github.comn/zackees/rclone-api
+cd rclone-api
+./install
+./lint
+./test
+```
 
 # Windows
 
 This environment requires you to use `git-bash`.
-
-# Linting
-
-Run `./lint`
