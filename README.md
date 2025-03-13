@@ -14,13 +14,15 @@
 
 Got a lot of data to transfer quickly? This package is for you.
 
-This library was built out of necessity to transfer large amounts of AI training data. Aggressive default means this api will transfer faster than rclone does in stock settings.
+This library was built out of necessity to transfer large amounts of AI training data. Aggressive defaults means this api will transfer faster than rclone does in stock settings.
 
 You must have [rclone](https://rclone.org/) in your path to use this library. You'd want this anyway because rclone is still under heavy developement.
 
 # Install
 
 `pip install rclone-api`
+
+pypi link: https://pypi.org/project/rclone-api/
 
 # Quick
 
