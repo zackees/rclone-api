@@ -15,12 +15,14 @@ URL_MACOS_X86 = "https://downloads.rclone.org/rclone-current-osx-amd64.zip"
 
 def rclone_download_url() -> str:
     system = platform.system()
+    arch = platform.machine()
     if system == "Windows":
+        assert "arm" not in arch, f"Unsupported arch: {arch}"
         return URL_WINDOWS
     elif system == "Linux":
+        assert "arm" not in arch, f"Unsupported arch: {arch}"
         return URL_LINUX
     elif system == "Darwin":
-        arch = platform.machine()
         if "x86" in arch:
             return URL_MACOS_X86
         elif "arm" in arch:
