@@ -183,8 +183,14 @@ def upload_parts_resumable(
     remaining_part_numbers: list[int] = [p.part_number for p in part_infos]
     print(f"remaining_part_numbers: {collapse_runs(remaining_part_numbers)}")
 
-    if len(part_infos) == 0:
-        return Exception(f"No parts to copy for {src}")
+    num_remaining_to_upload = len(part_infos)
+
+    print(
+        f"num_remaining_to_upload: {num_remaining_to_upload} / {len(full_part_infos)}"
+    )
+
+    if num_remaining_to_upload == 0:
+        return None
     chunk_size = SizeSuffix(part_infos[0].range.end - part_infos[0].range.start)
 
     info_json.chunksize = chunk_size

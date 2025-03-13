@@ -4,7 +4,7 @@ from rclone_api.types import (
 )
 
 
-def copy_file_parts(
+def copy_file_parts_resumable(
     self: RcloneImpl,
     src: str,  # src:/Bucket/path/myfile.large.zst
     dst_dir: str,  # dst:/Bucket/path/myfile.large.zst-parts/

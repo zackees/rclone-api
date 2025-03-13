@@ -14,6 +14,10 @@ class FinishedPiece:
         # amazon s3 style dict
         return {"PartNumber": self.part_number, "ETag": self.etag}
 
+    def __post_init__(self):
+        assert isinstance(self.part_number, int)
+        assert isinstance(self.etag, str)
+
     @staticmethod
     def to_json_array(
         parts: list["FinishedPiece | EndOfStream"] | list["FinishedPiece"],
@@ -38,7 +42,11 @@ class FinishedPiece:
     def from_json(json: dict | None) -> "FinishedPiece | EndOfStream":
         if json is None:
             return EndOfStream()
-        return FinishedPiece(**json)
+        part_number = json.get("PartNumber")
+        etag = json.get("ETag")
+        assert isinstance(part_number, int)
+        assert isinstance(etag, str)
+        return FinishedPiece(part_number=part_number, etag=etag)
 
     @staticmethod
     def from_json_array(json: dict) -> list["FinishedPiece"]:

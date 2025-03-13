@@ -243,9 +243,10 @@ def _begin_upload(
 
 
 class WriteMergeStateThread(Thread):
-    def __init__(self, rclone_impl: RcloneImpl, merge_state: MergeState):
+    def __init__(self, rclone_impl: RcloneImpl, merge_state: MergeState, verbose: bool):
         super().__init__(daemon=True)
         assert isinstance(merge_state, MergeState)
+        self.verbose = verbose
         self.merge_state = merge_state
         self.merge_path = merge_state.merge_path
         self.rclone_impl = rclone_impl
@@ -265,11 +266,15 @@ class WriteMergeStateThread(Thread):
                 return item
         return item
 
+    def verbose_print(self, msg: str) -> None:
+        if self.verbose:
+            locked_print(msg)
+
     def run(self):
         while True:
             item = self._get_next()
             if isinstance(item, EndOfStream):
-                warnings.warn("End of stream")
+                self.verbose_print("WriteMergeStateThread: End of stream")
                 break
 
             assert isinstance(item, FinishedPiece)
@@ -429,6 +434,7 @@ class S3MultiPartMerger:
         self.write_thread = WriteMergeStateThread(
             rclone_impl=self.rclone_impl,
             merge_state=self.state,
+            verbose=self.verbose,
         )
 
     def _begin_new_merge(
