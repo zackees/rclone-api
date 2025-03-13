@@ -47,8 +47,8 @@ class FinishedPiece:
     def from_json(json: dict | None) -> "FinishedPiece | EndOfStream":
         if json is None:
             return EndOfStream()
-        part_number = json.get("PartNumber")
-        etag = json.get("ETag")
+        part_number = json.get("PartNumber") or json.get("part_number")
+        etag = json.get("ETag") or json.get("etag")
         assert isinstance(etag, str)
         # handle the double quotes around the etag
         etag = etag.replace('"', "")
