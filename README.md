@@ -76,22 +76,41 @@ def test_ls_glob_png(self) -> None:
 ## API
 
 ```python
+
 class Rclone:
     """
     Main interface for interacting with Rclone.
-    
+
     This class provides methods for all major Rclone operations including
     file transfers, listing, mounting, and remote management.
-    
+
     It serves as the primary entry point for the API, wrapping the underlying
     implementation details and providing a clean, consistent interface.
     """
+
+    @staticmethod
+    def upgrade_rclone() -> Path:
+        """
+        Upgrade the rclone executable to the latest version.
+
+        Downloads the latest rclone binary and replaces the current one.
+
+        If an external rclone is already in your path then although upgrade_rclone
+        will download the latest version, it will not affect the rclone selected.
+
+        Returns:
+            Path to the upgraded rclone executable
+        """
+        from rclone_api.util import upgrade_rclone
+
+        return upgrade_rclone()
+
     def __init__(
         self, rclone_conf: Path | Config, rclone_exe: Path | None = None
     ) -> None:
         """
         Initialize the Rclone interface.
-        
+
         Args:
             rclone_conf: Path to rclone config file or Config object
             rclone_exe: Optional path to rclone executable. If None, will search in PATH.
@@ -103,12 +122,12 @@ class Rclone:
     def webgui(self, other_args: list[str] | None = None) -> Process:
         """
         Launch the Rclone web GUI.
-        
+
         Starts the built-in web interface for interacting with rclone.
-        
+
         Args:
             other_args: Additional command-line arguments to pass to rclone
-            
+
         Returns:
             Process object representing the running web GUI
         """
@@ -123,15 +142,15 @@ class Rclone:
     ) -> Process:
         """
         Launch the Rclone server so it can receive commands.
-        
+
         Starts an rclone server that can be controlled remotely.
-        
+
         Args:
             addr: Address and port to listen on (e.g., "localhost:5572")
             user: Optional username for authentication
             password: Optional password for authentication
             other_args: Additional command-line arguments
-            
+
         Returns:
             Process object representing the running server
         """
@@ -149,14 +168,14 @@ class Rclone:
     ) -> CompletedProcess:
         """
         Send commands to a running rclone server.
-        
+
         Args:
             addr: Address of the rclone server (e.g., "localhost:5572")
             user: Optional username for authentication
             password: Optional password for authentication
             capture: Whether to capture and return command output
             other_args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess containing the command result
         """
@@ -171,13 +190,13 @@ class Rclone:
     def obscure(self, password: str) -> str:
         """
         Obscure a password for use in rclone config files.
-        
+
         Converts a plaintext password to rclone's obscured format.
         Note that this is not secure encryption, just light obfuscation.
-        
+
         Args:
             password: The plaintext password to obscure
-            
+
         Returns:
             The obscured password string
         """
@@ -185,25 +204,25 @@ class Rclone:
 
     def ls_stream(
         self,
-        path: str,
+        src: str,
         max_depth: int = -1,
         fast_list: bool = False,
     ) -> FilesStream:
         """
         List files in the given path as a stream of results.
-        
+
         This method is memory-efficient for large directories as it yields
         results incrementally rather than collecting them all at once.
-        
+
         Args:
-            path: Remote path to list
+            src: Remote path to list
             max_depth: Maximum recursion depth (-1 for unlimited)
             fast_list: Use fast list (only recommended for listing entire repositories or small datasets)
-            
+
         Returns:
             A stream of file entries that can be iterated over
         """
-        return self.impl.ls_stream(path=path, max_depth=max_depth, fast_list=fast_list)
+        return self.impl.ls_stream(src=src, max_depth=max_depth, fast_list=fast_list)
 
     def save_to_db(
         self,
@@ -214,10 +233,10 @@ class Rclone:
     ) -> None:
         """
         Save files to a database (sqlite, mysql, postgres).
-        
+
         Lists all files in the source path and stores their metadata in a database.
         Useful for creating searchable indexes of remote storage.
-        
+
         Args:
             src: Remote path to list, this will be used to populate an entire table, so always use the root-most path.
             db_url: Database URL, like sqlite:///data.db or mysql://user:pass@localhost/db or postgres://user:pass@localhost/db
@@ -230,7 +249,7 @@ class Rclone:
 
     def ls(
         self,
-        path: Dir | Remote | str | None = None,
+        src: Dir | Remote | str | None = None,
         max_depth: int | None = None,
         glob: str | None = None,
         order: Order = Order.NORMAL,
@@ -238,21 +257,21 @@ class Rclone:
     ) -> DirListing:
         """
         List files and directories at the specified path.
-        
+
         Provides a detailed listing with file metadata.
-        
+
         Args:
-            path: Path to list (Dir, Remote, or string path)
+            src: Path to list (Dir, Remote, or string path)
             max_depth: Maximum recursion depth (None for default)
             glob: Optional glob pattern to filter results
             order: Sorting order for the results
             listing_option: What types of entries to include
-            
+
         Returns:
             DirListing object containing the results
         """
         return self.impl.ls(
-            path=path,
+            src=src,
             max_depth=max_depth,
             glob=glob,
             order=order,
@@ -262,9 +281,9 @@ class Rclone:
     def listremotes(self) -> list[Remote]:
         """
         List all configured remotes.
-        
+
         Returns a list of all remotes defined in the rclone configuration.
-        
+
         Returns:
             List of Remote objects
         """
@@ -288,10 +307,10 @@ class Rclone:
     ) -> Generator[DiffItem, None, None]:
         """
         Compare two directories and yield differences.
-        
+
         Be extra careful with the src and dst values. If you are off by one
         parent directory, you will get a huge amount of false diffs.
-        
+
         Args:
             src: Rclone style src path
             dst: Rclone style dst path
@@ -302,7 +321,7 @@ class Rclone:
             size_only: Compare only file sizes, not content
             checkers: Number of checker threads
             other_args: Additional command-line arguments
-            
+
         Yields:
             DiffItem objects representing each difference found
         """
@@ -320,28 +339,28 @@ class Rclone:
 
     def walk(
         self,
-        path: Dir | Remote | str,
+        src: Dir | Remote | str,
         max_depth: int = -1,
         breadth_first: bool = True,
         order: Order = Order.NORMAL,
     ) -> Generator[DirListing, None, None]:
         """
         Walk through the given path recursively, yielding directory listings.
-        
+
         Similar to os.walk(), but for remote storage. Traverses directories
         and yields their contents.
-        
+
         Args:
-            path: Remote path, Dir, or Remote object to walk through
+            src: Remote path, Dir, or Remote object to walk through
             max_depth: Maximum depth to traverse (-1 for unlimited)
             breadth_first: If True, use breadth-first traversal, otherwise depth-first
             order: Sorting order for directory entries
-            
+
         Yields:
             DirListing: Directory listing for each directory encountered
         """
         return self.impl.walk(
-            path=path, max_depth=max_depth, breadth_first=breadth_first, order=order
+            src=src, max_depth=max_depth, breadth_first=breadth_first, order=order
         )
 
     def scan_missing_folders(
@@ -353,16 +372,16 @@ class Rclone:
     ) -> Generator[Dir, None, None]:
         """
         Find folders that exist in source but are missing in destination.
-        
+
         Useful for identifying directories that need to be created before
         copying files.
-        
+
         Args:
             src: Source directory or Remote to scan
             dst: Destination directory or Remote to compare against
             max_depth: Maximum depth to traverse (-1 for unlimited)
             order: Sorting order for directory entries
-            
+
         Yields:
             Dir: Each directory that exists in source but not in destination
         """
@@ -371,21 +390,21 @@ class Rclone:
         )
 
     def cleanup(
-        self, path: str, other_args: list[str] | None = None
+        self, src: str, other_args: list[str] | None = None
     ) -> CompletedProcess:
         """
         Cleanup any resources used by the Rclone instance.
-        
+
         Removes temporary files and directories created by rclone.
-        
+
         Args:
-            path: Path to clean up
+            src: Path to clean up
             other_args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess with the result of the cleanup operation
         """
-        return self.impl.cleanup(path=path, other_args=other_args)
+        return self.impl.cleanup(src=src, other_args=other_args)
 
     def copy_to(
         self,
@@ -397,17 +416,17 @@ class Rclone:
     ) -> CompletedProcess:
         """
         Copy one file from source to destination.
-        
+
         Warning - this can be slow for large files or when copying between
         different storage providers.
-        
+
         Args:
             src: Rclone style src path
             dst: Rclone style dst path
             check: Whether to verify the copy with checksums
             verbose: Whether to show detailed progress
             other_args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess with the result of the copy operation
         """
@@ -436,9 +455,9 @@ class Rclone:
     ) -> list[CompletedProcess]:
         """
         Copy multiple files from source to destination.
-        
+
         Efficiently copies a list of files, potentially in parallel.
-        
+
         Args:
             src: Rclone style src path
             dst: Rclone style dst path
@@ -456,7 +475,7 @@ class Rclone:
             max_partition_workers: Maximum number of partition workers
             multi_thread_streams: Number of streams for multi-thread copy
             other_args: Additional command-line arguments
-            
+
         Returns:
             List of CompletedProcess objects for each copy operation
         """
@@ -493,9 +512,9 @@ class Rclone:
     ) -> CompletedProcess:
         """
         Copy files from source to destination.
-        
+
         Recursively copies all files from src to dst.
-        
+
         Args:
             src: Rclone style src path
             dst: Rclone style dst path
@@ -506,7 +525,7 @@ class Rclone:
             low_level_retries: Number of low-level retries
             retries: Number of high-level retries
             other_args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess with the result of the copy operation
         """
@@ -522,19 +541,19 @@ class Rclone:
             other_args=other_args,
         )
 
-    def purge(self, path: Dir | str) -> CompletedProcess:
+    def purge(self, src: Dir | str) -> CompletedProcess:
         """
         Purge a directory.
-        
+
         Removes a directory and all its contents.
-        
+
         Args:
-            path: Rclone style path
-            
+            src: Rclone style path
+
         Returns:
             CompletedProcess with the result of the purge operation
         """
-        return self.impl.purge(path=path)
+        return self.impl.purge(src=src)
 
     def delete_files(
         self,
@@ -547,7 +566,7 @@ class Rclone:
     ) -> CompletedProcess:
         """
         Delete files or directories.
-        
+
         Args:
             files: Files to delete (single file/path or list)
             check: Whether to verify deletions
@@ -555,7 +574,7 @@ class Rclone:
             verbose: Whether to show detailed progress
             max_partition_workers: Maximum number of partition workers
             other_args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess with the result of the delete operation
         """
@@ -568,28 +587,28 @@ class Rclone:
             other_args=other_args,
         )
 
-    def exists(self, path: Dir | Remote | str | File) -> bool:
+    def exists(self, src: Dir | Remote | str | File) -> bool:
         """
         Check if a file or directory exists.
-        
+
         Args:
-            path: Path to check (Dir, Remote, File, or path string)
-            
+            src: Path to check (Dir, Remote, File, or path string)
+
         Returns:
             True if the path exists, False otherwise
         """
-        return self.impl.exists(path=path)
+        return self.impl.exists(src=src)
 
     def is_synced(self, src: str | Dir, dst: str | Dir) -> bool:
         """
         Check if two directories are in sync.
-        
+
         Compares the contents of src and dst to determine if they match.
-        
+
         Args:
             src: Source directory (Dir object or path string)
             dst: Destination directory (Dir object or path string)
-            
+
         Returns:
             True if the directories are in sync, False otherwise
         """
@@ -598,10 +617,10 @@ class Rclone:
     def modtime(self, src: str) -> str | Exception:
         """
         Get the modification time of a file or directory.
-        
+
         Args:
             src: Path to the file or directory
-            
+
         Returns:
             Modification time as a string, or Exception if an error occurred
         """
@@ -610,10 +629,10 @@ class Rclone:
     def modtime_dt(self, src: str) -> datetime | Exception:
         """
         Get the modification time of a file or directory as a datetime object.
-        
+
         Args:
             src: Path to the file or directory
-            
+
         Returns:
             Modification time as a datetime object, or Exception if an error occurred
         """
@@ -626,13 +645,13 @@ class Rclone:
     ) -> Exception | None:
         """
         Write text to a file.
-        
+
         Creates or overwrites the file at dst with the given text.
-        
+
         Args:
             text: Text content to write
             dst: Destination file path
-            
+
         Returns:
             None if successful, Exception if an error occurred
         """
@@ -645,13 +664,13 @@ class Rclone:
     ) -> Exception | None:
         """
         Write bytes to a file.
-        
+
         Creates or overwrites the file at dst with the given binary data.
-        
+
         Args:
             data: Binary content to write
             dst: Destination file path
-            
+
         Returns:
             None if successful, Exception if an error occurred
         """
@@ -660,10 +679,10 @@ class Rclone:
     def read_bytes(self, src: str) -> bytes | Exception:
         """
         Read bytes from a file.
-        
+
         Args:
             src: Source file path
-            
+
         Returns:
             File contents as bytes, or Exception if an error occurred
         """
@@ -672,10 +691,10 @@ class Rclone:
     def read_text(self, src: str) -> str | Exception:
         """
         Read text from a file.
-        
+
         Args:
             src: Source file path
-            
+
         Returns:
             File contents as a string, or Exception if an error occurred
         """
@@ -691,16 +710,16 @@ class Rclone:
     ) -> Exception | None:
         """
         Copy a slice of bytes from the src file to dst.
-        
+
         Extracts a portion of a file based on offset and length.
-        
+
         Args:
             src: Source file path
             offset: Starting position in the source file
             length: Number of bytes to copy
             outfile: Local file path to write the bytes to
             other_args: Additional command-line arguments
-            
+
         Returns:
             None if successful, Exception if an error occurred
         """
@@ -717,14 +736,14 @@ class Rclone:
     ) -> CompletedProcess:
         """
         Copy a directory from source to destination.
-        
+
         Recursively copies all files and subdirectories.
-        
+
         Args:
             src: Source directory (Dir object or path string)
             dst: Destination directory (Dir object or path string)
             args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess with the result of the copy operation
         """
@@ -736,14 +755,14 @@ class Rclone:
     ) -> CompletedProcess:
         """
         Copy a remote to another remote.
-        
+
         Copies all contents from one remote storage to another.
-        
+
         Args:
             src: Source remote
             dst: Destination remote
             args: Additional command-line arguments
-            
+
         Returns:
             CompletedProcess with the result of the copy operation
         """
@@ -759,20 +778,20 @@ class Rclone:
     ) -> Exception | None:
         """
         Copy a large file to S3 with resumable upload capability.
-        
+
         This method splits the file into parts for parallel upload and can
         resume interrupted transfers using a custom algorithm in python.
-        
+
         Particularly useful for very large files where network interruptions
         are likely.
-        
+
         Args:
             src: Source file path (format: remote:bucket/path/file)
             dst: Destination file path (format: remote:bucket/path/file)
             part_infos: Optional list of part information for resuming uploads
             upload_threads: Number of parallel upload threads
             merge_threads: Number of threads for merging uploaded parts
-            
+
         Returns:
             None if successful, Exception if an error occurred
         """
@@ -799,9 +818,9 @@ class Rclone:
     ) -> Mount:
         """
         Mount a remote or directory to a local path.
-        
+
         Makes remote storage accessible as a local filesystem.
-        
+
         Args:
             src: Remote or directory to mount
             outdir: Local path to mount to
@@ -813,7 +832,7 @@ class Rclone:
             cache_dir_delete_on_exit: Whether to delete cache on exit
             log: Path to write logs to
             other_args: Additional command-line arguments
-            
+
         Returns:
             Mount object representing the mounted filesystem
         """
@@ -838,19 +857,19 @@ class Rclone:
     ) -> HttpServer:
         """
         Serve a remote or directory via HTTP.
-        
+
         Creates an HTTP server that provides access to the specified remote.
         The returned HttpServer object includes a client for fetching files.
-        
+
         This is useful for providing web access to remote storage or for
         accessing remote files from applications that support HTTP but not
         the remote's native protocol.
-        
+
         Args:
             src: Remote or directory to serve
             addr: Network address and port to serve on (default: localhost:8080)
             other_args: Additional arguments to pass to rclone
-            
+
         Returns:
             HttpServer object with methods for accessing the served content
         """
@@ -867,9 +886,9 @@ class Rclone:
     ) -> SizeResult | Exception:
         """
         Get the size of a list of files.
-        
+
         Calculates the total size of the specified files.
-        
+
         Args:
             src: Base path for the files
             files: List of file paths relative to src
@@ -877,10 +896,10 @@ class Rclone:
             other_args: Additional command-line arguments
             check: Whether to verify file integrity
             verbose: Whether to show detailed output
-            
+
         Returns:
             SizeResult with size information, or Exception if an error occurred
-            
+
         Example:
             size_files("remote:bucket", ["path/to/file1", "path/to/file2"])
         """
@@ -896,10 +915,10 @@ class Rclone:
     def size_file(self, src: str) -> SizeSuffix | Exception:
         """
         Get the size of a file.
-        
+
         Args:
             src: Path to the file
-            
+
         Returns:
             SizeSuffix object representing the file size, or Exception if an error occurred
         """
