@@ -40,7 +40,11 @@ def _clean_configs(signum=None, frame=None) -> None:
         return
     for config in _RCLONE_CONFIGS_LIST:
         try:
-            config.unlink()
+            if config.exists():
+                if config.is_dir():
+                    shutil.rmtree(config, ignore_errors=True)
+                else:
+                    config.unlink()
         except Exception as e:
             print(f"Error deleting config file: {config}, {e}")
     _RCLONE_CONFIGS_LIST.clear()
@@ -65,7 +69,7 @@ def make_temp_config_file() -> Path:
     tmpdir = _TMP_CONFIG_DIR / random_str(32)
     tmpdir.mkdir(parents=True, exist_ok=True)
     tmpfile = tmpdir / "rclone.conf"
-    _RCLONE_CONFIGS_LIST.append(tmpfile)
+    _RCLONE_CONFIGS_LIST.append(tmpdir)
     return tmpfile
 
 
