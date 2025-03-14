@@ -27,7 +27,7 @@ from rclone_api.file import File
 from rclone_api.file_stream import FilesStream
 from rclone_api.group_files import group_files
 from rclone_api.http_server import HttpServer
-from rclone_api.mount import Mount, clean_mount, prepare_mount
+from rclone_api.mount import Mount
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
@@ -1017,6 +1017,7 @@ class RcloneImpl:
         Raises:
             subprocess.CalledProcessError: If the mount operation fails
         """
+        from rclone_api.mount_util import clean_mount, prepare_mount
 
         allow_writes = allow_writes or False
         use_links = use_links or True
