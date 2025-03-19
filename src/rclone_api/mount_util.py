@@ -14,6 +14,7 @@ from rclone_api.process import Process
 
 _SYSTEM = platform.system()  # "Linux", "Darwin", "Windows", etc.
 
+
 _MOUNTS_FOR_GC: weakref.WeakSet = weakref.WeakSet()
 
 
@@ -239,6 +240,7 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
                     verbose_print(f"Removed empty mount directory {mount_path}")
             else:
                 warnings.warn(f"{mount_path} is not empty; cannot remove.")
+                raise OSError(f"{mount_path} is not empty")
         except Exception as e:
             warnings.warn(f"Failed during cleanup of {mount_path}: {e}")
     else:
