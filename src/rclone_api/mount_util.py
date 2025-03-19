@@ -157,6 +157,35 @@ def wait_for_mount(
         raise last_error
 
 
+def _rmtree_ignore_mounts(path):
+    """
+    Recursively remove a directory tree while ignoring mount points.
+
+    Directories that are mount points (where os.path.ismount returns True)
+    are skipped.
+    """
+    # Iterate over directory entries without following symlinks
+    with os.scandir(path) as it:
+        for entry in it:
+            full_path = entry.path
+            if entry.is_dir(follow_symlinks=False):
+                # If it's a mount point, skip recursing into it
+                if os.path.ismount(full_path):
+                    print(f"Skipping mount point: {full_path}")
+                    continue
+                # Recursively remove subdirectories
+                _rmtree_ignore_mounts(full_path)
+            else:
+                # Remove files or symlinks
+                os.unlink(full_path)
+    # Remove the now-empty directory
+    os.rmdir(path)
+
+
+# Example usage:
+# rmtree_ignore_mounts("/path/to/directory")
+
+
 def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     """
     Clean up a mount path across Linux, macOS, and Windows.
@@ -209,7 +238,9 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
         _run_command(f"mountvol {mount_path} /D", verbose)
         # If that does not work, try to remove the directory directly.
         try:
-            mount_path.rmdir()
+            _rmtree_ignore_mounts(mount_path)
+            if mount_path.exists():
+                raise OSError(f"Failed to remove mount directory {mount_path}")
             if verbose:
                 print(f"Successfully removed mount directory {mount_path}")
         except Exception:
