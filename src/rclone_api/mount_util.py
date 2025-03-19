@@ -232,16 +232,19 @@ def clean_mount(mount: Mount | Path, verbose: bool = False, wait=True) -> None:
     if still_exists:
         verbose_print(f"{mount_path} still exists after unmount attempt.")
         # Attempt to remove the directory if it is empty.
-        try:
-            # Only remove if the directory is empty.
-            if not any(mount_path.iterdir()):
+
+        # Only remove if the directory is empty.
+        if not any(mount_path.iterdir()):
+            try:
                 mount_path.rmdir()
-                if verbose:
-                    verbose_print(f"Removed empty mount directory {mount_path}")
-            else:
-                warnings.warn(f"{mount_path} is not empty; cannot remove.")
-                raise OSError(f"{mount_path} is not empty")
-        except Exception as e:
-            warnings.warn(f"Failed during cleanup of {mount_path}: {e}")
+            except Exception as e:
+                warnings.warn(f"Error removing mount {mount_path}: {e}")
+                raise
+            if verbose:
+                verbose_print(f"Removed empty mount directory {mount_path}")
+        else:
+            warnings.warn(f"{mount_path} is not empty; cannot remove.")
+            raise OSError(f"{mount_path} is not empty")
+
     else:
         verbose_print(f"{mount_path} successfully cleaned up.")
