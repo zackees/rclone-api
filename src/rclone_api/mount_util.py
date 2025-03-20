@@ -47,7 +47,7 @@ atexit.register(_cleanup_mounts)
 def cache_dir_delete_on_exit(cache_dir: Path) -> None:
     if cache_dir.exists():
         try:
-            shutil.rmtree(cache_dir)
+            shutil.rmtree(cache_dir, ignore_errors=True)
         except Exception as e:
             warnings.warn(f"Error removing cache directory {cache_dir}: {e}")
 
