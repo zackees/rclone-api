@@ -11,6 +11,7 @@ from threading import Semaphore
 from typing import Any
 
 import httpx
+from bs4 import BeautifulSoup
 
 from rclone_api.file_part import FilePart
 from rclone_api.process import Process
@@ -21,6 +22,25 @@ _PUT_WARNED = False
 
 
 _range = range
+
+
+def _parse_files(html: str) -> list[str]:
+    soup = BeautifulSoup(html, "html.parser")
+    files = []
+    # Find each table row with class "file"
+    for tr in soup.find_all("tr", class_="file"):
+        name_span = tr.find("span", class_="name")  # type: ignore
+        if not name_span:
+            continue
+        a_tag = name_span.find("a")  # type: ignore
+        if not a_tag:
+            continue
+        # Get the text from the <a> tag
+        file_name = a_tag.get_text(strip=True)  # type: ignore
+        # Skip directories (they end with a slash)
+        if not file_name.endswith("/"):
+            files.append(file_name)
+    return files
 
 
 class HttpServer:
@@ -101,6 +121,24 @@ class HttpServer:
             return None
         except Exception as e:
             warnings.warn(f"Failed to remove {path} from {self.url}: {e}")
+            return e
+
+        # curl "http://localhost:5572/?list"
+
+    def list(self, path: str) -> list[str] | Exception:
+        """List files on the server."""
+
+        try:
+            assert self.process is not None
+            url = self.url
+            if path:
+                url += f"/{path}"
+            url += "/?list"
+            response = httpx.get(url)
+            response.raise_for_status()
+            return _parse_files(response.content.decode())
+        except Exception as e:
+            warnings.warn(f"Failed to list files on {self.url}: {e}")
             return e
 
     def download(

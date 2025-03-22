@@ -91,6 +91,43 @@ class RcloneServeHttpTester(unittest.TestCase):
         os.environ["RCLONE_API_VERBOSE"] = "1"
         self.rclone = Rclone(_generate_rclone_config())
 
+    def test_exists(self) -> None:
+        """Test mounting a remote bucket."""
+        remote_path = f"dst:{self.bucket_name}"
+        http_server: HttpServer
+        try:
+            with self.rclone.serve_http(
+                remote_path, addr="localhost:8081"
+            ) as http_server:
+                resource_url = "zachs_video/internaly_ai_alignment.mp4"
+                exists = http_server.exists(resource_url)
+                self.assertTrue(exists)
+
+        except subprocess.CalledProcessError as e:
+            self.fail(f"Mount operation failed: {str(e)}")
+        finally:
+            # Cleanup will happen in tearDown
+            pass
+
+    def test_list(self) -> None:
+        """Test mounting a remote bucket."""
+        remote_path = f"dst:{self.bucket_name}"
+        http_server: HttpServer
+        try:
+            with self.rclone.serve_http(
+                remote_path, addr="localhost:8081"
+            ) as http_server:
+                resource_url = "zachs_video"
+                out = http_server.list(resource_url)
+                if isinstance(out, Exception):
+                    self.fail(f"List operation failed: {str(out)}")
+
+        except subprocess.CalledProcessError as e:
+            self.fail(f"Mount operation failed: {str(e)}")
+        finally:
+            # Cleanup will happen in tearDown
+            pass
+
     @unittest.skip("Skip for now")
     def test_server_http(self) -> None:
         """Test mounting a remote bucket."""
@@ -158,24 +195,6 @@ class RcloneServeHttpTester(unittest.TestCase):
 
                 self.assertEqual(hash1, hash2)
                 print("Done")
-
-        except subprocess.CalledProcessError as e:
-            self.fail(f"Mount operation failed: {str(e)}")
-        finally:
-            # Cleanup will happen in tearDown
-            pass
-
-    def test_exists(self) -> None:
-        """Test mounting a remote bucket."""
-        remote_path = f"dst:{self.bucket_name}"
-        http_server: HttpServer
-        try:
-            with self.rclone.serve_http(
-                remote_path, addr="localhost:8081"
-            ) as http_server:
-                resource_url = "zachs_video/internaly_ai_alignment.mp4"
-                exists = http_server.exists(resource_url)
-                self.assertTrue(exists)
 
         except subprocess.CalledProcessError as e:
             self.fail(f"Mount operation failed: {str(e)}")

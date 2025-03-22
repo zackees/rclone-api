@@ -28,6 +28,10 @@ class FileSystem(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def ls(self, path: Path | str) -> list[str]:
+        pass
+
+    @abc.abstractmethod
     def get_path(self, path: str) -> "FSPath":
         pass
 
@@ -50,6 +54,9 @@ class RealFileSystem(FileSystem):
 
     def __init__(self) -> None:
         super().__init__()
+
+    def ls(self, path: Path | str) -> list[str]:
+        return [str(p) for p in Path(path).iterdir()]
 
     def copy(self, src: Path | str, dest: Path | str) -> None:
         shutil.copy(str(src), str(dest))
@@ -110,6 +117,13 @@ class RemoteFileSystem(FileSystem):
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
         raise NotImplementedError("RemoteFileSystem does not support mkdir")
 
+    def ls(self, path: Path | str) -> list[str]:
+        path = self._to_str(path)
+        err = self.server.list(path)
+        if isinstance(err, Exception):
+            raise FileNotFoundError(f"File not found: {path}, because of {err}")
+        return err
+
     def get_path(self, path: str) -> "FSPath":
         return FSPath(self, path)
 
@@ -154,6 +168,10 @@ class FSPath:
         # check fs is RealFileSystem
         assert isinstance(self.fs, RealFileSystem)
         shutil.rmtree(self.path, ignore_errors=ignore_errors)
+
+    def ls(self) -> "list[FSPath]":
+        names: list[str] = self.fs.ls(self.path)
+        return [self / name for name in names]
 
     @property
     def name(self) -> str:

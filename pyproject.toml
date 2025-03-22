@@ -24,10 +24,11 @@ dependencies = [
     "httpx>=0.28.1",
     "download>=0.3.5",
     "appdirs>=1.4.4",
+    "beautifulsoup4>=4.13.3",
 ]
 
 # Change this with the version number bump.
-version = "1.5.15"
+version = "1.5.16"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
