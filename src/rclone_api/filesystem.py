@@ -117,6 +117,17 @@ class RemoteFileSystem(FileSystem):
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
         raise NotImplementedError("RemoteFileSystem does not support mkdir")
 
+    def is_dir(self, path: Path | str) -> bool:
+        path = self._to_str(path)
+        err = self.server.list(path)
+        return isinstance(err, list)
+
+    def is_file(self, path: Path | str) -> bool:
+        path = self._to_str(path)
+        err = self.server.list(path)
+        # Make faster.
+        return isinstance(err, Exception) and self.exists(path)
+
     def ls(self, path: Path | str) -> list[str]:
         path = self._to_str(path)
         err = self.server.list(path)
