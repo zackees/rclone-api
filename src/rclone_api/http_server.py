@@ -46,6 +46,18 @@ class HttpServer:
             file.seek(0)
             return file.read()
 
+    def exists(self, path: str) -> bool:
+        """Check if the file exists on the server."""
+        try:
+            assert self.process is not None
+            # response = httpx.head(f"{self.url}/{path}")
+            url = self._get_file_url(path)
+            response = httpx.head(url)
+            return response.status_code == 200
+        except Exception as e:
+            warnings.warn(f"Failed to check if {self.url}/{path} exists: {e}")
+            return False
+
     def size(self, path: str) -> int | Exception:
         """Get size of the file from the server."""
         try:
@@ -58,6 +70,18 @@ class HttpServer:
             return size
         except Exception as e:
             warnings.warn(f"Failed to get size of {self.url}/{path}: {e}")
+            return e
+
+    def put(self, path: str, data: bytes) -> Exception | None:
+        """Put bytes to the server."""
+        try:
+            assert self.process is not None
+            url = self._get_file_url(path)
+            response = httpx.put(url, content=data, timeout=_TIMEOUT)
+            response.raise_for_status()
+            return None
+        except Exception as e:
+            warnings.warn(f"Failed to put {path} to {self.url}: {e}")
             return e
 
     def download(
