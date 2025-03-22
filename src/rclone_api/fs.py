@@ -221,9 +221,13 @@ class FSPath:
         assert isinstance(self.fs, RealFS)
         shutil.rmtree(self.path, ignore_errors=ignore_errors)
 
-    def ls(self) -> "list[FSPath]":
-        names: list[str] = self.fs.ls(self.path)
+    def lspaths(self) -> "list[FSPath]":
+        names: list[str] = self.ls()
         return [self / name for name in names]
+
+    def ls(self) -> list[str]:
+        names: list[str] = self.fs.ls(self.path)
+        return names
 
     @property
     def name(self) -> str:
