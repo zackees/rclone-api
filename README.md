@@ -18,6 +18,10 @@ This library was built out of necessity to transfer large amounts of AI training
 
 You can have [rclone](https://rclone.org/) in your path or else the api will download it.
 
+## VFS
+
+There is a virtual file system called `FSPath` which emulates common operators for `pathlib.Path`. You can get an instance of an `FSPath` from an `Rclone` instance using the `rclone.cwd("src:path/to")` function.
+
 # Install
 
 `pip install rclone-api`
@@ -78,6 +82,71 @@ def test_ls_glob_png(self) -> None:
 ```python
 
 from rclone_api import Rclone
+"""
+Rclone API - Python interface for the Rclone command-line tool.
+
+This package provides a high-level API for interacting with Rclone,
+allowing file operations across various cloud storage providers.
+The API wraps the rclone command-line tool, providing a Pythonic interface
+for common operations like copying, listing, and managing remote storage.
+"""
+
+# Import core components and utilities
+from datetime import datetime
+from pathlib import Path
+from typing import Generator
+
+# Import logging utilities
+from rclone_api import log
+
+# Import data structures and models
+from .completed_process import CompletedProcess
+from .config import Config, Parsed, Section  # Configuration handling
+from .diff import DiffItem, DiffOption, DiffType  # File comparison utilities
+from .dir import Dir  # Directory representation
+from .dir_listing import DirListing  # Directory contents representation
+from .file import File, FileItem  # File representation
+from .file_stream import FilesStream  # Streaming file listings
+from .filelist import FileList  # File list utilities
+from .fs import FSPath, RemoteFS  # Filesystem utilities
+from .http_server import HttpFetcher, HttpServer, Range  # HTTP serving capabilities
+
+# Import logging configuration utilities
+from .log import configure_logging, setup_default_logging
+from .mount import Mount  # Mount remote filesystems
+from .process import Process  # Process management
+from .remote import Remote  # Remote storage representation
+from .rpath import RPath  # Remote path utilities
+from .s3.types import MultiUploadResult  # S3-specific types
+from .types import (  # Common types
+    ListingOption,
+    Order,
+    PartInfo,
+    SizeResult,
+    SizeSuffix,
+)
+
+# Set up default logging configuration when the package is imported
+setup_default_logging()
+
+
+def rclone_verbose(val: bool | None) -> bool:
+    """
+    Get or set the global verbosity setting for rclone operations.
+
+    Controls whether rclone commands will produce detailed output.
+    When enabled, commands will show more information about their operation.
+
+    Args:
+        val: If provided, sets the verbosity level. If None, returns the current setting.
+
+    Returns:
+        The current verbosity setting after any change.
+    """
+    from rclone_api.rclone_impl import rclone_verbose as _rclone_verbose
+
+    return _rclone_verbose(val)
+
 
 class Rclone:
     """
@@ -134,6 +203,27 @@ class Rclone:
             Process object representing the running web GUI
         """
         return self.impl.webgui(other_args=other_args)
+
+    def filesystem(self, src: str) -> RemoteFS:
+        """
+        Get a RealFS object for interacting with the local filesystem.
+
+        Returns:
+            RealFS object for local filesystem operations
+        """
+        return self.impl.filesystem(src=src)
+
+    def cwd(self, src: str) -> FSPath:
+        """
+        Get the local root path for a filesystem.
+
+        Args:
+            src: Source path for the filesystem
+
+        Returns:
+            FSPath object representing the root of the filesystem
+        """
+        return self.impl.cwd(src=src)
 
     def launch_server(
         self,
@@ -857,7 +947,7 @@ class Rclone:
     def serve_http(
         self,
         src: str,
-        addr: str = "localhost:8080",
+        addr: str | None = None,
         other_args: list[str] | None = None,
     ) -> HttpServer:
         """
@@ -878,7 +968,9 @@ class Rclone:
         Returns:
             HttpServer object with methods for accessing the served content
         """
-        return self.impl.serve_http(src=src, addr=addr, other_args=other_args)
+        return self.impl.serve_http(
+            src=src, cache_mode="minimal", addr=addr, other_args=other_args
+        )
 
     def size_files(
         self,
@@ -928,6 +1020,43 @@ class Rclone:
             SizeSuffix object representing the file size, or Exception if an error occurred
         """
         return self.impl.size_file(src=src)
+
+
+# Export public API components
+__all__ = [
+    # Main classes
+    "Rclone",  # Primary interface
+    "File",  # File representation
+    "Config",  # Configuration handling
+    "Remote",  # Remote storage
+    "Dir",  # Directory representation
+    "RPath",  # Remote path utilities
+    "DirListing",  # Directory listing
+    "FileList",  # File list
+    "FileItem",  # File item
+    "Process",  # Process management
+    "DiffItem",  # Difference item
+    "DiffType",  # Difference type
+    # Functions
+    "rclone_verbose",  # Verbosity control
+    # Data classes and enums
+    "CompletedProcess",  # Process result
+    "DiffOption",  # Difference options
+    "ListingOption",  # Listing options
+    "Order",  # Sorting order
+    "SizeResult",  # Size result
+    "Parsed",  # Parsed configuration
+    "Section",  # Configuration section
+    "MultiUploadResult",  # S3 upload result
+    "SizeSuffix",  # Size with suffix
+    # Utilities
+    "configure_logging",  # Logging configuration
+    "log",  # Logging utilities
+    "HttpServer",  # HTTP server
+    "Range",  # HTTP range
+    "HttpFetcher",  # HTTP fetcher
+    "PartInfo",  # Part information for uploads
+]
 ```
 
 
