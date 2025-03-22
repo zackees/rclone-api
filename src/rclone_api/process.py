@@ -30,6 +30,7 @@ class Process:
         ), f"rclone executable not found: {args.rclone_exe}"
         self.args = args
         self.log = args.log
+        self.cleaned_up = False
         self.tempfile: Path | None = None
 
         verbose = get_verbose(args.verbose)
@@ -75,10 +76,16 @@ class Process:
     def __enter__(self) -> "Process":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def dispose(self) -> None:
+        if self.cleaned_up:
+            return
+        self.cleaned_up = True
         self.terminate()
         self.wait()
         self.cleanup()
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.dispose()
 
     def cleanup(self) -> None:
         if self.tempfile:

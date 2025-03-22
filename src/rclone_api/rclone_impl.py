@@ -6,6 +6,7 @@ import os
 import random
 import subprocess
 import time
+import tracemalloc
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
@@ -50,6 +51,9 @@ from rclone_api.util import (
     get_verbose,
     to_path,
 )
+
+# Enable tracing memory usage always
+tracemalloc.start()
 
 
 def rclone_verbose(verbose: bool | None) -> bool:
@@ -1164,6 +1168,7 @@ class RcloneImpl:
     def serve_http(
         self,
         src: str,
+        cache_mode: str | None,
         addr: str | None = None,
         serve_http_log: Path | None = None,
         other_args: list[str] | None = None,
@@ -1186,9 +1191,13 @@ class RcloneImpl:
             "0",
             "--vfs-read-chunk-size-limit",
             "512M",
-            "--vfs-cache-mode",
-            "off",
         ]
+
+        if cache_mode:
+            cmd_list += [
+                "--vfs-cache-mode",
+                cache_mode,
+            ]
         if serve_http_log:
             cmd_list += ["--log-file", str(serve_http_log)]
             cmd_list += ["-vvvv"]

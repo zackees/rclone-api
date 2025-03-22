@@ -862,7 +862,9 @@ class Rclone:
         Returns:
             HttpServer object with methods for accessing the served content
         """
-        return self.impl.serve_http(src=src, addr=addr, other_args=other_args)
+        return self.impl.serve_http(
+            src=src, cache_mode="minimal", addr=addr, other_args=other_args
+        )
 
     def size_files(
         self,

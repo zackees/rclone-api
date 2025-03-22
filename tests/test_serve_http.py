@@ -51,6 +51,16 @@ endpoint = {BUCKET_URL}
     return Config(config_text)
 
 
+def hash_bytes(fp: Path) -> str:
+    import hashlib
+
+    sha256 = hashlib.sha256()
+    with open(fp, "rb") as f:
+        while chunk := f.read(4096):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
 class RcloneServeHttpTester(unittest.TestCase):
     """Test rclone mount functionality."""
 
@@ -140,15 +150,6 @@ class RcloneServeHttpTester(unittest.TestCase):
                 # print(f"Bytes written: {out1.stat().st_size}")
                 print(f"Bytes written: {out2.stat().st_size}")
 
-                def hash_bytes(fp: Path) -> str:
-                    import hashlib
-
-                    sha256 = hashlib.sha256()
-                    with open(fp, "rb") as f:
-                        while chunk := f.read(4096):
-                            sha256.update(chunk)
-                    return sha256.hexdigest()
-
                 hash1 = hash_bytes(dst1)
                 hash2 = hash_bytes(dst2)
 
@@ -157,6 +158,24 @@ class RcloneServeHttpTester(unittest.TestCase):
 
                 self.assertEqual(hash1, hash2)
                 print("Done")
+
+        except subprocess.CalledProcessError as e:
+            self.fail(f"Mount operation failed: {str(e)}")
+        finally:
+            # Cleanup will happen in tearDown
+            pass
+
+    def test_exists(self) -> None:
+        """Test mounting a remote bucket."""
+        remote_path = f"dst:{self.bucket_name}"
+        http_server: HttpServer
+        try:
+            with self.rclone.serve_http(
+                remote_path, addr="localhost:8081"
+            ) as http_server:
+                resource_url = "zachs_video/internaly_ai_alignment.mp4"
+                exists = http_server.exists(resource_url)
+                self.assertTrue(exists)
 
         except subprocess.CalledProcessError as e:
             self.fail(f"Mount operation failed: {str(e)}")

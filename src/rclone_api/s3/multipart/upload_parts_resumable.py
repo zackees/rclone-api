@@ -232,7 +232,7 @@ def upload_parts_resumable(
 
     atexit.register(lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
 
-    with self.serve_http(src_dir) as http_server:
+    with self.serve_http(src_dir, cache_mode="minimal") as http_server:
         tmpdir: Path = Path(tmp_dir)
         write_semaphore = threading.Semaphore(threads)
         with ThreadPoolExecutor(max_workers=threads) as upload_executor:

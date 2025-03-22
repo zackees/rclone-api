@@ -17,6 +17,7 @@ from rclone_api.process import Process
 from rclone_api.types import Range, SizeSuffix, get_chunk_tmpdir
 
 _TIMEOUT = 10 * 60  # 10 minutes
+_PUT_WARNED = False
 
 
 _range = range
@@ -74,14 +75,32 @@ class HttpServer:
 
     def put(self, path: str, data: bytes) -> Exception | None:
         """Put bytes to the server."""
+        global _PUT_WARNED
+        if not _PUT_WARNED:
+            _PUT_WARNED = True
+            warnings.warn("PUT method not implemented on the rclone binary as of 1.69")
         try:
             assert self.process is not None
             url = self._get_file_url(path)
-            response = httpx.put(url, content=data, timeout=_TIMEOUT)
+            headers = {"Content-Type": "application/octet-stream"}
+            response = httpx.post(url, content=data, timeout=_TIMEOUT, headers=headers)
+            print("Allowed methods:", response.headers.get("Allow"))
             response.raise_for_status()
             return None
         except Exception as e:
             warnings.warn(f"Failed to put {path} to {self.url}: {e}")
+            return e
+
+    def delete(self, path: str) -> Exception | None:
+        """Remove file from the server."""
+        try:
+            assert self.process is not None
+            url = self._get_file_url(path)
+            response = httpx.delete(url)
+            response.raise_for_status()
+            return None
+        except Exception as e:
+            warnings.warn(f"Failed to remove {path} from {self.url}: {e}")
             return e
 
     def download(
@@ -223,11 +242,8 @@ class HttpServer:
     def shutdown(self) -> None:
         """Shutdown the server."""
         if self.process:
-            self.process.terminate()
-            if self.process.stdout:
-                self.process.stdout.close()
-            if self.process.stderr:
-                self.process.stderr.close()
+            self.process.dispose()
+            self.process = None
 
 
 class HttpFetcher:
