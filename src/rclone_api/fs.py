@@ -89,6 +89,21 @@ class RealFS(FS):
 
 
 class RemoteFS(FS):
+
+    @staticmethod
+    def from_rclone_config(
+        src: str, rclone_conf: Path | Config | str | None
+    ) -> "RemoteFS":
+        if isinstance(rclone_conf, str):
+            rclone_conf = Config(text=rclone_conf)
+        if rclone_conf is None:
+            curr_dir = Path.cwd() / "rclone.conf"
+            if curr_dir.exists():
+                rclone_conf = curr_dir
+            else:
+                raise ValueError("rclone_conf not found")
+        return RemoteFS(rclone_conf, src)
+
     def __init__(self, rclone_conf: Path | Config, src: str) -> None:
         from rclone_api import HttpServer, Rclone
 
