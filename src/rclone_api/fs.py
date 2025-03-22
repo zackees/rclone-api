@@ -146,7 +146,10 @@ class RemoteFS(FS):
         return self.server.exists(path)
 
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
-        raise NotImplementedError("RemoteFS does not support mkdir")
+        # Ignore mkdir for remote backend, it will be made when file is written.
+        import warnings
+        warnings.warn("mkdir is not supported for remote backend", stacklevel=2)
+        return None
 
     def is_dir(self, path: Path | str) -> bool:
         path = self._to_str(path)
