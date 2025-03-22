@@ -125,8 +125,8 @@ class RemoteFileSystem(FileSystem):
 
 class FSPath:
     def __init__(self, fs: FileSystem, path: str) -> None:
-        self.path = path
         self.fs = fs
+        self.path = path
 
     def read_text(self) -> str:
         return self.fs.read_text(self.path)
@@ -168,3 +168,7 @@ class FSPath:
     def __truediv__(self, other: str) -> "FSPath":
         new_path = Path(self.path) / other
         return FSPath(self.fs, new_path.as_posix())
+
+    # hashable
+    def __hash__(self) -> int:
+        return hash(f"{repr(self.fs)}:{self.path}")
