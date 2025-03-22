@@ -24,6 +24,7 @@ from .dir_listing import DirListing  # Directory contents representation
 from .file import File, FileItem  # File representation
 from .file_stream import FilesStream  # Streaming file listings
 from .filelist import FileList  # File list utilities
+from .filesystem import FSPath, RemoteFS  # Filesystem utilities
 from .http_server import HttpFetcher, HttpServer, Range  # HTTP serving capabilities
 
 # Import logging configuration utilities
@@ -118,6 +119,27 @@ class Rclone:
             Process object representing the running web GUI
         """
         return self.impl.webgui(other_args=other_args)
+
+    def filesystem(self, src: str) -> RemoteFS:
+        """
+        Get a RealFS object for interacting with the local filesystem.
+
+        Returns:
+            RealFS object for local filesystem operations
+        """
+        return self.impl.filesystem(src=src)
+
+    def cwd(self, src: str) -> FSPath:
+        """
+        Get the local root path for a filesystem.
+
+        Args:
+            src: Source path for the filesystem
+
+        Returns:
+            FSPath object representing the root of the filesystem
+        """
+        return self.impl.cwd(src=src)
 
     def launch_server(
         self,

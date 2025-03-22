@@ -93,13 +93,14 @@ class RemoteFS(FileSystem):
         from rclone_api import HttpServer, Rclone
 
         super().__init__()
+        self.src = src
         self.rclone_conf = rclone_conf
         self.rclone: Rclone = Rclone(rclone_conf)
         self.server: HttpServer = self.rclone.serve_http(src=src)
         self.shutdown = False
 
     def root(self) -> "FSPath":
-        return FSPath(self, "")
+        return FSPath(self, self.src)
 
     def cwd(self) -> "FSPath":
         return self.root()

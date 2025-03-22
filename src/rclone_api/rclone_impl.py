@@ -26,7 +26,7 @@ from rclone_api.dir_listing import DirListing
 from rclone_api.exec import RcloneExec
 from rclone_api.file import File
 from rclone_api.file_stream import FilesStream
-from rclone_api.filesystem import RemoteFS
+from rclone_api.filesystem import FSPath, RemoteFS
 from rclone_api.group_files import group_files
 from rclone_api.http_server import HttpServer
 from rclone_api.mount import Mount
@@ -106,6 +106,9 @@ class RcloneImpl:
 
     def filesystem(self, src: str) -> RemoteFS:
         return RemoteFS(self.config, src)
+
+    def cwd(self, src: str) -> FSPath:
+        return self.filesystem(src).cwd()
 
     def launch_server(
         self,
