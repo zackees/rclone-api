@@ -14,7 +14,7 @@ class FS(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def read_binary(self, path: Path | str) -> bytes:
+    def read_bytes(self, path: Path | str) -> bytes:
         pass
 
     @abc.abstractmethod
@@ -41,15 +41,6 @@ class FS(abc.ABC):
     def get_path(self, path: str) -> "FSPath":
         pass
 
-    def read_text(self, path: Path | str) -> str:
-        utf = self.read_binary(path)
-        return utf.decode("utf-8")
-
-    def write_text(self, path: Path | str, data: str, encoding: str | None) -> None:
-        encoding = encoding or "utf-8"
-        utf = data.encode(encoding)
-        self.write_binary(path, utf)
-
 
 class RealFS(FS):
 
@@ -70,7 +61,7 @@ class RealFS(FS):
     def copy(self, src: Path | str, dest: Path | str) -> None:
         shutil.copy(str(src), str(dest))
 
-    def read_binary(self, path: Path | str) -> bytes:
+    def read_bytes(self, path: Path | str) -> bytes:
         with open(path, "rb") as f:
             return f.read()
 
@@ -115,7 +106,7 @@ class RemoteFS(FS):
         self.shutdown = False
 
     def root(self) -> "FSPath":
-        return FSPath(self, self.src)
+        return FSPath(self, "")
 
     def cwd(self) -> "FSPath":
         return self.root()
@@ -130,7 +121,7 @@ class RemoteFS(FS):
         dest = self._to_str(dest)
         self.rclone.copy(src, dest)
 
-    def read_binary(self, path: Path | str) -> bytes:
+    def read_bytes(self, path: Path | str) -> bytes:
         path = self._to_str(path)
         err = self.rclone.read_bytes(path)
         if isinstance(err, Exception):
@@ -148,6 +139,7 @@ class RemoteFS(FS):
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
         # Ignore mkdir for remote backend, it will be made when file is written.
         import warnings
+
         warnings.warn("mkdir is not supported for remote backend", stacklevel=2)
         return None
 
@@ -188,10 +180,16 @@ class FSPath:
         self.path = path
 
     def read_text(self) -> str:
-        return self.fs.read_text(self.path)
+        data = self.read_bytes()
+        return data.decode("utf-8")
 
-    def read_binary(self) -> bytes:
-        return self.fs.read_binary(self.path)
+    def read_bytes(self) -> bytes:
+        data: bytes | None = None
+        try:
+            data = self.fs.read_bytes(self.path)
+            return data
+        except Exception as e:
+            raise FileNotFoundError(f"File not found: {self.path}, because of {e}")
 
     def exists(self) -> bool:
         return self.fs.exists(self.path)
@@ -206,7 +204,12 @@ class FSPath:
         self.fs.mkdir(self.path, parents=parents, exist_ok=exist_ok)
 
     def write_text(self, data: str, encoding: str | None = None) -> None:
-        self.fs.write_text(self.path, data, encoding=encoding)
+        if encoding is None:
+            encoding = "utf-8"
+        self.write_bytes(data.encode(encoding))
+
+    def write_bytes(self, data: bytes) -> None:
+        self.fs.write_binary(self.path, data)
 
     def rmtree(self, ignore_errors=False) -> None:
         assert self.exists(), f"Path does not exist: {self.path}"
