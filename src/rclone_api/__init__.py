@@ -24,7 +24,7 @@ from .dir_listing import DirListing  # Directory contents representation
 from .file import File, FileItem  # File representation
 from .file_stream import FilesStream  # Streaming file listings
 from .filelist import FileList  # File list utilities
-from .fs import FSPath, RemoteFS  # Filesystem utilities
+from .fs import FSPath, RealFS, RemoteFS  # Filesystem utilities
 from .http_server import HttpFetcher, HttpServer, Range  # HTTP serving capabilities
 
 # Import logging configuration utilities
@@ -972,4 +972,8 @@ __all__ = [
     "Range",  # HTTP range
     "HttpFetcher",  # HTTP fetcher
     "PartInfo",  # Part information for uploads
+    "RealFS",  # Real filesystem
+    "RemoteFS",  # Remote filesystem
+    "FSPath",  # File object backed by a real or remote filesystem
+    "FilesStream",
 ]
