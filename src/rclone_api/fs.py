@@ -5,7 +5,7 @@ from pathlib import Path
 from rclone_api.config import Config
 
 
-class FileSystem(abc.ABC):
+class FS(abc.ABC):
     def __init__(self) -> None:
         pass
 
@@ -51,7 +51,7 @@ class FileSystem(abc.ABC):
         self.write_binary(path, utf)
 
 
-class RealFS(FileSystem):
+class RealFS(FS):
 
     @staticmethod
     def from_path(path: Path | str) -> "FSPath":
@@ -88,7 +88,7 @@ class RealFS(FileSystem):
         return FSPath(self, path)
 
 
-class RemoteFS(FileSystem):
+class RemoteFS(FS):
     def __init__(self, rclone_conf: Path | Config, src: str) -> None:
         from rclone_api import HttpServer, Rclone
 
@@ -165,7 +165,7 @@ class RemoteFS(FileSystem):
 
 
 class FSPath:
-    def __init__(self, fs: FileSystem, path: str) -> None:
+    def __init__(self, fs: FS, path: str) -> None:
         self.fs = fs
         self.path = path
 
