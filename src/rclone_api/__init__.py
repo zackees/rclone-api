@@ -841,7 +841,7 @@ class Rclone:
     def serve_http(
         self,
         src: str,
-        addr: str = "localhost:8080",
+        addr: str | None = None,
         other_args: list[str] | None = None,
     ) -> HttpServer:
         """
