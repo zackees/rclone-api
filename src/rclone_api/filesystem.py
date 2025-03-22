@@ -2,6 +2,8 @@ import abc
 import shutil
 from pathlib import Path
 
+from rclone_api.config import Config
+
 
 class FileSystem(abc.ABC):
     def __init__(self) -> None:
@@ -32,6 +34,10 @@ class FileSystem(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def cwd(self) -> "FSPath":
+        pass
+
+    @abc.abstractmethod
     def get_path(self, path: str) -> "FSPath":
         pass
 
@@ -45,18 +51,21 @@ class FileSystem(abc.ABC):
         self.write_binary(path, utf)
 
 
-class RealFileSystem(FileSystem):
+class RealFS(FileSystem):
 
     @staticmethod
-    def get_real_path(path: Path | str) -> "FSPath":
+    def from_path(path: Path | str) -> "FSPath":
         path_str = Path(path).as_posix()
-        return FSPath(RealFileSystem(), path_str)
+        return FSPath(RealFS(), path_str)
 
     def __init__(self) -> None:
         super().__init__()
 
     def ls(self, path: Path | str) -> list[str]:
         return [str(p) for p in Path(path).iterdir()]
+
+    def cwd(self) -> "FSPath":
+        return RealFS.from_path(Path.cwd())
 
     def copy(self, src: Path | str, dest: Path | str) -> None:
         shutil.copy(str(src), str(dest))
@@ -79,8 +88,8 @@ class RealFileSystem(FileSystem):
         return FSPath(self, path)
 
 
-class RemoteFileSystem(FileSystem):
-    def __init__(self, rclone_conf: Path, src: str) -> None:
+class RemoteFS(FileSystem):
+    def __init__(self, rclone_conf: Path | Config, src: str) -> None:
         from rclone_api import HttpServer, Rclone
 
         super().__init__()
@@ -88,6 +97,12 @@ class RemoteFileSystem(FileSystem):
         self.rclone: Rclone = Rclone(rclone_conf)
         self.server: HttpServer = self.rclone.serve_http(src=src)
         self.shutdown = False
+
+    def root(self) -> "FSPath":
+        return FSPath(self, "")
+
+    def cwd(self) -> "FSPath":
+        return self.root()
 
     def _to_str(self, path: Path | str) -> str:
         if isinstance(path, Path):
@@ -115,7 +130,7 @@ class RemoteFileSystem(FileSystem):
         return self.server.exists(path)
 
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
-        raise NotImplementedError("RemoteFileSystem does not support mkdir")
+        raise NotImplementedError("RemoteFS does not support mkdir")
 
     def is_dir(self, path: Path | str) -> bool:
         path = self._to_str(path)
@@ -176,8 +191,8 @@ class FSPath:
 
     def rmtree(self, ignore_errors=False) -> None:
         assert self.exists(), f"Path does not exist: {self.path}"
-        # check fs is RealFileSystem
-        assert isinstance(self.fs, RealFileSystem)
+        # check fs is RealFS
+        assert isinstance(self.fs, RealFS)
         shutil.rmtree(self.path, ignore_errors=ignore_errors)
 
     def ls(self) -> "list[FSPath]":
