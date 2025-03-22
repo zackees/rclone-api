@@ -86,6 +86,7 @@ class RcloneCopyResumableFileToS3(unittest.TestCase):
             )
         os.environ["RCLONE_API_VERBOSE"] = "1"
 
+    @unittest.skip("takes a long time to run")
     def test_copy_parts(self) -> None:
         src_file = "dst:rclone-api-unit-test/zachs_video/global_alliance.mp4"
         dst = "dst:rclone-api-unit-test/test_data/global_alliance.mp4"

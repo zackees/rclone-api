@@ -106,7 +106,7 @@ class RemoteFS(FS):
         self.shutdown = False
 
     def root(self) -> "FSPath":
-        return FSPath(self, "")
+        return FSPath(self, self.src)
 
     def cwd(self) -> "FSPath":
         return self.root()
@@ -116,9 +116,12 @@ class RemoteFS(FS):
             return path.as_posix()
         return path
 
+    def _to_remote_path(self, path: str | Path) -> str:
+        return Path(path).relative_to(self.src).as_posix()
+
     def copy(self, src: Path | str, dest: Path | str) -> None:
         src = self._to_str(src)
-        dest = self._to_str(dest)
+        dest = self._to_remote_path(dest)
         self.rclone.copy(src, dest)
 
     def read_bytes(self, path: Path | str) -> bytes:
@@ -134,7 +137,8 @@ class RemoteFS(FS):
 
     def exists(self, path: Path | str) -> bool:
         path = self._to_str(path)
-        return self.server.exists(path)
+        dst_rel = self._to_remote_path(path)
+        return self.server.exists(dst_rel)
 
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
         # Ignore mkdir for remote backend, it will be made when file is written.
@@ -144,18 +148,18 @@ class RemoteFS(FS):
         return None
 
     def is_dir(self, path: Path | str) -> bool:
-        path = self._to_str(path)
+        path = self._to_remote_path(path)
         err = self.server.list(path)
         return isinstance(err, list)
 
     def is_file(self, path: Path | str) -> bool:
-        path = self._to_str(path)
+        path = self._to_remote_path(path)
         err = self.server.list(path)
         # Make faster.
         return isinstance(err, Exception) and self.exists(path)
 
     def ls(self, path: Path | str) -> list[str]:
-        path = self._to_str(path)
+        path = self._to_remote_path(path)
         err = self.server.list(path)
         if isinstance(err, Exception):
             raise FileNotFoundError(f"File not found: {path}, because of {err}")

@@ -97,7 +97,7 @@ class RcloneServeHttpTester(unittest.TestCase):
         http_server: HttpServer
         try:
             with self.rclone.serve_http(
-                remote_path, addr="localhost:8081"
+                remote_path,
             ) as http_server:
                 resource_url = "zachs_video/internaly_ai_alignment.mp4"
                 exists = http_server.exists(resource_url)
@@ -115,7 +115,7 @@ class RcloneServeHttpTester(unittest.TestCase):
         http_server: HttpServer
         try:
             with self.rclone.serve_http(
-                remote_path, addr="localhost:8081"
+                remote_path,
             ) as http_server:
                 resource_url = "zachs_video"
                 out = http_server.list(resource_url)
@@ -135,7 +135,7 @@ class RcloneServeHttpTester(unittest.TestCase):
         http_server: HttpServer | None = None
         try:
             with self.rclone.serve_http(
-                remote_path, addr="localhost:8081"
+                remote_path,
             ) as http_server:
                 resource_url = "zachs_video/internaly_ai_alignment.mp4"
                 expected_size = 73936110
