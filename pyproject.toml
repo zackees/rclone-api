@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 # Change this with the version number bump.
-version = "1.5.40"
+version = "1.5.41"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -60,6 +60,16 @@ class Config:
     def parse(self) -> Parsed:
         return Parsed.parse(self.text)
 
+    def _auto_convert_if_json(self) -> None:
+        try:
+            text = _json_to_rclone_config_str_or_raise(self.text)
+            self.text = text
+        except Exception:
+            pass
+
+    def __post_init__(self) -> None:
+        self._auto_convert_if_json()
+
 
 def find_conf_file(rclone: Any | None = None) -> Path | None:
     import subprocess
@@ -168,8 +178,13 @@ def parse_rclone_config(content: str) -> Parsed:
 # }
 
 
-def _json_to_rclone_config_str_or_raise(json_data: dict) -> str:
+def _json_to_rclone_config_str_or_raise(json_data: dict | str) -> str:
     """Convert JSON data to rclone config."""
+    import json
+
+    if isinstance(json_data, str):
+        json_data = json.loads(json_data)
+    assert isinstance(json_data, dict)
     out = ""
     for key, value in json_data.items():
         out += f"[{key}]\n"

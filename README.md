@@ -22,6 +22,14 @@ You can have [rclone](https://rclone.org/) in your path or else the api will dow
 
 There is a virtual file system called `FSPath` which emulates common operators for `pathlib.Path`. You can get an instance of an `FSPath` from an `Rclone` instance using the `rclone.cwd("src:path/to")` function.
 
+## ENVS
+
+  * RCLONE_CONFIG
+    * path string of the rclone.conf text file
+
+  * RCLONE_CONFIG_JSON
+    * string content of rclone config.json
+
 # Install
 
 `pip install rclone-api`
