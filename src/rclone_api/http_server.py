@@ -150,7 +150,7 @@ class HttpServer:
             response = httpx.get(url, timeout=_TIMEOUT)
             response.raise_for_status()
             files_and_dirs = _parse_files_and_dirs(response.content.decode())
-            return files_and_dirs.dirs, files_and_dirs.files
+            return files_and_dirs.files, files_and_dirs.dirs
         except Exception as e:
             warnings.warn(f"Failed to list files on {self.url}: {e}")
             return e
