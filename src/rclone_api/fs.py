@@ -1,5 +1,6 @@
 import abc
 import shutil
+import warnings
 from pathlib import Path
 
 from rclone_api.config import Config
@@ -41,6 +42,10 @@ class FS(abc.ABC):
     def get_path(self, path: str) -> "FSPath":
         pass
 
+    @abc.abstractmethod
+    def dispose(self) -> None:
+        pass
+
 
 class RealFS(FS):
 
@@ -77,6 +82,9 @@ class RealFS(FS):
 
     def get_path(self, path: str) -> "FSPath":
         return FSPath(self, path)
+
+    def dispose(self) -> None:
+        pass
 
 
 class RemoteFS(FS):
@@ -180,8 +188,15 @@ class RemoteFS(FS):
 
 class FSPath:
     def __init__(self, fs: FS, path: str) -> None:
-        self.fs = fs
-        self.path = path
+        self.fs: FS = fs
+        self.path: str = path
+        self.fs_holder: FS | None = None
+
+    def set_owner(self) -> None:
+        self.fs_holder = self.fs
+
+    def is_real_fs(self) -> bool:
+        return isinstance(self.fs, RealFS)
 
     def read_text(self) -> str:
         data = self.read_bytes()
@@ -203,6 +218,16 @@ class FSPath:
 
     def __repr__(self) -> str:
         return f"FSPath({self.path})"
+
+    def __enter__(self) -> "FSPath":
+        if self.fs_holder is not None:
+            warnings.warn("This operation is reserved for the cwd returned by FS")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        if self.fs_holder is not None:
+            self.fs_holder.dispose()
+            self.fs_holder = None
 
     def mkdir(self, parents=True, exist_ok=True) -> None:
         self.fs.mkdir(self.path, parents=parents, exist_ok=exist_ok)
