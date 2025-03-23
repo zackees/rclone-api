@@ -58,6 +58,7 @@ class Config:
 
 
 def find_conf_file(rclone: Any | None = None) -> Path | None:
+    from rclone_api import Rclone
     from rclone_api.rclone_impl import RcloneImpl
 
     # if os.environ.get("RCLONE_CONFIG"):
@@ -70,8 +71,13 @@ def find_conf_file(rclone: Any | None = None) -> Path | None:
     if (conf := Path.cwd() / "rclone.conf").exists():
         return conf
     if rclone is not None:
-        assert isinstance(rclone, RcloneImpl)
-        paths_or_err = rclone.config_paths()
+        if isinstance(rclone, Rclone):
+            rclone = rclone.impl
+        else:
+            assert isinstance(rclone, RcloneImpl)
+        rclone_impl: RcloneImpl = rclone
+        assert isinstance(rclone_impl, RcloneImpl)
+        paths_or_err = rclone_impl.config_paths()
         if isinstance(paths_or_err, Exception):
             return None
         paths = paths_or_err
