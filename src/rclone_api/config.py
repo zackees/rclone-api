@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List
 
 
@@ -53,6 +54,21 @@ class Config:
 
     def parse(self) -> Parsed:
         return Parsed.parse(self.text)
+
+
+def find_conf_file() -> Path | None:
+    import os
+
+    # if os.environ.get("RCLONE_CONFIG"):
+    #     return Path(os.environ["RCLONE_CONFIG"])
+    # return None
+    # rclone_conf = rclone_conf or Path.cwd() / "rclone.conf"
+
+    if os.environ.get("RCLONE_CONFIG"):
+        return Path(os.environ["RCLONE_CONFIG"])
+    if (conf := Path.cwd() / "rclone.conf").exists():
+        return conf
+    return None
 
 
 def parse_rclone_config(content: str) -> Parsed:

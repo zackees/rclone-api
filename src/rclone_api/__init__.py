@@ -93,7 +93,7 @@ class Rclone:
         return upgrade_rclone()
 
     def __init__(
-        self, rclone_conf: Path | Config, rclone_exe: Path | None = None
+        self, rclone_conf: Path | Config | None, rclone_exe: Path | None = None
     ) -> None:
         """
         Initialize the Rclone interface.

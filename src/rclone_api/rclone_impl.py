@@ -73,11 +73,18 @@ def _to_rclone_conf(config: Config | Path) -> Config:
 
 class RcloneImpl:
     def __init__(
-        self, rclone_conf: Path | Config, rclone_exe: Path | None = None
+        self, rclone_conf: Path | Config | None, rclone_exe: Path | None = None
     ) -> None:
         if isinstance(rclone_conf, Path):
             if not rclone_conf.exists():
                 raise ValueError(f"Rclone config file not found: {rclone_conf}")
+        if rclone_conf is None:
+            from rclone_api.config import find_conf_file
+
+            maybe_path = find_conf_file()
+            if not isinstance(maybe_path, Path):
+                raise ValueError("Rclone config file not found")
+            rclone_conf = _to_rclone_conf(maybe_path)
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
         self.config: Config = _to_rclone_conf(rclone_conf)
 
