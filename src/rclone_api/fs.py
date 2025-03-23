@@ -103,6 +103,7 @@ class RemoteFS(FS):
         super().__init__()
         self.src = src
         self.shutdown = False
+        self.server: HttpServer | None = None
         if rclone_conf is None:
             from rclone_api.config import find_conf_file
 
@@ -111,7 +112,7 @@ class RemoteFS(FS):
                 raise FileNotFoundError("rclone.conf not found")
         self.rclone_conf = rclone_conf
         self.rclone: Rclone = Rclone(rclone_conf)
-        self.server: HttpServer = self.rclone.serve_http(src=src)
+        self.server = self.rclone.serve_http(src=src)
 
     def root(self) -> "FSPath":
         return FSPath(self, self.src)
@@ -144,6 +145,9 @@ class RemoteFS(FS):
         self.rclone.write_bytes(data, path)
 
     def exists(self, path: Path | str) -> bool:
+        from rclone_api.http_server import HttpServer
+
+        assert isinstance(self.server, HttpServer)
         path = self._to_str(path)
         dst_rel = self._to_remote_path(path)
         return self.server.exists(dst_rel)
@@ -156,17 +160,26 @@ class RemoteFS(FS):
         return None
 
     def is_dir(self, path: Path | str) -> bool:
+        from rclone_api.http_server import HttpServer
+
+        assert isinstance(self.server, HttpServer)
         path = self._to_remote_path(path)
         err = self.server.list(path)
         return isinstance(err, list)
 
     def is_file(self, path: Path | str) -> bool:
+        from rclone_api.http_server import HttpServer
+
+        assert isinstance(self.server, HttpServer)
         path = self._to_remote_path(path)
         err = self.server.list(path)
         # Make faster.
         return isinstance(err, Exception) and self.exists(path)
 
     def ls(self, path: Path | str) -> list[str]:
+        from rclone_api.http_server import HttpServer
+
+        assert isinstance(self.server, HttpServer)
         path = self._to_remote_path(path)
         err = self.server.list(path)
         if isinstance(err, Exception):
@@ -177,7 +190,7 @@ class RemoteFS(FS):
         return FSPath(self, path)
 
     def dispose(self) -> None:
-        if self.shutdown:
+        if self.shutdown or not self.server:
             return
         self.shutdown = True
         self.server.shutdown()
