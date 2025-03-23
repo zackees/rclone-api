@@ -31,7 +31,8 @@ class FS(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def ls(self, path: Path | str) -> list[str]:
+    def ls(self, path: Path | str) -> tuple[list[str], list[str]]:
+        """First is files and second is directories."""
         pass
 
     @abc.abstractmethod
@@ -57,8 +58,11 @@ class RealFS(FS):
     def __init__(self) -> None:
         super().__init__()
 
-    def ls(self, path: Path | str) -> list[str]:
-        return [str(p) for p in Path(path).iterdir()]
+    def ls(self, path: Path | str) -> tuple[list[str], list[str]]:
+        files_and_dirs = [str(p) for p in Path(path).iterdir()]
+        files = [f for f in files_and_dirs if Path(f).is_file()]
+        dirs = [d for d in files_and_dirs if Path(d).is_dir()]
+        return files, dirs
 
     def cwd(self) -> "FSPath":
         return RealFS.from_path(Path.cwd())
@@ -176,7 +180,7 @@ class RemoteFS(FS):
         # Make faster.
         return isinstance(err, Exception) and self.exists(path)
 
-    def ls(self, path: Path | str) -> list[str]:
+    def ls(self, path: Path | str) -> tuple[list[str], list[str]]:
         from rclone_api.http_server import HttpServer
 
         assert isinstance(self.server, HttpServer)
@@ -259,13 +263,17 @@ class FSPath:
         assert isinstance(self.fs, RealFS)
         shutil.rmtree(self.path, ignore_errors=ignore_errors)
 
-    def lspaths(self) -> "list[FSPath]":
-        names: list[str] = self.ls()
-        return [self / name for name in names]
+    def lspaths(self) -> "tuple[list[FSPath], list[FSPath]]":
+        filenames, dirnames = self.ls()
+        fpaths: list[FSPath] = [self / name for name in filenames]
+        dpaths: list[FSPath] = [self / name for name in dirnames]
+        return fpaths, dpaths
 
-    def ls(self) -> list[str]:
-        names: list[str] = self.fs.ls(self.path)
-        return names
+    def ls(self) -> tuple[list[str], list[str]]:
+        filenames: list[str]
+        dirnames: list[str]
+        filenames, dirnames = self.fs.ls(self.path)
+        return filenames, dirnames
 
     @property
     def name(self) -> str:

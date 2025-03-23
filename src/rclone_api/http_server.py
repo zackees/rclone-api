@@ -6,6 +6,7 @@ import tempfile
 import time
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Semaphore
 from typing import Any
@@ -24,9 +25,16 @@ _PUT_WARNED = False
 _range = range
 
 
-def _parse_files(html: str) -> list[str]:
+@dataclass
+class FileList:
+    dirs: list[str]
+    files: list[str]
+
+
+def _parse_files_and_dirs(html: str) -> FileList:
     soup = BeautifulSoup(html, "html.parser")
     files = []
+    dirs = []
     # Find each table row with class "file"
     for tr in soup.find_all("tr", class_="file"):
         name_span = tr.find("span", class_="name")  # type: ignore
@@ -38,9 +46,14 @@ def _parse_files(html: str) -> list[str]:
         # Get the text from the <a> tag
         file_name = a_tag.get_text(strip=True)  # type: ignore
         # Skip directories (they end with a slash)
-        if not file_name.endswith("/"):
+        # if not file_name.endswith("/"):
+        #    files.append(file_name)
+        # files.append(file_name)
+        if file_name.endswith("/"):
+            dirs.append(file_name)
+        else:
             files.append(file_name)
-    return files
+    return FileList(dirs=dirs, files=files)
 
 
 class HttpServer:
@@ -125,7 +138,7 @@ class HttpServer:
 
         # curl "http://localhost:5572/?list"
 
-    def list(self, path: str) -> list[str] | Exception:
+    def list(self, path: str) -> tuple[list[str], list[str]] | Exception:
         """List files on the server."""
 
         try:
@@ -136,7 +149,8 @@ class HttpServer:
             url += "/?list"
             response = httpx.get(url, timeout=_TIMEOUT)
             response.raise_for_status()
-            return _parse_files(response.content.decode())
+            files_and_dirs = _parse_files_and_dirs(response.content.decode())
+            return files_and_dirs.dirs, files_and_dirs.files
         except Exception as e:
             warnings.warn(f"Failed to list files on {self.url}: {e}")
             return e
