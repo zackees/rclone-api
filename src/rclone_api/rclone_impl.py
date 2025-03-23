@@ -71,6 +71,24 @@ def _to_rclone_conf(config: Config | Path) -> Config:
         return config
 
 
+def _parse_paths(src: str) -> list[Path] | Exception:
+    # Config file: C:\Users\niteris\AppData\Roaming\rclone\rclone.conf
+    # Cache dir:   C:\Users\niteris\AppData\Local\rclone
+    # Temp dir:    C:\Users\niteris\AppData\Local\Temp
+    lines = src.splitlines()
+    paths: list[Path] = []
+    for line in lines:
+        try:
+            parts = line.split(":")
+            if len(parts) != 2:
+                continue
+            path = Path(parts[1].strip())
+            paths.append(path)
+        except Exception as e:
+            return e
+    return paths
+
+
 class RcloneImpl:
     def __init__(
         self, rclone_conf: Path | Config | None, rclone_exe: Path | None = None
@@ -81,7 +99,7 @@ class RcloneImpl:
         if rclone_conf is None:
             from rclone_api.config import find_conf_file
 
-            maybe_path = find_conf_file()
+            maybe_path = find_conf_file(self)
             if not isinstance(maybe_path, Path):
                 raise ValueError("Rclone config file not found")
             rclone_conf = _to_rclone_conf(maybe_path)
@@ -1225,6 +1243,40 @@ class RcloneImpl:
             url=f"http://{addr}", subpath=subpath, process=proc
         )
         return out
+
+    def config_paths(
+        self, remote: str | None = None, obscure: bool = False, no_obscure: bool = False
+    ) -> list[Path] | Exception:
+        """Show the current configuration.
+
+        Args:
+            remote: Optional remote name to show configuration for
+            obscure: Show obscured passwords
+            no_obscure: Show passwords in plain text
+
+        Returns:
+            Configuration as text or an Exception if an error occurred
+        """
+        cmd_list: list[str] = ["config", "show"]
+
+        if remote is not None:
+            cmd_list.append(remote)
+
+        if obscure:
+            cmd_list.append("--obscure")
+
+        if no_obscure:
+            cmd_list.append("--no-obscure")
+
+        try:
+            cp = self._run(cmd_list, capture=True, check=True)
+            stdout: str | bytes = cp.stdout
+            if isinstance(stdout, bytes):
+                stdout = stdout.decode("utf-8")
+            out = _parse_paths(stdout)
+            return out
+        except subprocess.CalledProcessError as e:
+            return e
 
     def size_files(
         self,

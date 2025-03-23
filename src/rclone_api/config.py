@@ -1,6 +1,7 @@
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -56,8 +57,8 @@ class Config:
         return Parsed.parse(self.text)
 
 
-def find_conf_file() -> Path | None:
-    import os
+def find_conf_file(rclone: Any | None = None) -> Path | None:
+    from rclone_api.rclone_impl import RcloneImpl
 
     # if os.environ.get("RCLONE_CONFIG"):
     #     return Path(os.environ["RCLONE_CONFIG"])
@@ -68,6 +69,16 @@ def find_conf_file() -> Path | None:
         return Path(os.environ["RCLONE_CONFIG"])
     if (conf := Path.cwd() / "rclone.conf").exists():
         return conf
+    if rclone is not None:
+        assert isinstance(rclone, RcloneImpl)
+        paths_or_err = rclone.config_paths()
+        if isinstance(paths_or_err, Exception):
+            return None
+        paths = paths_or_err
+        path: Path
+        for path in paths:
+            if path.exists():
+                return path
     return None
 
 

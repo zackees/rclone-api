@@ -210,6 +210,23 @@ class Rclone:
         """
         return self.impl.obscure(password=password)
 
+    def config_show(
+        self, remote: str | None = None, obscure: bool = False, no_obscure: bool = False
+    ) -> list[Path] | Exception:
+        """Show the current configuration.
+
+        Args:
+            remote: Optional remote name to show configuration for
+            obscure: Show obscured passwords
+            no_obscure: Show passwords in plain text
+
+        Returns:
+            Configuration as text or an Exception if an error occurred
+        """
+        return self.impl.config_paths(
+            remote=remote, obscure=obscure, no_obscure=no_obscure
+        )
+
     def ls_stream(
         self,
         src: str,
