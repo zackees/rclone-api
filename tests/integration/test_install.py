@@ -13,7 +13,6 @@ from rclone_api.install import rclone_download
 class RcloneInstallTester(unittest.TestCase):
     """Test rclone functionality."""
 
-    @unittest.skip("Long running test")
     def test_list_remotes(self) -> None:
         rclone_exe = "rclone"
         if platform.system() == "Windows":

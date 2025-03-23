@@ -2,5 +2,5 @@
 
 set -e
 echo "Running unittests"
-uv run pytest -n auto tests -v --durations=0
+uv run pytest -n auto tests -v --durations=0 tests/unit
 
