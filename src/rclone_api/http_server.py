@@ -134,7 +134,7 @@ class HttpServer:
             if path:
                 url += f"/{path}"
             url += "/?list"
-            response = httpx.get(url)
+            response = httpx.get(url, timeout=_TIMEOUT)
             response.raise_for_status()
             return _parse_files(response.content.decode())
         except Exception as e:
