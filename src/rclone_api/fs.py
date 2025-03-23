@@ -102,6 +102,7 @@ class RemoteFS(FS):
 
         super().__init__()
         self.src = src
+        self.shutdown = False
         if rclone_conf is None:
             from rclone_api.config import find_conf_file
 
@@ -111,7 +112,6 @@ class RemoteFS(FS):
         self.rclone_conf = rclone_conf
         self.rclone: Rclone = Rclone(rclone_conf)
         self.server: HttpServer = self.rclone.serve_http(src=src)
-        self.shutdown = False
 
     def root(self) -> "FSPath":
         return FSPath(self, self.src)
