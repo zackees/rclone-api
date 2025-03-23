@@ -53,6 +53,10 @@ class Config:
 
     text: str
 
+    @staticmethod
+    def from_json(json_data: dict) -> "Config | Exception":
+        return json_to_rclone_config(json_data)
+
     def parse(self) -> Parsed:
         return Parsed.parse(self.text)
 
@@ -151,3 +155,32 @@ def parse_rclone_config(content: str) -> Parsed:
     for section in sections:
         data[section.name] = section
     return Parsed(sections=data)
+
+
+# JSON_DATA = {
+#     "dst": {
+#         "type": "s3",
+#         "bucket": "bucket",
+#         "endpoint": "https://s3.amazonaws.com",
+#         "access_key_id": "access key",
+#         "access_secret_key": "access secret key",
+#     }
+# }
+
+
+def _json_to_rclone_config_str_or_raise(json_data: dict) -> str:
+    """Convert JSON data to rclone config."""
+    out = ""
+    for key, value in json_data.items():
+        out += f"[{key}]\n"
+        for k, v in value.items():
+            out += f"{k} = {v}\n"
+    return out
+
+
+def json_to_rclone_config(json_data: dict) -> Config | Exception:
+    try:
+        text = _json_to_rclone_config_str_or_raise(json_data)
+        return Config(text=text)
+    except Exception as e:
+        return e
