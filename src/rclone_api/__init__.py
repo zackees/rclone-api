@@ -92,6 +92,13 @@ class Rclone:
 
         return upgrade_rclone()
 
+    @staticmethod
+    def find_rclone_conf() -> Path | None:
+        """Find the rclone configuration file from the environment or default locations."""
+        from rclone_api.config import find_conf_file
+
+        return find_conf_file()
+
     def __init__(
         self, rclone_conf: Path | Config | None, rclone_exe: Path | None = None
     ) -> None:

@@ -95,19 +95,19 @@ class RemoteFS(FS):
     ) -> "RemoteFS":
         if isinstance(rclone_conf, str):
             rclone_conf = Config(text=rclone_conf)
-        if rclone_conf is None:
-            curr_dir = Path.cwd() / "rclone.conf"
-            if curr_dir.exists():
-                rclone_conf = curr_dir
-            else:
-                raise ValueError("rclone_conf not found")
         return RemoteFS(rclone_conf, src)
 
-    def __init__(self, rclone_conf: Path | Config, src: str) -> None:
+    def __init__(self, rclone_conf: Path | Config | None, src: str) -> None:
         from rclone_api import HttpServer, Rclone
 
         super().__init__()
         self.src = src
+        if rclone_conf is None:
+            from rclone_api.config import find_conf_file
+
+            rclone_conf = find_conf_file()
+            if rclone_conf is None:
+                raise FileNotFoundError("rclone.conf not found")
         self.rclone_conf = rclone_conf
         self.rclone: Rclone = Rclone(rclone_conf)
         self.server: HttpServer = self.rclone.serve_http(src=src)
