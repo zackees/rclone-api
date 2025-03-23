@@ -58,6 +58,8 @@ class Config:
 
 
 def find_conf_file(rclone: Any | None = None) -> Path | None:
+    import subprocess
+
     from rclone_api import Rclone
     from rclone_api.rclone_impl import RcloneImpl
 
@@ -70,7 +72,38 @@ def find_conf_file(rclone: Any | None = None) -> Path | None:
         return Path(os.environ["RCLONE_CONFIG"])
     if (conf := Path.cwd() / "rclone.conf").exists():
         return conf
-    if rclone is not None:
+
+    if rclone is None:
+        from rclone_api.install import rclone_download
+
+        err = rclone_download(Path("."))
+        if isinstance(err, Exception):
+            import warnings
+
+            warnings.warn(f"rclone_download failed: {err}")
+            return None
+        cmd_list: list[str] = [
+            "rclone",
+            "config",
+            "paths",
+        ]
+        subproc: subprocess.CompletedProcess = subprocess.run(
+            args=cmd_list,
+            shell=True,
+            capture_output=True,
+            text=True,
+        )
+        if subproc.returncode == 0:
+            stdout = subproc.stdout
+            for line in stdout.splitlines():
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    _, value = parts
+                    value = value.strip()
+                    value_path = Path(value.strip())
+                    if value_path.exists():
+                        return value_path
+    else:
         if isinstance(rclone, Rclone):
             rclone = rclone.impl
         else:
