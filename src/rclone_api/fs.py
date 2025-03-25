@@ -95,9 +95,9 @@ class RemoteFS(FS):
 
     @staticmethod
     def from_rclone_config(
-        src: str, rclone_conf: Path | Config | str | None
+        src: str, rclone_conf: Path | Config | str | dict | None
     ) -> "RemoteFS":
-        if isinstance(rclone_conf, str):
+        if isinstance(rclone_conf, str) or isinstance(rclone_conf, dict):
             rclone_conf = Config(text=rclone_conf)
         return RemoteFS(rclone_conf, src)
 
