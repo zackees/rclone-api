@@ -47,11 +47,22 @@ class Parsed:
         return parse_rclone_config(content)
 
 
-@dataclass
 class Config:
     """Rclone configuration dataclass."""
 
-    text: str
+    # text: str
+    def __init__(self, text: str | dict) -> None:
+        self.text: str
+        if isinstance(text, dict):
+            self.text = _json_to_rclone_config_str_or_raise(text)
+        else:
+            self.text = text
+
+        try:
+            new_text = _json_to_rclone_config_str_or_raise(self.text)
+            self.text = new_text
+        except Exception:
+            pass
 
     @staticmethod
     def from_json(json_data: dict) -> "Config | Exception":
@@ -59,16 +70,6 @@ class Config:
 
     def parse(self) -> Parsed:
         return Parsed.parse(self.text)
-
-    def _auto_convert_if_json(self) -> None:
-        try:
-            text = _json_to_rclone_config_str_or_raise(self.text)
-            self.text = text
-        except Exception:
-            pass
-
-    def __post_init__(self) -> None:
-        self._auto_convert_if_json()
 
 
 def find_conf_file(rclone: Any | None = None) -> Path | None:
