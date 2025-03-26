@@ -73,6 +73,41 @@ def _find_rclone_exe(start: Path) -> Path | None:
     return None
 
 
+def _move_to_standard_linux_paths(exe_path: Path) -> None:
+    """Move rclone to standard paths on Linux systems and create a symlink in the original location."""
+    if platform.system() != "Linux":
+        return
+
+    try:
+        # Create directory in standard path if it doesn't exist
+        bin_path = Path("/usr/local/bin/rclone")
+
+        if os.access("/usr/local/bin", os.W_OK):
+            # Remove existing binary if it exists
+            if bin_path.exists():
+                if bin_path.is_symlink():
+                    bin_path.unlink()
+                else:
+                    os.remove(bin_path)
+
+            # Move the binary to standard path
+            shutil.move(str(exe_path), str(bin_path))
+
+            # Make it executable
+            os.chmod(bin_path, 0o755)
+
+            # Create a symlink in the original location
+            exe_path.symlink_to(bin_path)
+
+            logger.info(f"Moved rclone to {bin_path} and created symlink at {exe_path}")
+        else:
+            logger.warning(
+                "No write permission to /usr/local/bin, skipping move operation"
+            )
+    except Exception as e:
+        logger.warning(f"Failed to move rclone to standard paths: {e}")
+
+
 def rclone_download(out: Path, replace=False) -> Exception | None:
     if out.exists() and not replace:
         return None
@@ -91,6 +126,10 @@ def rclone_download(out: Path, replace=False) -> Exception | None:
             shutil.move(exe, out)
         _remove_signed_binary_requirements(out)
         _make_executable(out)
+
+        # Move to standard paths on Linux
+        _move_to_standard_linux_paths(out)
+
         return None
     except Exception as e:
         import traceback
