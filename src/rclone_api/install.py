@@ -1,3 +1,4 @@
+import logging
 import os
 import platform
 import shutil
@@ -11,6 +12,9 @@ URL_WINDOWS = "https://downloads.rclone.org/rclone-current-windows-amd64.zip"
 URL_LINUX = "https://downloads.rclone.org/rclone-current-linux-amd64.zip"
 URL_MACOS_ARM = "https://downloads.rclone.org/rclone-current-osx-arm64.zip"
 URL_MACOS_X86 = "https://downloads.rclone.org/rclone-current-osx-amd64.zip"
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 
 def rclone_download_url() -> str:
@@ -76,6 +80,7 @@ def rclone_download(out: Path, replace=False) -> Exception | None:
         url = rclone_download_url()
         with TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
+            logging.info(f"Downloading rclone from {url} to {tmp.absolute()}")
             download(url, tmp, kind="zip", replace=True)
             exe = _find_rclone_exe(tmp)
             if exe is None:
