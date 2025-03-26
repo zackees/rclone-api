@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 # Change this with the version number bump.
-version = "1.5.43"
+version = "1.5.44"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -62,3 +62,4 @@ rclone-api-listfiles = "rclone_api.cmd.list_files:main"
 rclone-api-copylarge-s3 = "rclone_api.cmd.copy_large_s3:main"
 rclone-api-profile-mount = "rclone_api.profile.mount_copy_bytes:main"
 rclone-api-save-to-db = "rclone_api.cmd.save_to_db:main"
+rclone-api-install-bins = "rclone_api.cmd.install_rclone:main"
