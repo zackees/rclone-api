@@ -79,31 +79,60 @@ def _move_to_standard_linux_paths(exe_path: Path) -> None:
         return
 
     try:
-        # Create directory in standard path if it doesn't exist
-        bin_path = Path("/usr/local/bin/rclone")
+        # Try system-wide installation first
+        system_bin_path = Path("/usr/local/bin/rclone")
 
         if os.access("/usr/local/bin", os.W_OK):
             # Remove existing binary if it exists
-            if bin_path.exists():
-                if bin_path.is_symlink():
-                    bin_path.unlink()
+            if system_bin_path.exists():
+                if system_bin_path.is_symlink():
+                    system_bin_path.unlink()
                 else:
-                    os.remove(bin_path)
+                    os.remove(system_bin_path)
 
             # Move the binary to standard path
-            shutil.move(str(exe_path), str(bin_path))
+            shutil.move(str(exe_path), str(system_bin_path))
 
             # Make it executable
-            os.chmod(bin_path, 0o755)
+            os.chmod(system_bin_path, 0o755)
 
             # Create a symlink in the original location
-            exe_path.symlink_to(bin_path)
+            exe_path.symlink_to(system_bin_path)
 
-            logger.info(f"Moved rclone to {bin_path} and created symlink at {exe_path}")
-        else:
-            logger.warning(
-                "No write permission to /usr/local/bin, skipping move operation"
+            logger.info(
+                f"Moved rclone to {system_bin_path} and created symlink at {exe_path}"
             )
+        else:
+            # Fall back to user's home directory if no root access
+            home_bin_dir = Path.home() / ".local" / "bin"
+            home_bin_dir.mkdir(parents=True, exist_ok=True)
+            home_bin_path = home_bin_dir / "rclone"
+
+            # Remove existing binary if it exists
+            if home_bin_path.exists():
+                if home_bin_path.is_symlink():
+                    home_bin_path.unlink()
+                else:
+                    os.remove(home_bin_path)
+
+            # Move the binary to user's bin directory
+            shutil.move(str(exe_path), str(home_bin_path))
+
+            # Make it executable
+            os.chmod(home_bin_path, 0o755)
+
+            # Create a symlink in the original location
+            exe_path.symlink_to(home_bin_path)
+
+            logger.info(
+                f"Moved rclone to {home_bin_path} and created symlink at {exe_path}"
+            )
+
+            # Check if ~/.local/bin is in PATH, if not suggest adding it
+            if str(home_bin_dir) not in os.environ.get("PATH", ""):
+                logger.warning(
+                    f"{home_bin_dir} is not in PATH. Consider adding it to your shell profile."
+                )
     except Exception as e:
         logger.warning(f"Failed to move rclone to standard paths: {e}")
 
