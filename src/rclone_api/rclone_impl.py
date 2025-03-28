@@ -507,7 +507,13 @@ class RcloneImpl:
         verbose = get_verbose(verbose)
         src = src if isinstance(src, str) else str(src.path)
         dst = dst if isinstance(dst, str) else str(dst.path)
-        cmd_list: list[str] = ["copyto", src, dst, "--s3-no-check-bucket"]
+        cmd_list: list[str] = [
+            "copyto",
+            src,
+            dst,
+            "--s3-no-check-bucket",
+            "--no-traverse",
+        ]
         if other_args is not None:
             cmd_list += other_args
         cp = self._run(cmd_list, check=check)
