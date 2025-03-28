@@ -1,4 +1,5 @@
 import os
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
@@ -89,14 +90,16 @@ def find_conf_file(rclone: Any | None = None) -> Path | None:
         return conf
 
     if rclone is None:
-        from rclone_api.install import rclone_download
+        has_rclone = shutil.which("rclone")
+        if not has_rclone:
+            from rclone_api.install import rclone_download
 
-        err = rclone_download(Path("."))
-        if isinstance(err, Exception):
-            import warnings
+            err = rclone_download(Path("."))
+            if isinstance(err, Exception):
+                import warnings
 
-            warnings.warn(f"rclone_download failed: {err}")
-            return None
+                warnings.warn(f"rclone_download failed: {err}")
+                return None
         cmd_list: list[str] = [
             "rclone",
             "config",
