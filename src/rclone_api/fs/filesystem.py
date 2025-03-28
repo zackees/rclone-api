@@ -274,10 +274,10 @@ class FSPath:
     def mkdir(self, parents=True, exist_ok=True) -> None:
         self.fs.mkdir(self.path, parents=parents, exist_ok=exist_ok)
 
-    def os_walk(
+    def walk(
         self,
     ) -> "Generator[tuple[FSPath, list[str], list[str]], None, None]":
-        from rclone_api.fs.os_walk import os_walk
+        from rclone_api.fs.walk import os_walk
 
         return os_walk(self)
 
