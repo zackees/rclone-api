@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Generator
 
 from rclone_api.fs.filesystem import FSPath, logger
@@ -10,7 +11,9 @@ def os_walk(
     stack: list[str] = [self.path]
 
     while stack:
-        current_dir = root_path / stack.pop()
+        curr_path = stack.pop()
+        curr_suffix_path = Path(curr_path).relative_to(Path(root_path.path)).as_posix()
+        current_dir = root_path / curr_suffix_path
         try:
             filenames, dirnames = current_dir.ls()
         except Exception as e:
