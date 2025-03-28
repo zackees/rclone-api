@@ -1,9 +1,12 @@
 import abc
+import logging
 import shutil
 import warnings
 from pathlib import Path
 
 from rclone_api.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class FS(abc.ABC):
@@ -11,7 +14,7 @@ class FS(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def copy(self, src: Path | str, dest: Path | str) -> None:
+    def copy(self, src: Path | str, dst: Path | str) -> None:
         pass
 
     @abc.abstractmethod
@@ -67,8 +70,8 @@ class RealFS(FS):
     def cwd(self) -> "FSPath":
         return RealFS.from_path(Path.cwd())
 
-    def copy(self, src: Path | str, dest: Path | str) -> None:
-        shutil.copy(str(src), str(dest))
+    def copy(self, src: Path | str, dst: Path | str) -> None:
+        shutil.copy(str(src), str(dst))
 
     def read_bytes(self, path: Path | str) -> bytes:
         with open(path, "rb") as f:
@@ -132,10 +135,31 @@ class RemoteFS(FS):
     def _to_remote_path(self, path: str | Path) -> str:
         return Path(path).relative_to(self.src).as_posix()
 
-    def copy(self, src: Path | str, dest: Path | str) -> None:
-        src = self._to_str(src)
-        dest = self._to_remote_path(dest)
-        self.rclone.copy(src, dest)
+    def copy(self, src: Path | str, dst: Path | str) -> None:
+        from rclone_api.completed_process import CompletedProcess
+
+        src = src if isinstance(src, Path) else Path(src)
+        if not src.is_file():
+            raise FileNotFoundError(f"File not found: {src}")
+        dst = self._to_remote_path(dst)
+
+        is_s3 = self.rclone.is_s3(dst)
+        if is_s3:
+            filesize = src.stat().st_size
+            if filesize < 512 * 1024 * 1024:
+                logger.info(f"S3 OPTIMIZED: Copying {src} -> {dst}")
+                err = self.rclone.copy_file_s3(src, dst)
+                if isinstance(err, Exception):
+                    raise FileNotFoundError(
+                        f"File not found: {src}, specified by {err}"
+                    )
+                return
+        # Fallback.
+        logging.info(f"Copying {src} -> {dst}")
+        src_path = src.as_posix()
+        cp: CompletedProcess = self.rclone.copy(src_path, dst)
+        if cp.returncode != 0:
+            raise FileNotFoundError(f"File not found: {src}, specified by {cp.stderr}")
 
     def read_bytes(self, path: Path | str) -> bytes:
         path = self._to_str(path)
@@ -146,7 +170,7 @@ class RemoteFS(FS):
 
     def write_binary(self, path: Path | str, data: bytes) -> None:
         path = self._to_str(path)
-        self.rclone.write_bytes(data, path)
+        self.rclone.write_bytes(data, path)  # Already optimized for s3.
 
     def exists(self, path: Path | str) -> bool:
         from rclone_api.http_server import HttpServer

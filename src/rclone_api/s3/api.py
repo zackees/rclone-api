@@ -27,6 +27,10 @@ class S3Client:
             s3_creds=s3_creds, s3_config=S3Config(verbose=verbose)
         )
 
+    @property
+    def bucket_name(self) -> str:
+        return self.credentials.bucket_name
+
     def list_bucket_contents(self, bucket_name: str) -> None:
         list_bucket_contents(self.client, bucket_name)
 

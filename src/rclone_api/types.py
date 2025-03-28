@@ -31,6 +31,12 @@ class S3PathInfo:
     bucket: str
     key: str
 
+    @staticmethod
+    def from_str(src: str) -> "S3PathInfo":
+        from rclone_api.util import split_s3_path
+
+        return split_s3_path(src)
+
 
 @dataclass
 class SizeResult:

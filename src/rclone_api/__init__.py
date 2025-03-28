@@ -438,6 +438,37 @@ class Rclone:
         """
         return self.impl.cleanup(src=src, other_args=other_args)
 
+    def copy_file_s3(
+        self,
+        src: Path,
+        dst: str,
+        verbose: bool | None = None,
+    ) -> Exception | None:
+        """
+        Copy a file to S3.
+
+        Args:
+            src: Local file path
+            dst: Destination path in S3
+            verbose: Whether to show detailed progress
+
+        Returns:
+            None if successful, Exception if an error occurred
+        """
+        return self.impl.copy_file_s3(src=src, dst=dst, verbose=verbose)
+
+    def is_s3(self, dst: str) -> bool:
+        """
+        Check if a path is an S3 bucket.
+
+        Args:
+            dst: Path to check
+
+        Returns:
+            True if the path is an S3 bucket, False otherwise
+        """
+        return self.impl.is_s3(dst=dst)
+
     def copy_to(
         self,
         src: File | str,

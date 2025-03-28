@@ -33,6 +33,7 @@ from rclone_api.mount import Mount
 from rclone_api.process import Process
 from rclone_api.remote import Remote
 from rclone_api.rpath import RPath
+from rclone_api.s3.api import S3Client
 from rclone_api.s3.create import S3Credentials
 from rclone_api.s3.types import (
     S3Provider,
@@ -825,6 +826,51 @@ class RcloneImpl:
         except subprocess.CalledProcessError:
             return False
 
+    def _s3_client(self, src: str, verbose: bool | None = None) -> S3Client:
+        """Get an S3 client."""
+        verbose = get_verbose(verbose)
+        s3_creds = self.get_s3_credentials(remote=src, verbose=verbose)
+        s3_client = S3Client(s3_creds=s3_creds, verbose=verbose)
+        return s3_client
+
+    def copy_file_s3(
+        self,
+        src: Path,
+        dst: str,
+        verbose: bool | None = None,
+    ) -> Exception | None:
+        """Copy a file to S3."""
+        from rclone_api.s3.types import S3UploadTarget
+        from rclone_api.util import S3PathInfo
+
+        dst_is_s3 = self.is_s3(dst)
+        if not dst_is_s3:
+            return ValueError(f"Destination is not an S3 remote: {dst}")
+        s3_client = self._s3_client(dst, verbose=verbose)
+
+        path_info: S3PathInfo = S3PathInfo.from_str(dst)
+        target: S3UploadTarget = S3UploadTarget(
+            src_file=src,
+            src_file_size=src.stat().st_size,
+            bucket_name=path_info.bucket,
+            s3_key=path_info.key,
+        )
+        out = s3_client.upload_file(target=target)
+        return out
+
+    def is_s3(self, dst: str) -> bool:
+        """Check if a remote is an S3 remote."""
+        from rclone_api.util import S3PathInfo
+
+        path_info: S3PathInfo = S3PathInfo.from_str(dst)
+        remote = path_info.remote
+        parsed: Parsed = self.config.parse()
+        sections: dict[str, Section] = parsed.sections
+        if remote not in sections:
+            raise ValueError(f"Remote {remote} not found in rclone config")
+        section: Section = sections[remote]
+        return section.type() == "s3"
+
     def copy_file_s3_resumable(
         self,
         src: str,  # src:/Bucket/path/myfile.large.zst
@@ -864,12 +910,21 @@ class RcloneImpl:
     def write_bytes(
         self,
         dst: str,
-        data: bytes,
+        data: bytes | Path,
+        verbose: bool | None = None,
     ) -> Exception | None:
         """Write bytes to a file."""
+
+        if isinstance(data, Path):
+            data = data.read_bytes()
+
         with TemporaryDirectory() as tmpdir:
             tmpfile = Path(tmpdir) / "file.bin"
             tmpfile.write_bytes(data)
+            dst_is_s3 = self.is_s3(dst)
+            if dst_is_s3:
+                return self.copy_file_s3(tmpfile, dst, verbose=verbose)
+
             completed_proc = self.copy_to(str(tmpfile), dst, check=True)
             if completed_proc.returncode != 0:
                 return Exception(f"Failed to write bytes to {dst}", completed_proc)
@@ -925,10 +980,10 @@ class RcloneImpl:
     def get_s3_credentials(
         self, remote: str, verbose: bool | None = None
     ) -> S3Credentials:
-        from rclone_api.util import S3PathInfo, split_s3_path
+        from rclone_api.util import S3PathInfo
 
         verbose = get_verbose(verbose)
-        path_info: S3PathInfo = split_s3_path(remote)
+        path_info: S3PathInfo = S3PathInfo.from_str(remote)
 
         # path_info: S3PathInfo = split_s3_path(remote)
         remote = path_info.remote
