@@ -3,6 +3,7 @@ import logging
 import shutil
 import warnings
 from pathlib import Path
+from typing import Generator
 
 from rclone_api.config import Config
 
@@ -146,7 +147,7 @@ class RemoteFS(FS):
         is_s3 = self.rclone.is_s3(dst)
         if is_s3:
             filesize = src.stat().st_size
-            if filesize < 512 * 1024 * 1024:
+            if filesize < 1024 * 1024 * 1024:  # 1GB
                 logger.info(f"S3 OPTIMIZED: Copying {src} -> {dst}")
                 err = self.rclone.copy_file_s3(src, dst)
                 if isinstance(err, Exception):
@@ -272,6 +273,17 @@ class FSPath:
 
     def mkdir(self, parents=True, exist_ok=True) -> None:
         self.fs.mkdir(self.path, parents=parents, exist_ok=exist_ok)
+
+    def os_walk(
+        self,
+    ) -> "Generator[tuple[FSPath, list[str], list[str]], None, None]":
+        from rclone_api.fs.os_walk import os_walk
+
+        return os_walk(self)
+
+    def relative_to(self, other: "FSPath") -> "FSPath":
+        p = Path(self.path).relative_to(other.path)
+        return FSPath(self.fs, p.as_posix())
 
     def write_text(self, data: str, encoding: str | None = None) -> None:
         if encoding is None:
