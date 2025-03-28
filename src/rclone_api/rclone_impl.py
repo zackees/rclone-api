@@ -2,6 +2,7 @@
 Unit test file.
 """
 
+import logging
 import os
 import random
 import subprocess
@@ -56,6 +57,8 @@ from rclone_api.util import (
 
 # Enable tracing memory usage always
 tracemalloc.start()
+
+logger = logging.getLogger(__name__)
 
 
 def rclone_verbose(verbose: bool | None) -> bool:
@@ -867,9 +870,10 @@ class RcloneImpl:
         parsed: Parsed = self.config.parse()
         sections: dict[str, Section] = parsed.sections
         if remote not in sections:
-            raise ValueError(f"Remote {remote} not found in rclone config")
+            return False
         section: Section = sections[remote]
-        return section.type() == "s3"
+        t = section.type()
+        return t in ["s3", "b2"]
 
     def copy_file_s3_resumable(
         self,
@@ -915,19 +919,23 @@ class RcloneImpl:
     ) -> Exception | None:
         """Write bytes to a file."""
 
-        if isinstance(data, Path):
-            data = data.read_bytes()
+        try:
+            if isinstance(data, Path):
+                data = data.read_bytes()
 
-        with TemporaryDirectory() as tmpdir:
-            tmpfile = Path(tmpdir) / "file.bin"
-            tmpfile.write_bytes(data)
-            dst_is_s3 = self.is_s3(dst)
-            if dst_is_s3:
-                return self.copy_file_s3(tmpfile, dst, verbose=verbose)
+            with TemporaryDirectory() as tmpdir:
+                tmpfile = Path(tmpdir) / "file.bin"
+                tmpfile.write_bytes(data)
+                dst_is_s3 = self.is_s3(dst)
+                if dst_is_s3:
+                    return self.copy_file_s3(tmpfile, dst, verbose=verbose)
 
-            completed_proc = self.copy_to(str(tmpfile), dst, check=True)
-            if completed_proc.returncode != 0:
-                return Exception(f"Failed to write bytes to {dst}", completed_proc)
+                completed_proc = self.copy_to(str(tmpfile), dst, check=True)
+                if completed_proc.returncode != 0:
+                    return Exception(f"Failed to write bytes to {dst}", completed_proc)
+        except Exception as e:
+            logging.error(f"Failed to write bytes to {dst}")
+            return e
         return None
 
     def read_bytes(self, src: str) -> bytes | Exception:
