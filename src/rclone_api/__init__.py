@@ -24,7 +24,7 @@ from .dir_listing import DirListing  # Directory contents representation
 from .file import File, FileItem  # File representation
 from .file_stream import FilesStream  # Streaming file listings
 from .filelist import FileList  # File list utilities
-from .fs.fs import FSPath, RealFS, RemoteFS  # Filesystem utilities
+from .fs.filesystem import FSPath, RealFS, RemoteFS  # Filesystem utilities
 from .http_server import HttpFetcher, HttpServer, Range  # HTTP serving capabilities
 
 # Import logging configuration utilities
