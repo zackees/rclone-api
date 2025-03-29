@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Generator
 
 from rclone_api.config import Config
+from rclone_api.fs.walk_threaded_walker import Walker
 
 logger = logging.getLogger(__name__)
 
@@ -280,6 +281,14 @@ class FSPath:
         from rclone_api.fs.walk import os_walk
 
         return os_walk(self)
+
+    def walk_threaded(self) -> Walker:
+        """
+        with FSPath.walk_threaded() as walker:
+            for root, dirnames, filenames in walker.walk():
+                pass
+        """
+        return Walker(self)
 
     def relative_to(self, other: "FSPath") -> "FSPath":
         p = Path(self.path).relative_to(other.path)
