@@ -23,5 +23,8 @@ class FSWalker:
         self.walker.stop_event.set()
         self.walker.join()
 
+    def __iter__(self):
+        return self.walk()
+
     def walk(self):
         return self.walker.get_results()

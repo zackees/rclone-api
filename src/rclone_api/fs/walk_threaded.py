@@ -23,6 +23,7 @@ class _FSWalkThread:
         )
         self.thread = Thread(target=self.worker)
         self.stop_event = Event()
+        self.start()
 
     def worker(self):
         from rclone_api.fs.walk import fs_walk

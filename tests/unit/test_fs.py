@@ -39,13 +39,14 @@ class RcloneFSTester(unittest.TestCase):
             all_dirs: list[FSPath] = []
             all_files: list[FSPath] = []
 
-            for current_dir, dir_paths, file_paths in cwd.walk():
-                for dir_path in dir_paths:
-                    full_path = current_dir / dir_path
-                    all_dirs.append(full_path)
-                for file_path in file_paths:
-                    full_path = current_dir / file_path
-                    all_files.append(full_path)
+            with cwd.walk_begin() as walker:
+                for current_dir, dir_paths, file_paths in walker:
+                    for dir_path in dir_paths:
+                        full_path = current_dir / dir_path
+                        all_dirs.append(full_path)
+                    for file_path in file_paths:
+                        full_path = current_dir / file_path
+                        all_files.append(full_path)
 
             self.assertEqual(all_dirs[0].relative_to(cwd).path, "sub1")
             self.assertEqual(all_dirs[1].relative_to(cwd).path, "sub2")

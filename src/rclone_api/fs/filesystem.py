@@ -287,7 +287,7 @@ class FSPath:
         Threaded walker to hide latency.
 
         with FSPath.walk_begin() as walker:
-            for root, dirnames, filenames in walker.walk():
+            for root, dirnames, filenames in walker:
                 pass
         """
         return FSWalker(self, max_backlog=max_backlog)
