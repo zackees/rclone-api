@@ -60,6 +60,12 @@ class RcloneFSTester(unittest.TestCase):
         with_suffix = path.with_suffix(".txt")
         self.assertEqual(with_suffix.path, (HERE / "test.txt").as_posix())
 
+    def test_suffix(self) -> None:
+        """Test suffix functionality."""
+        path: FSPath = RealFS.from_path(HERE / "test.db")
+        suffix = path.suffix
+        self.assertEqual(suffix, ".db")
+
 
 #
 if __name__ == "__main__":
