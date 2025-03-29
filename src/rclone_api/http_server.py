@@ -2,6 +2,7 @@
 Unit test file for testing rclone mount functionality.
 """
 
+import logging
 import tempfile
 import time
 import warnings
@@ -21,6 +22,7 @@ from rclone_api.types import Range, SizeSuffix, get_chunk_tmpdir
 _TIMEOUT = 10 * 60  # 10 minutes
 _PUT_WARNED = False
 
+logger = logging.getLogger(__name__)
 
 _range = range
 
@@ -84,7 +86,6 @@ class HttpServer:
         """Check if the file exists on the server."""
         try:
             assert self.process is not None
-            # response = httpx.head(f"{self.url}/{path}")
             url = self._get_file_url(path)
             response = httpx.head(url)
             return response.status_code == 200
@@ -96,7 +97,6 @@ class HttpServer:
         """Get size of the file from the server."""
         try:
             assert self.process is not None
-            # response = httpx.head(f"{self.url}/{path}")
             url = self._get_file_url(path)
             response = httpx.head(url)
             response.raise_for_status()
@@ -117,7 +117,7 @@ class HttpServer:
             url = self._get_file_url(path)
             headers = {"Content-Type": "application/octet-stream"}
             response = httpx.post(url, content=data, timeout=_TIMEOUT, headers=headers)
-            print("Allowed methods:", response.headers.get("Allow"))
+            logger.info(f"Allowed methods: {response.headers.get('Allow')}")
             response.raise_for_status()
             return None
         except Exception as e:
@@ -179,15 +179,14 @@ class HttpServer:
                                 file.write(chunk)
                             else:
                                 assert response.is_closed
-                    # print(f"Downloaded bytes {start}-{end} to {dst}")
                     if range:
                         length = range.end - range.start
-                        print(
+                        logger.info(
                             f"Downloaded bytes starting at {range.start} with size {length} to {dst}"
                         )
                     else:
                         size = dst.stat().st_size
-                        print(f"Downloaded {size} bytes to {dst}")
+                        logger.info(f"Downloaded {size} bytes to {dst}")
                     return dst
             except Exception as e:
                 warnings.warn(f"Failed to download {url} to {dst}: {e}")
@@ -263,7 +262,7 @@ class HttpServer:
                 count = 0
                 with open(dst_path, "wb") as file:
                     for f in finished:
-                        print(f"Appending {f} to {dst_path}")
+                        logger.info(f"Appending {f} to {dst_path}")
                         with open(f, "rb") as part:
                             # chunk = part.read(8192 * 4)
                             while chunk := part.read(8192 * 4):
@@ -271,9 +270,8 @@ class HttpServer:
                                     break
                                 count += len(chunk)
                                 file.write(chunk)
-                        print(f"Removing {f}")
+                        logger.info(f"Removing {f}")
                         f.unlink()
-                # print(f"Downloaded {count} bytes to {dst_path}")
                 return dst_path
             except Exception as e:
                 warnings.warn(f"Failed to copy chunked: {e}")
