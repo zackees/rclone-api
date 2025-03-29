@@ -4,7 +4,7 @@ from typing import Generator
 from rclone_api.fs.filesystem import FSPath, logger
 
 
-def os_walk(
+def fs_walk(
     self: FSPath,
 ) -> Generator[tuple[FSPath, list[str], list[str]], None, None]:
     root_path = self

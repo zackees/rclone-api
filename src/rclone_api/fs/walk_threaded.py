@@ -3,26 +3,19 @@ from threading import Event, Thread
 from typing import Generator, List, Optional, Tuple
 
 from rclone_api.fs.filesystem import FSPath
-from rclone_api.fs.walk_threaded_walker import Walker
+from rclone_api.fs.walk_threaded_walker import FSWalker
 
 ### API
 
 
-def os_walk_threaded_begin(self: FSPath, max_backlog: int = 8) -> "Walker":
-    return Walker(self, max_backlog)
+def os_walk_threaded_begin(self: FSPath, max_backlog: int = 8) -> FSWalker:
+    return FSWalker(self, max_backlog)
 
 
 ### Implementation
 
 
-def _os_walk_threaded(
-    self: FSPath, max_backlog: int = 8
-) -> Generator[tuple[FSPath, list[str], list[str]], None, None]:
-    with _OSWalkThread(self, max_backlog) as walker:
-        yield from walker.get_results()
-
-
-class _OSWalkThread:
+class _FSWalkThread:
     def __init__(self, fspath: FSPath, max_backlog: int = 8):
         self.fspath = fspath
         self.result_queue: Queue[Optional[Tuple[FSPath, List[str], List[str]]]] = Queue(
@@ -32,9 +25,9 @@ class _OSWalkThread:
         self.stop_event = Event()
 
     def worker(self):
-        from rclone_api.fs.walk import os_walk
+        from rclone_api.fs.walk import fs_walk
 
-        for root, dirnames, filenames in os_walk(self.fspath):
+        for root, dirnames, filenames in fs_walk(self.fspath):
             if self.stop_event.is_set():
                 break
             self.result_queue.put((root, dirnames, filenames))
