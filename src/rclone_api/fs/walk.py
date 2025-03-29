@@ -1,5 +1,7 @@
 from pathlib import Path
-from typing import Generator
+from queue import Queue
+from threading import Thread
+from typing import Generator, List, Optional, Tuple
 
 from rclone_api.fs.filesystem import FSPath, logger
 
@@ -25,3 +27,30 @@ def os_walk(
         # Add subdirectories to stack for further traversal
         for dirname in reversed(dirnames):
             stack.append((current_dir / dirname).path)
+
+
+def os_walk_threaded(
+    self: FSPath, max_backlog: int = 8
+) -> Generator[tuple[FSPath, list[str], list[str]], None, None]:
+    result_queue: Queue[Optional[Tuple[FSPath, List[str], List[str]]]] = Queue(
+        maxsize=max_backlog
+    )
+
+    def worker():
+        for root, dirnames, filenames in os_walk(self):
+            result_queue.put((root, dirnames, filenames))
+        result_queue.put(None)  # Sentinel value to indicate completion
+
+    # Start the worker thread
+    thread = Thread(target=worker)
+    thread.start()
+
+    # Yield results from the queue
+    while True:
+        result = result_queue.get()
+        if result is None:  # Check for sentinel value
+            break
+        yield result
+
+    # Ensure the thread has finished
+    thread.join()
