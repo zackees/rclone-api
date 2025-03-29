@@ -11,12 +11,12 @@ class FSWalker:
 
     def __enter__(self):
         from rclone_api.fs.filesystem import FSPath
-        from rclone_api.fs.walk_threaded import _FSWalkThread
+        from rclone_api.fs.walk_threaded import FSWalkThread
 
         assert isinstance(
             self.fspath, FSPath
         ), f"Expected FSPath, got {type(self.fspath)}"
-        self.walker = _FSWalkThread(self.fspath, self.max_backlog)
+        self.walker = FSWalkThread(self.fspath, self.max_backlog)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

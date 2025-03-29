@@ -15,13 +15,13 @@ def os_walk_threaded_begin(self: FSPath, max_backlog: int = 8) -> FSWalker:
 ### Implementation
 
 
-class _FSWalkThread:
+class FSWalkThread:
     def __init__(self, fspath: FSPath, max_backlog: int = 8):
         self.fspath = fspath
         self.result_queue: Queue[Optional[Tuple[FSPath, List[str], List[str]]]] = Queue(
             maxsize=max_backlog
         )
-        self.thread = Thread(target=self.worker)
+        self.thread = Thread(target=self.worker, daemon=True)
         self.stop_event = Event()
         self.start()
 
