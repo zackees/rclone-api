@@ -322,6 +322,9 @@ class FSPath:
         filenames, dirnames = self.fs.ls(self.path)
         return filenames, dirnames
 
+    def with_suffix(self, suffix: str) -> "FSPath":
+        return FSPath(self.fs, Path(self.path).with_suffix(suffix).as_posix())
+
     @property
     def name(self) -> str:
         return Path(self.path).name

@@ -54,6 +54,12 @@ class RcloneFSTester(unittest.TestCase):
             self.assertEqual(all_files[1].relative_to(cwd).path, "file2.txt")
             self.assertEqual(all_files[2].relative_to(cwd).path, "sub1/subfile1.txt")
 
+    def test_with_suffix(self) -> None:
+        """Test with_suffix functionality."""
+        path: FSPath = RealFS.from_path(HERE / "test.db")
+        with_suffix = path.with_suffix(".txt")
+        self.assertEqual(with_suffix.path, (HERE / "test.txt").as_posix())
+
 
 #
 if __name__ == "__main__":
