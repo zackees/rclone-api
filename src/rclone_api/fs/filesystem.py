@@ -282,13 +282,15 @@ class FSPath:
 
         return fs_walk(self)
 
-    def walk_threaded(self) -> FSWalker:
+    def walk_begin(self, max_backlog: int = 8) -> FSWalker:
         """
-        with FSPath.walk_threaded() as walker:
+        Threaded walker to hide latency.
+
+        with FSPath.walk_begin() as walker:
             for root, dirnames, filenames in walker.walk():
                 pass
         """
-        return FSWalker(self)
+        return FSWalker(self, max_backlog=max_backlog)
 
     def relative_to(self, other: "FSPath") -> "FSPath":
         p = Path(self.path).relative_to(other.path)
