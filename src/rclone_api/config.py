@@ -52,9 +52,11 @@ class Config:
     """Rclone configuration dataclass."""
 
     # text: str
-    def __init__(self, text: str | dict) -> None:
+    def __init__(self, text: str | dict | None) -> None:
         self.text: str
-        if isinstance(text, dict):
+        if text is None:
+            self.text = ""
+        elif isinstance(text, dict):
             self.text = _json_to_rclone_config_str_or_raise(text)
         else:
             self.text = text

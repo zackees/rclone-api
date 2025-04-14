@@ -10,7 +10,7 @@ from rclone_api.process import Process, ProcessArgs
 class RcloneExec:
     """Rclone execution dataclass."""
 
-    rclone_config: Path | Config
+    rclone_config: Path | Config | None
     rclone_exe: Path
 
     def execute(

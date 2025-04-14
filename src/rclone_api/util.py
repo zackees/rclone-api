@@ -178,7 +178,7 @@ def upgrade_rclone() -> Path:
 
 def rclone_execute(
     cmd: list[str],
-    rclone_conf: Path | Config,
+    rclone_conf: Path | Config | None,
     rclone_exe: Path,
     check: bool,
     capture: bool | Path | None = None,
@@ -202,10 +202,10 @@ def rclone_execute(
             tmpfile.write_text(rclone_conf.text, encoding="utf-8")
             rclone_conf = tmpfile
 
-        # Build the command line.
-        full_cmd = (
-            [str(rclone_exe.resolve())] + ["--config", str(rclone_conf.resolve())] + cmd
-        )
+        full_cmd = [str(rclone_exe.resolve())]
+        if rclone_conf:
+            full_cmd += ["--config", str(rclone_conf.resolve())]
+        full_cmd += cmd
         if verbose:
             cmd_str = subprocess.list2cmdline(full_cmd)
             print(f"\nRunning: {cmd_str}")

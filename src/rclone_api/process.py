@@ -15,7 +15,7 @@ from rclone_api.util import clear_temp_config_file, get_verbose, make_temp_confi
 @dataclass
 class ProcessArgs:
     cmd: list[str]
-    rclone_conf: Path | Config
+    rclone_conf: Path | Config | None
     rclone_exe: Path
     cmd_list: list[str]
     verbose: bool | None = None
@@ -32,7 +32,7 @@ class Process:
         self.log = args.log
         self.cleaned_up = False
         self.tempfile: Path | None = None
-
+        rclone_conf: Path | None = None
         verbose = get_verbose(args.verbose)
         # Create a temporary config file if needed.
         if isinstance(args.rclone_conf, Config):
@@ -41,15 +41,12 @@ class Process:
             rclone_conf = self.tempfile
         else:
             rclone_conf = args.rclone_conf
-
-        assert rclone_conf.exists(), f"rclone config not found: {rclone_conf}"
-
+        # assert rclone_conf.exists(), f"rclone config not found: {rclone_conf}"
         # Build the command.
-        self.cmd = (
-            [str(args.rclone_exe.resolve())]
-            + ["--config", str(rclone_conf.resolve())]
-            + args.cmd
-        )
+        self.cmd = [str(args.rclone_exe.resolve())]
+        if rclone_conf:
+            self.cmd += ["--config", str(rclone_conf.resolve())]
+        self.cmd += args.cmd_list
         if self.args.log:
             self.args.log.parent.mkdir(parents=True, exist_ok=True)
             self.cmd += ["--log-file", str(self.args.log)]

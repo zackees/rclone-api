@@ -67,8 +67,10 @@ def rclone_verbose(verbose: bool | None) -> bool:
     return bool(int(os.getenv("RCLONE_API_VERBOSE", "0")))
 
 
-def _to_rclone_conf(config: Config | Path) -> Config:
-    if isinstance(config, Path):
+def _to_rclone_conf(config: Config | Path | None) -> Config:
+    if config is None:
+        return Config(None)
+    elif isinstance(config, Path):
         content = config.read_text(encoding="utf-8")
         return Config(content)
     else:
@@ -100,13 +102,17 @@ class RcloneImpl:
         if isinstance(rclone_conf, Path):
             if not rclone_conf.exists():
                 raise ValueError(f"Rclone config file not found: {rclone_conf}")
+        rclone_exe = get_rclone_exe(rclone_exe)
+        # Not fully constructed version of ._exec, which can be used to find a config file from default paths.
+        self._exec = RcloneExec(None, get_rclone_exe(rclone_exe))
         if rclone_conf is None:
             from rclone_api.config import find_conf_file
 
             maybe_path = find_conf_file(self)
             if not isinstance(maybe_path, Path):
-                raise ValueError("Rclone config file not found")
+                warnings.warn("Rclone config file not found")
             rclone_conf = _to_rclone_conf(maybe_path)
+        # replace self._exec with one that has the config
         self._exec = RcloneExec(rclone_conf, get_rclone_exe(rclone_exe))
         self.config: Config = _to_rclone_conf(rclone_conf)
 
@@ -1333,9 +1339,6 @@ class RcloneImpl:
 
         if obscure:
             cmd_list.append("--obscure")
-
-        if no_obscure:
-            cmd_list.append("--no-obscure")
 
         try:
             cp = self._run(cmd_list, capture=True, check=True)
