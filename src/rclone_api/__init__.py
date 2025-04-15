@@ -469,6 +469,41 @@ class Rclone:
         """
         return self.impl.is_s3(dst=dst)
 
+    def copy_file_s3_resumable(
+        self,
+        src: str,  # src:/Bucket/path/myfile.large.zst
+        dst: str,  # dst:/Bucket/path/myfile.large.zst
+        part_infos: list[PartInfo] | None = None,
+        upload_threads: int = 8,  # Number of reader and writer threads to use
+        merge_threads: int = 4,  # Number of threads to use for merging the parts
+    ) -> Exception | None:
+        """
+        Copy a large file to S3 with resumable upload capability.
+
+        This method splits the file into parts for parallel upload and can
+        resume interrupted transfers using a custom algorithm in python.
+
+        Particularly useful for very large files where network interruptions
+        are likely.
+
+        Args:
+            src: Source file path (format: remote:bucket/path/file)
+            dst: Destination file path (format: remote:bucket/path/file)
+            part_infos: Optional list of part information for resuming uploads
+            upload_threads: Number of parallel upload threads
+            merge_threads: Number of threads for merging uploaded parts
+
+        Returns:
+            None if successful, Exception if an error occurred
+        """
+        return self.impl.copy_file_s3_resumable(
+            src=src,
+            dst=dst,
+            part_infos=part_infos,
+            upload_threads=upload_threads,
+            merge_threads=merge_threads,
+        )
+
     def copy_to(
         self,
         src: File | str,
@@ -830,41 +865,6 @@ class Rclone:
             CompletedProcess with the result of the copy operation
         """
         return self.impl.copy_remote(src=src, dst=dst, args=args)
-
-    def copy_file_s3_resumable(
-        self,
-        src: str,  # src:/Bucket/path/myfile.large.zst
-        dst: str,  # dst:/Bucket/path/myfile.large.zst
-        part_infos: list[PartInfo] | None = None,
-        upload_threads: int = 8,  # Number of reader and writer threads to use
-        merge_threads: int = 4,  # Number of threads to use for merging the parts
-    ) -> Exception | None:
-        """
-        Copy a large file to S3 with resumable upload capability.
-
-        This method splits the file into parts for parallel upload and can
-        resume interrupted transfers using a custom algorithm in python.
-
-        Particularly useful for very large files where network interruptions
-        are likely.
-
-        Args:
-            src: Source file path (format: remote:bucket/path/file)
-            dst: Destination file path (format: remote:bucket/path/file)
-            part_infos: Optional list of part information for resuming uploads
-            upload_threads: Number of parallel upload threads
-            merge_threads: Number of threads for merging uploaded parts
-
-        Returns:
-            None if successful, Exception if an error occurred
-        """
-        return self.impl.copy_file_s3_resumable(
-            src=src,
-            dst=dst,
-            part_infos=part_infos,
-            upload_threads=upload_threads,
-            merge_threads=merge_threads,
-        )
 
     def mount(
         self,
