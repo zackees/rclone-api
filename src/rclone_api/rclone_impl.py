@@ -1363,7 +1363,8 @@ class RcloneImpl:
         verbose = get_verbose(verbose)
         check = get_check(check)
         if len(files) < 2:
-            tmp = self.size_file(files[0])
+            full_path = f"{src}/{files[0]}"
+            tmp = self.size_file(full_path)
             if isinstance(tmp, Exception):
                 return tmp
             assert isinstance(tmp, SizeSuffix)
