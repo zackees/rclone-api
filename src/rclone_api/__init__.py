@@ -48,7 +48,7 @@ from .types import (  # Common types
 setup_default_logging()
 
 
-def rclone_verbose(val: bool | None) -> bool:
+def rclone_verbose(val: bool | None, from_api: bool = False) -> bool:
     """
     Get or set the global verbosity setting for rclone operations.
 
@@ -61,21 +61,43 @@ def rclone_verbose(val: bool | None) -> bool:
     Returns:
         The current verbosity setting after any change.
     """
+    import warnings
+
     from rclone_api.rclone_impl import rclone_verbose as _rclone_verbose
+
+    if not from_api:
+        warnings.warn(
+            "rclone_verbose is deprecated. Use LogSettings.rclone_verbose instead.",
+            DeprecationWarning,
+        )
 
     return _rclone_verbose(val)
 
 
-class Logging:
+class LogSettings:
     @staticmethod
-    def enable_upload_parts_logging(value: bool) -> None:
+    def enable_upload_parts_logging(value: bool | None = None) -> bool:
         """
         Enable or disable logging of upload parts.
 
         Args:
             value: If True, enables upload parts logging; otherwise disables it.
         """
-        os.environ["LOG_UPLOAD_S3_RESUMABLE"] = "1" if value else "0"
+
+        if value is not None:
+            os.environ["LOG_UPLOAD_S3_RESUMABLE"] = "1" if value else "0"
+        env_val = str(os.getenv("LOG_UPLOAD_S3_RESUMABLE", "0"))
+        return env_val.lower() in ["1", "true", "yes"]
+
+    @staticmethod
+    def rclone_verbose(value: bool) -> bool:
+        """
+        Enable or disable verbose logging for rclone commands.
+
+        Args:
+            value: If True, enables verbose logging; otherwise disables it.
+        """
+        return rclone_verbose(value, from_api=True)
 
 
 class Rclone:
