@@ -22,6 +22,9 @@ from rclone_api.types import (
 class UploadPart:
     chunk: Path
     dst_part: str
+    part_num: int
+    total_parts: int
+    total_size: SizeSuffix
     exception: Exception | None = None
     finished: bool = False
 
@@ -46,9 +49,9 @@ def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
         if upload_part.exception is not None:
             return upload_part
         # print(f"Uploading {upload_part.chunk} to {upload_part.dst_part}")
-        msg = "\n#########################################\n"
-        msg += f"# Uploading {upload_part.chunk} to {upload_part.dst_part}\n"
-        msg += "#########################################\n"
+        msg = "\n#############################################################\n"
+        msg += f"# Uploading {upload_part.chunk} to {upload_part.dst_part}\n "
+        msg += "##############################################################\n"
         print(msg)
         self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
         return upload_part
@@ -66,6 +69,9 @@ def read_task(
     offset: SizeSuffix,
     length: SizeSuffix,
     part_dst: str,
+    part_number: int,
+    total_parts: int,
+    total_size: SizeSuffix,
 ) -> UploadPart:
     outchunk: Path = tmpdir / f"{offset.as_int()}-{(offset + length).as_int()}.chunk"
     range = Range(offset.as_int(), (offset + length).as_int())
@@ -77,10 +83,23 @@ def read_task(
             dst=outchunk,
         )
         if isinstance(err, Exception):
-            out = UploadPart(chunk=outchunk, dst_part="", exception=err)
+            out = UploadPart(
+                chunk=outchunk,
+                dst_part="",
+                part_num=-1,
+                total_parts=total_parts,
+                total_size=SizeSuffix(0),
+                exception=err,
+            )
             out.dispose()
             return out
-        return UploadPart(chunk=outchunk, dst_part=part_dst)
+        return UploadPart(
+            chunk=outchunk,
+            dst_part=part_dst,
+            part_num=part_number,
+            total_parts=total_parts,
+            total_size=total_size,
+        )
     except KeyboardInterrupt as ke:
         _thread.interrupt_main()
         raise ke
@@ -88,7 +107,14 @@ def read_task(
         _thread.interrupt_main()
         raise se
     except Exception as e:
-        return UploadPart(chunk=outchunk, dst_part=part_dst, exception=e)
+        return UploadPart(
+            chunk=outchunk,
+            dst_part=part_dst,
+            part_num=part_number,
+            total_parts=total_parts,
+            total_size=total_size,
+            exception=e,
+        )
 
 
 def collapse_runs(numbers: list[int]) -> list[str]:
@@ -199,6 +225,7 @@ def upload_parts_resumable(
         f"all_numbers_already_done: {collapse_runs(sorted(list(all_numbers_already_done)))}"
     )
 
+    total_parts = len(part_infos)
     filtered_part_infos: list[PartInfo] = []
     for part_info in part_infos:
         if part_info.part_number not in all_numbers_already_done:
@@ -261,6 +288,9 @@ def upload_parts_resumable(
                             offset=offset,
                             length=length,
                             part_dst=part_dst,
+                            part_number=part_number,
+                            total_parts=total_parts,
+                            total_size=src_size,
                         )
 
                     read_fut: Future[UploadPart] = read_executor.submit(_read_task)
