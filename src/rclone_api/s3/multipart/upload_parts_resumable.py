@@ -23,7 +23,7 @@ _LOCK = threading.Lock()
 def _maybe_log(msg: str) -> None:
     print(msg)
     if os.getenv("LOG_UPLOAD_S3_RESUMABLE") == "1":
-        log_path = Path("log") / "upload.log"
+        log_path = Path("log") / "s3_resumable_upload.log"
         with _LOCK:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             # log_path.write_text(msg, append=True)
