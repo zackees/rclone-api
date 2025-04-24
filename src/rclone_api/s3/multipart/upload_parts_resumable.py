@@ -17,6 +17,20 @@ from rclone_api.types import (
     SizeSuffix,
 )
 
+_LOCK = threading.Lock()
+
+
+def _maybe_log(msg: str) -> None:
+    print(msg)
+    if os.getenv("LOG_UPLOAD_S3_RESUMABLE") == "1":
+        log_path = Path("log") / "upload.log"
+        with _LOCK:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            # log_path.write_text(msg, append=True)
+            with open(log_path, mode="a", encoding="utf-8") as f:
+                f.write(msg)
+                f.write("\n")
+
 
 @dataclass
 class UploadPart:
@@ -49,10 +63,18 @@ def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
         if upload_part.exception is not None:
             return upload_part
         # print(f"Uploading {upload_part.chunk} to {upload_part.dst_part}")
+        num_parts = upload_part.total_parts
+        total_size = upload_part.total_size
+        part_num = upload_part.part_num
         msg = "\n#############################################################\n"
-        msg += f"# Uploading {upload_part.chunk} to {upload_part.dst_part}\n "
+        msg += f"# Uploading {upload_part.chunk} to {upload_part.dst_part}\n"
+        msg += f"# Part number: {part_num} / {num_parts}\n"
+        msg += f"# Total parts: {num_parts}\n"
+        msg += f"# Total size: {total_size.as_int()} bytes\n"
+        msg += f"# Chunk size: {upload_part.chunk.stat().st_size} bytes\n"
+        msg += f"# Range: {upload_part.chunk.name}\n"
         msg += "##############################################################\n"
-        print(msg)
+        _maybe_log(msg)
         self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
         return upload_part
     except Exception as e:
@@ -323,12 +345,17 @@ def upload_parts_resumable(
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if len(exceptions) > 0:
-        return Exception(f"Failed to copy parts: {exceptions}", exceptions)
+        msg = f"Failed to copy parts: {exceptions}"
+        _maybe_log(msg)
+        return Exception(msg, exceptions)
 
     finished_parts: list[int] = info_json.fetch_all_finished_part_numbers()
     print(f"finished_names: {finished_parts}")
 
     diff_set = set(all_part_numbers).symmetric_difference(set(finished_parts))
     all_part_numbers_done = len(diff_set) == 0
-    print(f"all_part_numbers_done: {all_part_numbers_done}")
+    # print(f"all_part_numbers_done: {all_part_numbers_done}")
+    msg = f"all_part_numbers_done: {all_part_numbers_done}"
+    _maybe_log(msg)
+
     return None

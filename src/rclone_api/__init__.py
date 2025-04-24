@@ -7,6 +7,8 @@ The API wraps the rclone command-line tool, providing a Pythonic interface
 for common operations like copying, listing, and managing remote storage.
 """
 
+import os
+
 # Import core components and utilities
 from datetime import datetime
 from pathlib import Path
@@ -62,6 +64,18 @@ def rclone_verbose(val: bool | None) -> bool:
     from rclone_api.rclone_impl import rclone_verbose as _rclone_verbose
 
     return _rclone_verbose(val)
+
+
+class Logging:
+    @staticmethod
+    def enable_upload_parts_logging(value: bool) -> None:
+        """
+        Enable or disable logging of upload parts.
+
+        Args:
+            value: If True, enables upload parts logging; otherwise disables it.
+        """
+        os.environ["LOG_UPLOAD_S3_RESUMABLE"] = "1" if value else "0"
 
 
 class Rclone:
