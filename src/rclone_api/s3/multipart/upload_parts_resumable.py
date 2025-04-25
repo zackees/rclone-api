@@ -20,10 +20,21 @@ from rclone_api.types import (
 _LOCK = threading.Lock()
 
 
-def _maybe_log(msg: str) -> None:
+def _log(msg: str) -> None:
     print(msg)
     if os.getenv("LOG_UPLOAD_S3_RESUMABLE") == "1":
         log_path = Path("log") / "s3_resumable_upload.log"
+        with _LOCK:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            # log_path.write_text(msg, append=True)
+            with open(log_path, mode="a", encoding="utf-8") as f:
+                f.write(msg)
+                f.write("\n")
+
+
+def _log_completed_item(msg: str) -> None:
+    if os.getenv("LOG_UPLOAD_S3_RESUMABLE") == "1":
+        log_path = Path("log") / "s3_resumable_upload_completed.log"
         with _LOCK:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             # log_path.write_text(msg, append=True)
@@ -74,7 +85,7 @@ def upload_task(self: RcloneImpl, upload_part: UploadPart) -> UploadPart:
         msg += f"# Chunk size: {upload_part.chunk.stat().st_size} bytes\n"
         msg += f"# Range: {upload_part.chunk.name}\n"
         msg += "##############################################################\n"
-        _maybe_log(msg)
+        _log(msg)
         self.copy_to(upload_part.chunk.as_posix(), upload_part.dst_part)
         return upload_part
     except Exception as e:
@@ -346,7 +357,7 @@ def upload_parts_resumable(
 
     if len(exceptions) > 0:
         msg = f"Failed to copy parts: {exceptions}"
-        _maybe_log(msg)
+        _log(msg)
         return Exception(msg, exceptions)
 
     finished_parts: list[int] = info_json.fetch_all_finished_part_numbers()
@@ -355,7 +366,15 @@ def upload_parts_resumable(
     diff_set = set(all_part_numbers).symmetric_difference(set(finished_parts))
     all_part_numbers_done = len(diff_set) == 0
     # print(f"all_part_numbers_done: {all_part_numbers_done}")
-    msg = f"all_part_numbers_done: {all_part_numbers_done}"
-    _maybe_log(msg)
+    # msg = f"all_part_numbers_done: {all_part_numbers_done}"
+    full_path = os.path.join(dst_dir, src_name)
+    if all_part_numbers_done:
+        msg = f"Upload completed: {full_path} ({len(finished_parts)}/{len(all_part_numbers)})"
+        _log(msg)
+        info_json.save()
+    else:
+        msg = f"Upload failed for {full_path} ({len(finished_parts)}/{len(all_part_numbers)})"
+    _log(msg)
+    _log_completed_item(msg)
 
     return None
