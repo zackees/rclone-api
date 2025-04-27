@@ -66,6 +66,12 @@ class RcloneFSTester(unittest.TestCase):
         suffix = path.suffix
         self.assertEqual(suffix, ".db")
 
+    def test_set_membership(self) -> None:
+        path = RealFS.from_path(HERE / "test.db")
+        path_set: set[FSPath] = {path}
+        self.assertIn(path, path_set)
+        self.assertNotIn(RealFS.from_path(HERE / "test.db"), path_set)
+
 
 #
 if __name__ == "__main__":

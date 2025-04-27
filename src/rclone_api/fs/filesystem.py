@@ -360,4 +360,14 @@ class FSPath:
 
     # hashable
     def __hash__(self) -> int:
-        return hash(f"{repr(self.fs)}:{self.path}")
+        out = hash(f"{repr(self.fs)}:{self.path}")
+        return out
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FSPath):
+            return False
+        if self.fs != other.fs:
+            return False
+        if self.path != other.path:
+            return False
+        return True
