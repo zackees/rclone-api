@@ -230,9 +230,24 @@ class RemoteFS(FS):
 
 
 class FSPath:
-    def __init__(self, fs: FS, path: str) -> None:
-        self.fs: FS = fs
-        self.path: str = path
+
+    @staticmethod
+    def from_path(path: Path | str) -> "FSPath":
+        return RealFS.from_path(path)
+
+    def __init__(self, fs: FS | Path, path: str | None = None) -> None:
+        self.fs: FS
+        self.path: str
+        if isinstance(fs, Path):
+            real_path = RealFS.from_path(fs)
+            self.fs = real_path.fs
+            self.path = real_path.path
+        else:
+            assert (
+                path is not None
+            ), "path must be non None, when not auto converting from Path"
+            self.fs = fs
+            self.path = path
         self.fs_holder: FS | None = None
 
     def set_owner(self) -> None:
