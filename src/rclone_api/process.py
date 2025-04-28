@@ -152,7 +152,10 @@ class Process:
 
     def kill(self) -> None:
         """Forcefully kill the process tree."""
-        self._kill_process_tree()
+        try:
+            self._kill_process_tree()
+        except Exception as e:
+            print(f"Error killing process tree: {e}")
 
     def terminate(self) -> None:
         """Gracefully terminate the process tree."""
