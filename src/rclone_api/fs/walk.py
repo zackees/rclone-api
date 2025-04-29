@@ -1,11 +1,13 @@
+import os
 from collections import OrderedDict
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from typing import Generator
 
 from rclone_api.fs.filesystem import FSPath, logger
 
+_FS_WALK_THREAD_MAX_BACKLOG = int(os.getenv("FS_WALK_THREAD_MAX_BACKLOG", "16"))
 # module‐wide executor
-_executor = ThreadPoolExecutor(max_workers=16)
+_executor = ThreadPoolExecutor(max_workers=_FS_WALK_THREAD_MAX_BACKLOG)
 
 
 def _list_dir(path: FSPath):
