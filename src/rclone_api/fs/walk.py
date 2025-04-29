@@ -8,6 +8,15 @@ from rclone_api.fs.filesystem import FSPath, logger
 _executor = ThreadPoolExecutor(max_workers=16)
 
 
+def _list_dir(path: FSPath):
+    try:
+        filenames, dirnames = path.ls()
+    except Exception as e:
+        logger.warning(f"Unable to list directory {path}: {e}")
+        return None
+    return path, dirnames, filenames
+
+
 def fs_walk_parallel(
     self: FSPath,
 ) -> Generator[tuple[FSPath, list[str], list[str]], None, None]:
@@ -17,14 +26,6 @@ def fs_walk_parallel(
     but yields results in the same order tasks were submitted.
     """
     root = self
-
-    def _list_dir(path: FSPath):
-        try:
-            filenames, dirnames = path.ls()
-        except Exception as e:
-            logger.warning(f"Unable to list directory {path}: {e}")
-            return None
-        return path, dirnames, filenames
 
     # use an OrderedDict to remember submission order
     futures: OrderedDict = OrderedDict()
