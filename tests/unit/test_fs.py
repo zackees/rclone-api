@@ -72,6 +72,17 @@ class RcloneFSTester(unittest.TestCase):
         self.assertIn(path, path_set)
         self.assertNotIn(RealFS.from_path(HERE / "test.db"), path_set)
 
+    def test_create_and_remove(self) -> None:
+        """Test create and remove functionality."""
+        with TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "test.txt"
+            fspath: FSPath = RealFS.from_path(path)
+            self.assertFalse(fspath.exists())
+            fspath.write_bytes(b"test")
+            self.assertTrue(fspath.exists())
+            fspath.remove()
+            self.assertFalse(fspath.exists())
+
 
 #
 if __name__ == "__main__":
