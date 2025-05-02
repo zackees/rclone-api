@@ -371,7 +371,7 @@ class FSPath:
 
     def moveTo(self, dst: "FSPath") -> None:
         """Move a file or directory."""
-        assert self.exists(), f"Path does not exist: {self.path}"
+        # assert self.exists(), f"Path does not exist: {self.path}"
         # assert not dst.exists(), f"Destination path already exists: {dst.path}"
         self.fs.copy(self.path, dst.path)
         self.fs.remove(self.path)
