@@ -41,6 +41,16 @@ class FS(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def remove(self, path: Path | str) -> Exception | None:
+        """Remove a file or symbolic link."""
+        pass
+
+    @abc.abstractmethod
+    def unlink(self, path: Path | str) -> Exception | None:
+        """Remove a file or symbolic link."""
+        pass
+
+    @abc.abstractmethod
     def cwd(self) -> "FSPath":
         pass
 
@@ -85,6 +95,30 @@ class RealFS(FS):
 
     def exists(self, path: Path | str) -> bool:
         return Path(path).exists()
+
+    def unlink(self, path: Path | str) -> Exception | None:
+        """Remove a file or symbolic link."""
+        try:
+            Path(path).unlink()
+            return None
+        except KeyboardInterrupt:
+            raise
+        except FileNotFoundError as e:
+            return e
+
+    def remove(self, path: Path | str, ignore_errors=False) -> Exception | None:
+        """Remove a file or directory."""
+        try:
+            path = Path(path)
+            if path.is_dir():
+                shutil.rmtree(path, ignore_errors=ignore_errors)
+            else:
+                path.unlink()
+            return None
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            return e
 
     def mkdir(self, path: str, parents=True, exist_ok=True) -> None:
         Path(path).mkdir(parents=parents, exist_ok=exist_ok)
@@ -216,6 +250,17 @@ class RemoteFS(FS):
             raise FileNotFoundError(f"File not found: {path}, because of {err}")
         return err
 
+    def unlink(self, path: Path | str) -> Exception | None:
+        return self.remove(path)
+
+    def remove(self, path: Path | str) -> Exception | None:
+        """Remove a file or symbolic link."""
+        path = self._to_remote_path(path)
+        err = self.rclone.delete_files(path)
+        if isinstance(err, Exception):
+            return FileNotFoundError(f"File not found: {path}, because of {err}")
+        return None
+
     def get_path(self, path: str) -> "FSPath":
         return FSPath(self, path)
 
@@ -336,6 +381,14 @@ class FSPath:
         dirnames: list[str]
         filenames, dirnames = self.fs.ls(self.path)
         return filenames, dirnames
+
+    def remove(self) -> Exception | None:
+        """Remove a file or directory, there are subtle differences between the Real and RemoteFS."""
+        return self.fs.remove(self.path)
+
+    def unlink(self) -> Exception | None:
+        """Remove a file or symbolic link, there are subtle differences between the Real and RemoteFS."""
+        return self.fs.unlink(self.path)
 
     def with_suffix(self, suffix: str) -> "FSPath":
         return FSPath(self.fs, Path(self.path).with_suffix(suffix).as_posix())
