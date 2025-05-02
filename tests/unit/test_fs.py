@@ -84,6 +84,5 @@ class RcloneFSTester(unittest.TestCase):
             self.assertFalse(fspath.exists())
 
 
-#
 if __name__ == "__main__":
     unittest.main()

@@ -871,15 +871,21 @@ class RcloneImpl:
         """Check if a remote is an S3 remote."""
         from rclone_api.util import S3PathInfo
 
-        path_info: S3PathInfo = S3PathInfo.from_str(dst)
-        remote = path_info.remote
-        parsed: Parsed = self.config.parse()
-        sections: dict[str, Section] = parsed.sections
-        if remote not in sections:
+        try:
+            path_info: S3PathInfo = S3PathInfo.from_str(dst)
+            remote = path_info.remote
+            parsed: Parsed = self.config.parse()
+            sections: dict[str, Section] = parsed.sections
+            if remote not in sections:
+                return False
+            section: Section = sections[remote]
+            t = section.type()
+            return t in ["s3", "b2"]
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            logging.error(f"Error checking if remote is S3: {e}")
             return False
-        section: Section = sections[remote]
-        t = section.type()
-        return t in ["s3", "b2"]
 
     def copy_file_s3_resumable(
         self,
@@ -1298,6 +1304,8 @@ class RcloneImpl:
             "0",
             "--vfs-read-chunk-size-limit",
             "512M",
+            # "--attr-timeout",
+            # "0s",
         ]
 
         if cache_mode:

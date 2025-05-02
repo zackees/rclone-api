@@ -175,16 +175,16 @@ class RemoteFS(FS):
         from rclone_api.completed_process import CompletedProcess
 
         src = src if isinstance(src, Path) else Path(src)
-        if not src.is_file():
-            raise FileNotFoundError(f"File not found: {src}")
-        dst = self._to_remote_path(dst)
+        # if not src.is_file():
+        #     raise FileNotFoundError(f"File not found: {src}")
+        dst_remote_path = self._to_remote_path(dst)
 
-        is_s3 = self.rclone.is_s3(dst)
+        is_s3 = self.rclone.is_s3(dst_remote_path)
         if is_s3:
             filesize = src.stat().st_size
             if filesize < 1024 * 1024 * 1024:  # 1GB
-                logger.info(f"S3 OPTIMIZED: Copying {src} -> {dst}")
-                err = self.rclone.copy_file_s3(src, dst)
+                logger.info(f"S3 OPTIMIZED: Copying {src} -> {dst_remote_path}")
+                err = self.rclone.copy_file_s3(src, dst_remote_path)
                 if isinstance(err, Exception):
                     raise FileNotFoundError(
                         f"File not found: {src}, specified by {err}"
@@ -193,7 +193,8 @@ class RemoteFS(FS):
         # Fallback.
         logging.info(f"Copying {src} -> {dst}")
         src_path = src.as_posix()
-        cp: CompletedProcess = self.rclone.copy(src_path, dst)
+        dst = dst if isinstance(dst, str) else dst.as_posix()
+        cp: CompletedProcess = self.rclone.copy_to(src_path, dst)
         if cp.returncode != 0:
             raise FileNotFoundError(f"File not found: {src}, specified by {cp.stderr}")
 
@@ -255,10 +256,17 @@ class RemoteFS(FS):
 
     def remove(self, path: Path | str) -> Exception | None:
         """Remove a file or symbolic link."""
-        path = self._to_remote_path(path)
+
+        # remove this
+        # path = self._to_remote_path(path)
+        path = path if isinstance(path, str) else path.as_posix()
         err = self.rclone.delete_files(path)
         if isinstance(err, Exception):
             return FileNotFoundError(f"File not found: {path}, because of {err}")
+        if isinstance(path, Path):
+            path = path.as_posix()
+        # assert isinstance(self.server, HttpServer)
+        # self.server.delete(path)
         return None
 
     def get_path(self, path: str) -> "FSPath":
@@ -361,14 +369,35 @@ class FSPath:
             encoding = "utf-8"
         self.write_bytes(data.encode(encoding))
 
+    def moveTo(self, dst: "FSPath") -> None:
+        """Move a file or directory."""
+        assert self.exists(), f"Path does not exist: {self.path}"
+        # assert not dst.exists(), f"Destination path already exists: {dst.path}"
+        self.fs.copy(self.path, dst.path)
+        self.fs.remove(self.path)
+
     def write_bytes(self, data: bytes) -> None:
         self.fs.write_binary(self.path, data)
 
     def rmtree(self, ignore_errors=False) -> None:
-        assert self.exists(), f"Path does not exist: {self.path}"
+        self_exists = self.exists()
+        if not ignore_errors:
+            assert self_exists, f"Path does not exist: {self.path}"
         # check fs is RealFS
-        assert isinstance(self.fs, RealFS)
-        shutil.rmtree(self.path, ignore_errors=ignore_errors)
+        # assert isinstance(self.fs, RealFS)
+        # shutil.rmtree(self.path, ignore_errors=ignore_errors)
+        if isinstance(self.fs, RealFS):
+            shutil.rmtree(self.path, ignore_errors=ignore_errors)
+            return
+        assert isinstance(self.fs, RemoteFS)
+        # walk the directory
+        for root, _, filenames in self.walk():
+            # for dirname in dirnames:
+            #     path = root / dirname
+            #     path.remove()
+            for filename in filenames:
+                path = root / filename
+                path.remove()
 
     def lspaths(self) -> "tuple[list[FSPath], list[FSPath]]":
         filenames, dirnames = self.ls()

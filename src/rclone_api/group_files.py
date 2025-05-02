@@ -34,6 +34,10 @@ def parse_file(file_path: str) -> FilePathParts:
     """Parse file path into parts."""
     assert not file_path.endswith("/"), "This looks like a directory path"
     parts = file_path.split(":")
+    if len(parts) < 2:
+        raise ValueError(
+            f"Invalid file path: {file_path}, expected fully qualified path like dst:Bucket/subdir/file.txt"
+        )
     remote = parts[0]
     path = parts[1]
     if path.startswith("/"):
