@@ -15,20 +15,17 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "certifi>=2025.1.31",
     "psutil",
-    # BOTO3 Library needs to be pinned to a specific version
-    # BackBlaze S3 fails with checksum header which it doesn't support after 1.35.99
-    # The 1.20.1 was the earliest one I checked that worked and is not the true lower bound.
-    "boto3>=1.20.1,<=1.35.99",
     "sqlmodel>=0.0.23",
     "psycopg2-binary>=2.9.10",
     "httpx>=0.28.1",
     "download>=0.3.5",
     "appdirs>=1.4.4",
     "beautifulsoup4>=4.13.3",
+    "boto3>=1.28.23",
 ]
 
 # Change this with the version number bump.
-version = "1.5.72"
+version = "1.5.73"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
